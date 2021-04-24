@@ -4952,6 +4952,22 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   T.consumeClose();
 
+  if (Tok.is(clang::tok::l_square)) {
+    printf("\n[PPMC] Parse extension\n");
+    ConsumeAnyToken();
+    while (Tok.isNot(clang::tok::r_square)) {
+      printf("  Token -> Kind: [%s]", Tok.getName());
+      if (Tok.is(clang::tok::identifier)) {
+        auto Name = Tok.getIdentifierInfo()->getName().str();
+        printf(", Name:[%s]", Name.c_str());
+      }
+      printf("\n");
+      ConsumeAnyToken();
+    }
+    printf("[PPMC] Finish parse extension\n\n");
+    ConsumeAnyToken();
+  }
+
   ParsedAttributes attrs(AttrFactory);
   // If attributes exist after struct contents, parse them.
   MaybeParseGNUAttributes(attrs, &LateFieldAttrs);
