@@ -1,10 +1,18 @@
-// RUN: %clang -S -emit-llvm -o - %s | FileCheck %s
-// CHECK: [PPMC] Parse extension
-// CHECK:   Token -> Kind: [identifier], Name:[Base1]
-// CHECK:   Token -> Kind: [comma]
-// CHECK:   Token -> Kind: [identifier], Name:[Base2]
-// CHECK: [PPMC] Finish parse extension
+// RUN: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-DEFAULT
+// RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-LL
+// CHECK-DEFAULT: [PPMC] Parse extension
+// CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base1]
+// CHECK-DEFAULT:   Token -> Kind: [comma]
+// CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base2]
+// CHECK-DEFAULT: [PPMC] Finish parse extension
+
+// CHECK-LL: struct Generalization definition
+// CHECK-LL: k 'int'
+// CHECK-LL: pp_tmp_field_0 'int'
+// CHECK-LL: %struct.Generalization = type { i32, i32 }
 
 struct Base1 { int i; };
 struct Base2 { int j; };
-struct Generalization {} [ Base1, Base2 ];
+struct Generalization { int k; } [ Base1, Base2 ];
+
+int foo (struct Generalization g) { return g.k; }

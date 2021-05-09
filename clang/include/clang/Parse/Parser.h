@@ -5207,6 +5207,11 @@ private:
 
 private:
   //===--------------------------------------------------------------------===//
+  // Procedural-parametric extension
+
+  bool TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32>& FieldDecls);
+
+  //===--------------------------------------------------------------------===//
   // C99 6.7.8: Initialization.
 
   /// ParseInitializer
