@@ -4788,30 +4788,42 @@ bool Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32>& FieldDecls) {
   printf("[PPMC] Finish parse extension\n\n");
   ConsumeAnyToken();
 
-  ParsingDeclSpec DS(*this);
-  auto Policy = Actions.getPrintingPolicy();
-  auto Loc = Tok.getLocation();
-  unsigned int DiagID = 0;
-  const char *PrevSpec = nullptr;
-  bool isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec, DiagID, Policy);
-  assert(!isInvalid);
-  ParsingFieldDeclarator DeclaratorInfo(*this, DS);
-  SourceLocation CommaLoc;
-  DeclaratorInfo.D.setCommaLoc(CommaLoc);
-  static unsigned scount = 0;
-  std::string name = std::string("pp_tmp_field_") + std::to_string(scount++);
-  auto ID = PP.getIdentifierInfo(name);
-  DeclaratorInfo.D.SetIdentifier(ID, Loc);
-  DeclaratorInfo.D.SetRangeBegin(Loc);
-  DeclaratorInfo.D.SetRangeEnd(Loc);
+  auto FieldGenerator = [&](const char* FieldName, DeclSpec::TST FieldType, bool IsPointer)
+  {
+    ParsingDeclSpec DS(*this);
+    auto Policy = Actions.getPrintingPolicy();
+    auto Loc = Tok.getLocation();
+    unsigned int DiagID = 0;
+    const char *PrevSpec = nullptr;
+    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+    assert(!isInvalid);
+    ParsingFieldDeclarator DeclaratorInfo(*this, DS);
+    SourceLocation CommaLoc;
+    DeclaratorInfo.D.setCommaLoc(CommaLoc);
+    auto ID = PP.getIdentifierInfo(FieldName);
+    DeclaratorInfo.D.SetIdentifier(ID, Loc);
+    DeclaratorInfo.D.SetRangeBegin(Loc);
+    DeclaratorInfo.D.SetRangeEnd(Loc);
+    if (IsPointer) {
+      DeclaratorInfo.D.AddTypeInfo(
+        DeclaratorChunk::getPointer(
+                                DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+                                DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+                                DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+                                std::move(DS.getAttributes()), SourceLocation());
+    }
+    Decl *Field =
+        Actions.ActOnField(getCurScope(), TagDecl,
+                            DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
+                            DeclaratorInfo.D,
+                            DeclaratorInfo.BitfieldSize);
+    FieldDecls.push_back(Field);
+    DeclaratorInfo.complete(Field);
+  };
 
-  Decl *Field =
-      Actions.ActOnField(getCurScope(), TagDecl,
-                          DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
-                          DeclaratorInfo.D,
-                          DeclaratorInfo.BitfieldSize);
-  FieldDecls.push_back(Field);
-  DeclaratorInfo.complete(Field);
+  FieldGenerator("__pp_specialization_type", DeclSpec::TST_int, false);
+  FieldGenerator("__pp_ptr_to_specialization", DeclSpec::TST_void, true);
+
   return true;
 }
 
