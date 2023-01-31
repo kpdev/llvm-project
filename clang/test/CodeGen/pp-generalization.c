@@ -10,7 +10,7 @@
 // CHECK-LL: k 'int'
 // CHECK-LL: __pp_specialization_type 'int'
 // CHECK-LL: __pp_ptr_to_specialization 'void *'
-// CHECK-LL: %struct.Generalization = type { i32, i32, i8* }
+// CHECK-LL: %struct.Generalization = type { i32, i32, ptr }
 
 struct Base1 { int i; };
 struct Base2 { int j; };
