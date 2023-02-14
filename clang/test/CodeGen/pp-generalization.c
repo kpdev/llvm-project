@@ -7,13 +7,17 @@
 // CHECK-DEFAULT: [PPMC] Finish parse extension
 
 // CHECK-LL: struct Generalization definition
-// CHECK-LL: k 'int'
+// CHECK-LL: load 'double'
 // CHECK-LL: __pp_specialization_type 'int'
-// CHECK-LL: __pp_ptr_to_specialization 'void *'
-// CHECK-LL: %struct.Generalization = type { i32, i32, ptr }
+// CHECK-LL: %struct.Generalization = type { double, i32 }
+// CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { i32 }
+// CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { i32 }
 
 struct Base1 { int i; };
 struct Base2 { int j; };
-struct Generalization { int k; } [ Base1, Base2 ];
+struct Generalization { double load; } [ Base1, Base2 ];
 
-int foo (struct Generalization g) { return g.k; }
+double foo (struct Generalization g) { return g.load; }
+
+int bar1 (struct __pp_struct_Generalization__Base1 b) { return b.m_some_inner_field; }
+int bar2 (struct __pp_struct_Generalization__Base2 b) { return b.m_some_inner_field; }

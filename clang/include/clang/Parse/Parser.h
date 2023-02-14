@@ -5209,9 +5209,12 @@ private:
   //===--------------------------------------------------------------------===//
   // Procedural-parametric extension
 
-  bool TryParsePPExt(Decl *TagDecl,
-                     SmallVector<Decl *, 32>& FieldDecls,
-                     const ParsedAttributes& Attrs);
+  using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
+  using FieldList = SmallVector<FieldDescription, 8>;
+  using SpecsVec = SmallVector<std::pair<IdentifierInfo*, FieldList>, 8>;
+  SpecsVec TryParsePPExt(Decl *TagDecl,
+                         SmallVector<Decl *, 32>& FieldDecls,
+                         const ParsedAttributes& Attrs);
 
   //===--------------------------------------------------------------------===//
   // C99 6.7.8: Initialization.

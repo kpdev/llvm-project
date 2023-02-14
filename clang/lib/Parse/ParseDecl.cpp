@@ -4769,12 +4769,26 @@ void Parser::ParseStructDeclaration(
   }
 }
 
-bool Parser::TryParsePPExt(Decl *TagDecl,
-                           SmallVector<Decl *, 32>& FieldDecls,
-                           const ParsedAttributes& Attrs) {
+Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
+                                       SmallVector<Decl *, 32>& FieldDecls,
+                                       const ParsedAttributes& Attrs) {
+  SpecsVec Result;
   if (Tok.isNot(clang::tok::l_square)) {
-    return false;
+    return Result;
   }
+
+  auto DeclGenerator = [&](StringRef Name) {
+    auto* RD = cast<RecordDecl>(TagDecl);
+    auto MangledName = std::string("__pp_struct_")
+            + RD->getDeclName().getAsString() + "__"
+            + Name.str();
+    auto TestName = &PP.getIdentifierTable().get(MangledName);
+
+    // TODO: Fill Fields
+    FieldList Fields;
+
+    return std::pair{TestName, Fields};
+  };
 
   printf("\n[PPMC] Parse extension\n");
   ConsumeAnyToken();
@@ -4783,6 +4797,8 @@ bool Parser::TryParsePPExt(Decl *TagDecl,
     if (Tok.is(clang::tok::identifier)) {
       auto Name = Tok.getIdentifierInfo()->getName().str();
       printf(", Name:[%s]", Name.c_str());
+      auto D = DeclGenerator(Tok.getIdentifierInfo()->getName());
+      Result.push_back(D);
     }
     printf("\n");
     ConsumeAnyToken();
@@ -4824,9 +4840,8 @@ bool Parser::TryParsePPExt(Decl *TagDecl,
   };
 
   FieldGenerator("__pp_specialization_type", DeclSpec::TST_int, false);
-  FieldGenerator("__pp_ptr_to_specialization", DeclSpec::TST_void, true);
 
-  return true;
+  return Result;
 }
 
 // TODO: All callers of this function should be moved to
@@ -5021,15 +5036,80 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   SmallVector<Decl *, 32> FieldDecls(TagDecl->fields());
 
-  bool isPPExtParsed = TryParsePPExt(TagDecl, FieldDecls, attrs);
+  SpecsVec PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls, attrs);
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);
   StructScope.Exit();
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 
-  if (isPPExtParsed) {
+  if (PPExtSpecs.size() > 0) {
     TagDecl->dump();
+    for (auto SpecializationPair : PPExtSpecs) {
+      Sema::SkipBodyInfo TestSkipBody;
+      CXXScopeSpec TestSS;
+      MultiTemplateParamsArg TestTParams;
+      bool TestOwned = true;
+      bool TestIsDependent = false;
+      auto TestLocation = TagDecl->getLocation();
+      ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+      ParsedAttributes TestAttrs(AttrFactory);
+      auto TestName = SpecializationPair.first;
+      ParsingDeclSpec PDS(*this);
+      auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
+        TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+        TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+        false, false, &TestSkipBody);
+      Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
+
+      auto FieldGenerator = [&](const char* FieldName, DeclSpec::TST FieldType, bool IsPointer)
+        {
+          ParsingDeclSpec DS(*this);
+          auto Policy = Actions.getPrintingPolicy();
+          auto Loc = Tok.getLocation();
+          unsigned int DiagID = 0;
+          const char *PrevSpec = nullptr;
+          bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+          assert(!isInvalid);
+          ParsingFieldDeclarator DeclaratorInfo(*this, DS, TestAttrs);
+          SourceLocation CommaLoc;
+          DeclaratorInfo.D.setCommaLoc(CommaLoc);
+          auto ID = PP.getIdentifierInfo(FieldName);
+          DeclaratorInfo.D.SetIdentifier(ID, Loc);
+          DeclaratorInfo.D.SetRangeBegin(Loc);
+          DeclaratorInfo.D.SetRangeEnd(Loc);
+          if (IsPointer) {
+            DeclaratorInfo.D.AddTypeInfo(
+              DeclaratorChunk::getPointer(
+                                      DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+                                      DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+                                      DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+                                      std::move(DS.getAttributes()), SourceLocation());
+          }
+          Decl *Field =
+              Actions.ActOnField(getCurScope(), TestDecl,
+                                  DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
+                                  DeclaratorInfo.D,
+                                  DeclaratorInfo.BitfieldSize);
+          FieldDecls.push_back(Field);
+          DeclaratorInfo.complete(Field);
+        };
+
+      FieldGenerator("m_some_inner_field", DeclSpec::TST_int, false);
+      SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
+      Actions.ActOnFields(getCurScope(), RecordLoc, TestDecl, TestFieldDecls,
+                    SourceLocation(), SourceLocation(), attrs);
+
+      StructScope.Exit();
+      Actions.ActOnTagFinishDefinition(getCurScope(), TestDecl, SourceRange());
+      unsigned DiagID;
+      const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+      const char *PrevSpec = nullptr;
+      PDS.SetTypeSpecType(
+        DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
+        DiagID, TestDecl, true, Policy);
+      TestDecl->dump();
+    }
   }
 }
 
