@@ -1,5 +1,7 @@
 // RUN: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-DEFAULT
+// RUN: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
 // RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-LL
+
 // CHECK-DEFAULT: [PPMC] Parse extension
 // CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base1]
 // CHECK-DEFAULT:   Token -> Kind: [comma]
@@ -12,6 +14,18 @@
 // CHECK-LL: %struct.Generalization = type { double, i32 }
 // CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { i32 }
 // CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { i32 }
+
+// CHECK-AST:     |-RecordDecl {{.*}} struct Base1 definition
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} i 'int'
+// CHECK-AST-NEXT:|-RecordDecl {{.*}} struct Base2 definition
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} j 'int'
+// CHECK-AST-NEXT:|-RecordDecl {{.*}} struct Generalization definition
+// CHECK-AST-NEXT:| |-FieldDecl {{.*}} referenced load 'double'
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} __pp_specialization_type 'int'
+// CHECK-AST-NEXT:|-RecordDecl {{.*}} struct __pp_struct_Generalization__Base1 definition
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced m_some_inner_field 'int'
+// CHECK-AST-NEXT:|-RecordDecl {{.*}} struct __pp_struct_Generalization__Base2 definition
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced m_some_inner_field 'int'
 
 struct Base1 { int i; };
 struct Base2 { int j; };
