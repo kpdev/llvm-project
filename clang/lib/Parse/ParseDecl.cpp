@@ -4773,7 +4773,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
                                        SmallVector<Decl *, 32>& FieldDecls,
                                        const ParsedAttributes& Attrs) {
   SpecsVec Result;
-  if (Tok.isNot(clang::tok::l_square)) {
+  if (Tok.isNot(clang::tok::less)) {
     return Result;
   }
 
@@ -4792,7 +4792,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
 
   printf("\n[PPMC] Parse extension\n");
   ConsumeAnyToken();
-  while (Tok.isNot(clang::tok::r_square)) {
+  while (Tok.isNot(clang::tok::greater)) {
     printf("  Token -> Kind: [%s]", Tok.getName());
     if (Tok.is(clang::tok::identifier)) {
       auto Name = Tok.getIdentifierInfo()->getName().str();
@@ -4806,15 +4806,24 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
   printf("[PPMC] Finish parse extension\n\n");
   ConsumeAnyToken();
 
-  auto FieldGenerator = [&](const char* FieldName, DeclSpec::TST FieldType, bool IsPointer)
+  auto FieldGenerator = [&](const char* FieldName,
+                            DeclSpec::TST FieldType,
+                            RecordDecl* RD,
+                            bool IsPointer)
   {
     ParsingDeclSpec DS(*this);
     auto Policy = Actions.getPrintingPolicy();
     auto Loc = Tok.getLocation();
     unsigned int DiagID = 0;
     const char *PrevSpec = nullptr;
-    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
-    assert(!isInvalid);
+    if (FieldType != DeclSpec::TST::TST_struct) {
+      bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+      assert(!isInvalid);
+    }
+    else {
+      bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID, RD, false, Policy);
+      assert(!isInvalid);
+    }
     ParsingFieldDeclarator DeclaratorInfo(*this, DS, Attrs);
     SourceLocation CommaLoc;
     DeclaratorInfo.D.setCommaLoc(CommaLoc);
@@ -4839,7 +4848,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
     DeclaratorInfo.complete(Field);
   };
 
-  FieldGenerator("__pp_specialization_type", DeclSpec::TST_int, false);
+  FieldGenerator("__pp_specialization_type", DeclSpec::TST_int, nullptr, false);
 
   return Result;
 }
@@ -5062,15 +5071,24 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         false, false, &TestSkipBody);
       Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
-      auto FieldGenerator = [&](const char* FieldName, DeclSpec::TST FieldType, bool IsPointer)
+      auto FieldGenerator = [&](const char* FieldName,
+                                DeclSpec::TST FieldType,
+                                RecordDecl* RD,
+                                bool IsPointer)
         {
           ParsingDeclSpec DS(*this);
           auto Policy = Actions.getPrintingPolicy();
           auto Loc = Tok.getLocation();
           unsigned int DiagID = 0;
           const char *PrevSpec = nullptr;
-          bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
-          assert(!isInvalid);
+          if (FieldType != DeclSpec::TST::TST_struct) {
+            bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+            assert(!isInvalid);
+          }
+          else {
+            bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID, RD, false, Policy);
+            assert(!isInvalid);
+          }
           ParsingFieldDeclarator DeclaratorInfo(*this, DS, TestAttrs);
           SourceLocation CommaLoc;
           DeclaratorInfo.D.setCommaLoc(CommaLoc);
@@ -5095,7 +5113,8 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
           DeclaratorInfo.complete(Field);
         };
 
-      FieldGenerator("m_some_inner_field", DeclSpec::TST_int, false);
+      FieldGenerator("__pp_head", DeclSpec::TST_struct, TagDecl, false);
+      FieldGenerator("m_some_inner_field", DeclSpec::TST_int, nullptr, false);
       SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
       Actions.ActOnFields(getCurScope(), RecordLoc, TestDecl, TestFieldDecls,
                     SourceLocation(), SourceLocation(), attrs);

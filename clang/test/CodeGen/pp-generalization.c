@@ -12,8 +12,8 @@
 // CHECK-LL: load 'double'
 // CHECK-LL: __pp_specialization_type 'int'
 // CHECK-LL: %struct.Generalization = type { double, i32 }
-// CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { i32 }
-// CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { i32 }
+// CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { %struct.Generalization, i32 }
+// CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { %struct.Generalization, i32 }
 
 // CHECK-AST:     |-RecordDecl {{.*}} struct Base1 definition
 // CHECK-AST-NEXT:| `-FieldDecl {{.*}} i 'int'
@@ -21,17 +21,23 @@
 // CHECK-AST-NEXT:| `-FieldDecl {{.*}} j 'int'
 // CHECK-AST-NEXT:|-RecordDecl {{.*}} struct Generalization definition
 // CHECK-AST-NEXT:| |-FieldDecl {{.*}} referenced load 'double'
-// CHECK-AST-NEXT:| `-FieldDecl {{.*}} __pp_specialization_type 'int'
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced __pp_specialization_type 'int'
 // CHECK-AST-NEXT:|-RecordDecl {{.*}} struct __pp_struct_Generalization__Base1 definition
-// CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced m_some_inner_field 'int'
+// CHECK-AST-NEXT:| |-FieldDecl {{.*}} referenced __pp_head 'struct Generalization':'struct Generalization'
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} m_some_inner_field 'int'
 // CHECK-AST-NEXT:|-RecordDecl {{.*}} struct __pp_struct_Generalization__Base2 definition
-// CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced m_some_inner_field 'int'
+// CHECK-AST-NEXT:| |-FieldDecl {{.*}} referenced __pp_head 'struct Generalization':'struct Generalization'
+// CHECK-AST-NEXT:| `-FieldDecl {{.*}} m_some_inner_field 'int'
 
 struct Base1 { int i; };
 struct Base2 { int j; };
-struct Generalization { double load; } [ Base1, Base2 ];
+struct Generalization { double load; } < Base1, Base2 >;
 
 double foo (struct Generalization g) { return g.load; }
 
-int bar1 (struct __pp_struct_Generalization__Base1 b) { return b.m_some_inner_field; }
-int bar2 (struct __pp_struct_Generalization__Base2 b) { return b.m_some_inner_field; }
+int get_tag1 (struct __pp_struct_Generalization__Base1 b)
+    { return b.__pp_head.__pp_specialization_type; }
+int get_tag2 (struct __pp_struct_Generalization__Base2 b)
+    { return b.__pp_head.__pp_specialization_type; }
+struct Generalization get_gen1 (struct __pp_struct_Generalization__Base1 b) { return b.__pp_head; }
+struct Generalization get_gen2 (struct __pp_struct_Generalization__Base2 b) { return b.__pp_head; }
