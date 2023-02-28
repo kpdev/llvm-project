@@ -5211,7 +5211,7 @@ private:
 
   using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
   using FieldList = SmallVector<FieldDescription, 8>;
-  using SpecsVec = SmallVector<std::pair<IdentifierInfo*, FieldList>, 8>;
+  using SpecsVec = SmallVector<std::tuple<std::string, IdentifierInfo*, FieldList>, 8>;
   SpecsVec TryParsePPExt(Decl *TagDecl,
                          SmallVector<Decl *, 32>& FieldDecls,
                          const ParsedAttributes& Attrs);

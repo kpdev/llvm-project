@@ -4787,7 +4787,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
     // TODO: Fill Fields
     FieldList Fields;
 
-    return std::pair{TestName, Fields};
+    return std::tuple{Name.str(), TestName, Fields};
   };
 
   printf("\n[PPMC] Parse extension\n");
@@ -5054,7 +5054,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   if (PPExtSpecs.size() > 0) {
     TagDecl->dump();
-    for (auto SpecializationPair : PPExtSpecs) {
+    for (auto SpecializationTuple : PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
       MultiTemplateParamsArg TestTParams;
@@ -5063,8 +5063,14 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto TestLocation = TagDecl->getLocation();
       ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
       ParsedAttributes TestAttrs(AttrFactory);
-      auto TestName = SpecializationPair.first;
+      auto VariantName = std::get<0>(SpecializationTuple);
+      auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
+      auto TestName = std::get<1>(SpecializationTuple);
       ParsingDeclSpec PDS(*this);
+      auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+        TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+        TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+        false, false, &TestSkipBody);
       auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
         TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
         TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
@@ -5113,8 +5119,9 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
           DeclaratorInfo.complete(Field);
         };
 
+      auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
       FieldGenerator("__pp_head", DeclSpec::TST_struct, TagDecl, false);
-      FieldGenerator("m_some_inner_field", DeclSpec::TST_int, nullptr, false);
+      FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false);
       SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
       Actions.ActOnFields(getCurScope(), RecordLoc, TestDecl, TestFieldDecls,
                     SourceLocation(), SourceLocation(), attrs);
