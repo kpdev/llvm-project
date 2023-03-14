@@ -1778,6 +1778,18 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       }
       RecoverFromUndeclaredTemplateName(
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
+    } else if (Tok.is(tok::less)) {
+      ConsumeToken();
+      if (Tok.is(tok::identifier)) {
+        auto IdName = Tok.getIdentifierInfo()->getName().str();
+        auto MangledName = std::string("__pp_struct_")
+                            + Name->getName().str() + "__"
+                            + IdName;
+        Name = &PP.getIdentifierTable().get(MangledName);
+      }
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      ConsumeToken();
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);

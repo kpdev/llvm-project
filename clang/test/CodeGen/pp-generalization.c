@@ -11,11 +11,12 @@
 // CHECK-LL: struct Generalization definition
 // CHECK-LL: load 'double'
 // CHECK-LL: __pp_specialization_type 'int'
-// CHECK-LL: %struct.Generalization = type { double, i32 }
 // CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { %struct.Generalization, %struct.Base1 }
+// CHECK-LL: %struct.Generalization = type { double, i32 }
 // CHECK-LL: %struct.Base1 = type { i32 }
 // CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { %struct.Generalization, %struct.Base2 }
 // CHECK-LL: %struct.Base2 = type { i32 }
+// CHECK-LL: double @check_gen(ptr noundef byval(%struct.__pp_struct_Generalization__Base1) align 8 %gb)
 
 // CHECK-AST:     |-RecordDecl {{.*}} struct Base1 definition
 // CHECK-AST-NEXT:| `-FieldDecl {{.*}} i 'int'
@@ -35,6 +36,7 @@ struct Base1 { int i; };
 struct Base2 { int j; };
 struct Generalization { double load; } < Base1, Base2 >;
 
+double check_gen (struct Generalization<Base1> gb) { return gb.__pp_head.load; }
 double foo (struct Generalization g) { return g.load; }
 
 int get_tag1 (struct __pp_struct_Generalization__Base1 b)
