@@ -1780,13 +1780,42 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::less)) {
       ConsumeToken();
+      
+      {
+        auto& IdTable = PP.getIdentifierTable();
+        for (auto& Entry : IdTable.HashTable) {
+          auto Str = Entry.getKey().str();
+          if (Str == "Generalization"
+              || Str == "__pp_struct_Generalization__Base1"
+              || Str == "__pp_struct_Generalization__Base2")
+            std::printf(">>> %s\n", Str.c_str());
+        }
+      }
+
+
       if (Tok.is(tok::identifier)) {
         auto IdName = Tok.getIdentifierInfo()->getName().str();
         auto MangledName = std::string("__pp_struct_")
                             + Name->getName().str() + "__"
                             + IdName;
         Name = &PP.getIdentifierTable().get(MangledName);
+        // auto SomeName = &PP.getIdentifierTable().get("Generalization");
+        // auto SomeNameStr = SomeName->getName().str();
+        // std::printf(">>> %s\n", SomeNameStr.c_str());
       }
+
+      {
+        auto& IdTable = PP.getIdentifierTable();
+        for (auto& Entry : IdTable.HashTable) {
+          auto Str = Entry.getKey().str();
+                    if (Str == "Generalization"
+              || Str == "__pp_struct_Generalization__Base1"
+              || Str == "__pp_struct_Generalization__Base2")
+            std::printf(">>> %s\n", Str.c_str());
+        }
+      }
+
+
       ConsumeToken();
       assert(Tok.is(tok::greater));
       ConsumeToken();

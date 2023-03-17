@@ -4787,7 +4787,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
     // TODO: Fill Fields
     FieldList Fields;
 
-    return std::tuple{Name.str(), TestName, Fields};
+    return std::tuple<std::string, IdentifierInfo*, FieldList>{Name.str(), TestName, Fields};
   };
 
   printf("\n[PPMC] Parse extension\n");

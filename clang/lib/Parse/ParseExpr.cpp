@@ -1904,6 +1904,54 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     }
     case tok::arrow:
     case tok::period: {
+      {
+        auto IsGeneralization = [](Expr* E) {
+          if (!isa<DeclRefExpr>(E))
+            return false;
+
+          if (auto X = cast_or_null<DeclRefExpr>(E)) {
+            auto TypeName = X->getType().getCanonicalType().getTypePtr()->
+                                getAsRecordDecl()->getName();
+            return TypeName.startswith("__pp_struct");
+          }
+          return false;
+        };
+
+        Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
+        if (IsGeneralization(OrigLHS)) {
+          // Check PP-EXT
+          // auto type = X->getType().getAsString();
+          // auto name = X->getNameInfo().getAsString();
+          // auto just_type = X->getType().getCanonicalType().getTypePtr()->
+          // getAsRecordDecl()->getName().str();
+          // printf(">>> T:%s, N:%s, JT:%s\n",
+          //   type.c_str(),       // struct __pp_struct_...
+          //   name.c_str(),       // b
+          //   just_type.c_str()); //
+          //   // T:struct __pp_struct_Generalization__Base1,
+          //   // N:gb,
+          //   // JT:__pp_struct_Generalization__Base1
+          auto OldTok = Tok;
+          Tok.startToken();
+          Tok.clearFlag(Token::NeedsCleaning);
+          Tok.setIdentifierInfo(nullptr);
+          const char* pp_head_name = "__pp_head";
+          Tok.setLength(strlen(pp_head_name));
+          Tok.setLocation(SourceLocation());
+          Tok.setKind(tok::raw_identifier);
+          Tok.setRawIdentifierData(pp_head_name);
+
+          auto* NameId = PP.LookUpIdentifierInfo(Tok);
+          UnqualifiedId Name;
+          Name.setIdentifier(NameId, SourceLocation());
+          CXXScopeSpec SS;
+          PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
+          LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
+                                    tok::identifier, SS, SourceLocation(), Name, nullptr);
+          Tok = OldTok;
+          break;
+        }
+      }
       // postfix-expression: p-e '->' template[opt] id-expression
       // postfix-expression: p-e '.' template[opt] id-expression
       tok::TokenKind OpKind = Tok.getKind();
@@ -1913,7 +1961,32 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       ParsedType ObjectType;
       bool MayBePseudoDestructor = false;
       Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
+      // if (isa<DeclRefExpr>(OrigLHS)) {
+      //   if (auto X = cast_or_null<DeclRefExpr>(OrigLHS)) {
+      //     auto type = X->getType().getAsString();
+      //     auto name = X->getNameInfo().getAsString();
+      //     auto just_type = X->getType().getCanonicalType().getTypePtr()->
+      //     getAsRecordDecl()->getName().str();
+      //     printf(">>> T:%s, N:%s, JT:%s\n",
+      //       type.c_str(),       // struct __pp_struct_...
+      //       name.c_str(),       // b
+      //       just_type.c_str()); //
+      //       // T:struct __pp_struct_Generalization__Base1,
+      //       // N:gb,
+      //       // JT:__pp_struct_Generalization__Base1
 
+      //       // auto* NameId = &PP.getIdentifierTable().get("__pp_head");
+      //       // UnqualifiedId Name;
+      //       // Name.setIdentifier(NameId, SourceLocation());
+      //       // PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
+      //       // LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), OpLoc,
+      //       //                           OpKind, SS, SourceLocation(), Name,
+      //       //                 CurParsedObjCImpl ? CurParsedObjCImpl->Dcl
+      //       //                                   : nullptr);
+      //       // break;
+      //   }
+      // }
+      
       PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
 
       if (getLangOpts().CPlusPlus && !LHS.isInvalid()) {
