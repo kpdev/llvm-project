@@ -1641,10 +1641,59 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   // parsed, see if there are any postfix-expression pieces here.
   SourceLocation Loc;
   auto SavedType = PreferredType;
+
+  auto IsGeneralization = [](Expr* E) {
+    if (!isa<DeclRefExpr>(E))
+      return false;
+
+    if (auto X = cast_or_null<DeclRefExpr>(E)) {
+      auto TypeName = X->getType().getCanonicalType().getTypePtr()->
+                          getAsRecordDecl()->getName();
+      return TypeName.startswith("__pp_struct");
+    }
+    return false;
+  };
+
+  bool IsInVarianField = false;
+
   while (true) {
     // Each iteration relies on preferred type for the whole expression.
     PreferredType = SavedType;
     switch (Tok.getKind()) {
+    case tok::less:
+      if (!LHS.isInvalid() && IsGeneralization(LHS.get())) {
+        IsInVarianField = true;
+        Tok.startToken();
+        Tok.clearFlag(Token::NeedsCleaning);
+        Tok.setIdentifierInfo(nullptr);
+        const char* pp_tail_name = "__pp_tail";
+        Tok.setLength(strlen(pp_tail_name));
+        Tok.setLocation(SourceLocation());
+        Tok.setKind(tok::raw_identifier);
+        Tok.setRawIdentifierData(pp_tail_name);
+
+        auto* NameId = PP.LookUpIdentifierInfo(Tok);
+        UnqualifiedId Name;
+        Name.setIdentifier(NameId, SourceLocation());
+        CXXScopeSpec SS;
+        PreferredType.enterMemAccess(Actions, Tok.getLocation(), LHS.get());
+        LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
+                                  tok::identifier, SS, SourceLocation(), Name, nullptr);
+
+        Tok.startToken();
+        Tok.clearFlag(Token::NeedsCleaning);
+        Tok.setIdentifierInfo(nullptr);
+        Tok.setKind(tok::period);
+        break;
+      }
+      return LHS;
+    case tok::greater:
+      if (IsInVarianField) {
+        IsInVarianField = false;
+        ConsumeToken();
+        break;
+      }
+      return LHS;
     case tok::code_completion:
       if (InMessageExpression)
         return LHS;
@@ -1905,18 +1954,6 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     case tok::arrow:
     case tok::period: {
       {
-        auto IsGeneralization = [](Expr* E) {
-          if (!isa<DeclRefExpr>(E))
-            return false;
-
-          if (auto X = cast_or_null<DeclRefExpr>(E)) {
-            auto TypeName = X->getType().getCanonicalType().getTypePtr()->
-                                getAsRecordDecl()->getName();
-            return TypeName.startswith("__pp_struct");
-          }
-          return false;
-        };
-
         Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
         if (IsGeneralization(OrigLHS)) {
           // Check PP-EXT
