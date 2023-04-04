@@ -57,8 +57,8 @@ int test_field_access() {
 // struct Generalization get_gen1 (struct __pp_struct_Generalization__Base1 b) { return b.__pp_head; }
 // struct Generalization get_gen2 (struct __pp_struct_Generalization__Base2 b) { return b.__pp_head; }
 
-// struct Base1 get_b1 (struct __pp_struct_Generalization__Base1 b) { return b.__pp_tail; }
-// struct Base2 get_b2 (struct __pp_struct_Generalization__Base2 b) { return b.__pp_tail; }
+struct Base1 get_b1 (struct Generalization<Base1> b) { return b<>; }
+struct Base2 get_b2 (struct Generalization<Base2> b) { return b<>; }
 
 double check_gen_b1 (struct Generalization<Base1> gb) { return gb.load; }
 double check_gen_b2 (struct Generalization<Base2> gb) { return gb.load; }
@@ -73,3 +73,7 @@ int test_vars() {
     gb2<j> = 5;
     return get_spec_field1(gb1) + get_spec_field2(gb2);
 }
+
+// struct Base_gen1 { struct Generalization<Base1> b; };
+// struct Base_gen2 { struct Generalization<Base2> b; };
+// struct Generalization_extended { double additional_field; } < Generalization<Base1>, Generalization<Base2> >;

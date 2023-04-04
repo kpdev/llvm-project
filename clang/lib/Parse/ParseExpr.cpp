@@ -1680,11 +1680,22 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
                                   tok::identifier, SS, SourceLocation(), Name, nullptr);
 
-        Tok.startToken();
-        Tok.clearFlag(Token::NeedsCleaning);
-        Tok.setIdentifierInfo(nullptr);
-        Tok.setKind(tok::period);
-        break;
+        switch (NextToken().getKind())
+        {
+        case tok::identifier:
+          Tok.startToken();
+          Tok.clearFlag(Token::NeedsCleaning);
+          Tok.setIdentifierInfo(nullptr);
+          Tok.setKind(tok::period);
+          break;
+        case tok::greater:
+          ConsumeToken();
+          break;
+        default:
+          llvm_unreachable("Wrong token in <...> was met. Expected only identifier or '>'");
+        }
+
+        break; // handle next token
       }
       return LHS;
     case tok::greater:
