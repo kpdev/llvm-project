@@ -74,6 +74,14 @@ int test_vars() {
     return get_spec_field1(gb1) + get_spec_field2(gb2);
 }
 
-// struct Base_gen1 { struct Generalization<Base1> b; };
-// struct Base_gen2 { struct Generalization<Base2> b; };
-// struct Generalization_extended { double additional_field; } < Generalization<Base1>, Generalization<Base2> >;
+struct Base_gen1 { struct Generalization<Base1> b; };
+struct Base_gen2 { struct Generalization<Base2> b; };
+// struct Generalization_nested { double additional_field; } < Generalization<Base1>, Generalization<Base2> >;
+struct Generalization_extended { double other_field; } < Base_gen1, Base_gen2 >;
+
+int test_nested_vars() {
+//     struct Generalization_nested<Generalization<Base1>> gn1;
+//     gn1<><i> = 4;
+    struct Generalization_extended<Base_gen1> ge1;
+    // ge1<b><i> = 5;
+}

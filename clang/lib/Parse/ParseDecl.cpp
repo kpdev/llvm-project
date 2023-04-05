@@ -4769,6 +4769,38 @@ void Parser::ParseStructDeclaration(
   }
 }
 
+static std::string GetMangledName(const std::string& Base, const std::string& Variant) {
+  return std::string("__pp_struct_")
+          + Base + "__"
+          + Variant;
+}
+
+static std::string GetVariantName(Parser& P, const std::string& CurTokName, const Token& NextTok) {
+  if (!P.getCurToken().is(tok::identifier)) {
+    llvm_unreachable("pp-ext-expected-token-identifier");
+    return "<pp-ext-expected-token-identifier>";
+  }
+
+  std::string MangledName;
+  switch (NextTok.getKind())
+  {
+  case tok::comma:
+  case tok::greater:
+    return CurTokName;
+    break;
+  case tok::less:
+    P.ConsumeToken(); // gen identifier
+    P.ConsumeToken(); // less
+    MangledName = GetMangledName(CurTokName, GetVariantName(P, CurTokName, P.NextToken()));
+    P.ConsumeToken(); // variant identifier
+    return MangledName;
+  default:
+    llvm_unreachable("pp-ext-error-name");
+    break;
+  }
+  return "<pp-ext-error-name>";
+}
+
 Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
                                        SmallVector<Decl *, 32>& FieldDecls,
                                        const ParsedAttributes& Attrs) {
@@ -4777,27 +4809,28 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
     return Result;
   }
 
-  auto DeclGenerator = [&](StringRef Name) {
-    auto* RD = cast<RecordDecl>(TagDecl);
-    auto MangledName = std::string("__pp_struct_")
-            + RD->getDeclName().getAsString() + "__"
-            + Name.str();
-    auto TestName = &PP.getIdentifierTable().get(MangledName);
+  auto DeclGenerator = [&](std::string BaseName, std::string VarName) {
+    auto IdentifierName = &PP.getIdentifierTable().get(VarName);
 
     // TODO: Fill Fields
     FieldList Fields;
 
-    return std::tuple<std::string, IdentifierInfo*, FieldList>{Name.str(), TestName, Fields};
+    return std::tuple<std::string, IdentifierInfo*, FieldList>{BaseName, IdentifierName, Fields};
   };
 
   printf("\n[PPMC] Parse extension\n");
   ConsumeAnyToken();
+  auto* RD = cast<RecordDecl>(TagDecl);
+  const auto GenName = RD->getDeclName().getAsString();
   while (Tok.isNot(clang::tok::greater)) {
     printf("  Token -> Kind: [%s]", Tok.getName());
     if (Tok.is(clang::tok::identifier)) {
-      auto Name = Tok.getIdentifierInfo()->getName().str();
-      printf(", Name:[%s]", Name.c_str());
-      auto D = DeclGenerator(Tok.getIdentifierInfo()->getName());
+      const auto TokName = Tok.getIdentifierInfo()->getName().str();
+      auto Name = GetVariantName(*this,
+                                 GetMangledName(GenName, TokName),
+                                 NextToken());// Tok.getIdentifierInfo()->getName().str();
+      printf(", Name:[%s]", TokName.c_str());
+      auto D = DeclGenerator(TokName, Name);
       Result.push_back(D);
     }
     printf("\n");
@@ -5066,6 +5099,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto VariantName = std::get<0>(SpecializationTuple);
       auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
       auto TestName = std::get<1>(SpecializationTuple);
+      printf("[] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
       ParsingDeclSpec PDS(*this);
       auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
         TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
