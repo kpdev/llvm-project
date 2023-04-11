@@ -1,6 +1,7 @@
 // RUN: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-DEFAULT
 // RUN: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
 // RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-LL
+// RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
 
 // CHECK-DEFAULT: [PPMC] Parse extension
 // CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base1]
@@ -35,6 +36,33 @@
 // CHECK-AST-NEXT:| |-FieldDecl {{.*}} referenced __pp_head 'struct Generalization':'struct Generalization'
 // CHECK-AST-NEXT:| `-FieldDecl {{.*}} referenced __pp_tail 'struct Base2':'struct Base2'
 
+//---------------------------------------
+
+#include <stdio.h>
+
+struct Circle { int r; };
+struct Rectangle { int w, h; };
+struct Figure { unsigned color; } < struct Circle, struct Rectangle >;
+
+int main() {
+    struct Figure<Circle> fc;
+    fc<r> = 42;
+    fc.color = 0xffffffff;
+
+    struct Figure<Rectangle> fr;
+    fr<w> = 5;
+    fr<h> = 7;
+    fr.color = 0x000000ff;
+
+
+    // CHECK-RT:      FigCircle: 42 4294967295
+    // CHECK-RT-NEXT: FigRect: 5 7 255
+    printf("FigCircle: %d %u\n", fc<r>, fc.color);
+    printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
+}
+
+//----------------------------------------
+
 struct Base1 { int i; };
 struct Base2 { int j; };
 struct Generalization { double load; } < Base1, Base2 >;
@@ -48,7 +76,7 @@ int get_tag1 (struct __pp_struct_Generalization__Base1 b)
 int get_tag2 (struct __pp_struct_Generalization__Base2 b)
     { return b.__pp_specialization_type; }
 
-int test_field_access() {
+void test_field_access() {
     struct Generalization<Base1> gb;
     gb<i> = 42;
     gb.load = 3.0;
@@ -79,7 +107,7 @@ struct Base_gen2 { struct Generalization<Base2> b; };
 // struct Generalization_nested { double additional_field; } < Generalization<Base1>, Generalization<Base2> >;
 struct Generalization_extended { double other_field; } < Base_gen1, Base_gen2 >;
 
-int test_nested_vars() {
+void test_nested_vars() {
     // struct Generalization_nested<Generalization<Base1>> gn1;
     // gn1<><i> = 4;
     struct Generalization_extended<Base_gen1> ge1;
