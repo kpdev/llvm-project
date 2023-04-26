@@ -19,8 +19,35 @@
 // CHECK-LL: %struct.__pp_struct_Generalization__Base1 = type { %struct.Generalization, %struct.Base1 }
 // CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { %struct.Generalization, %struct.Base2 }
 
+// CHECK-LL: @__pp_tags_Figure = dso_local global i32 0, align 4
+// CHECK-LL: @__pp_tag__pp_struct_Figure__Circle = dso_local global i32 0, align 4
+// CHECK-LL: @__pp_tag__pp_struct_Figure__Rectangle = dso_local global i32 0, align 4
+// CHECK-LL: @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 101, ptr @__pp_tag__pp_struct_Figure__Circle, ptr null }, { i32, ptr, ptr } { i32 101, ptr @__pp_tag__pp_struct_Figure__Rectangle, ptr null }]
+
 // CHECK-LL: double @check_gen_b1(ptr noundef byval(%struct.__pp_struct_Generalization__Base1) align 8 %gb)
 // CHECK-LL: double @check_gen_b2(ptr noundef byval(%struct.__pp_struct_Generalization__Base2) align 8 %gb)
+
+// CHECK-LL: ; Function Attrs: noinline nounwind optnone uwtable
+// CHECK-LL: define dso_local void @__pp_tag__pp_struct_Figure__Circle() #0 {
+// CHECK-LL: entry:
+// CHECK-LL:   %0 = load i32, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   %inc = add nsw i32 %0, 1
+// CHECK-LL:   store i32 %inc, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   %1 = load i32, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   store i32 %1, ptr @__pp_tag__pp_struct_Figure__Circle, align 4
+// CHECK-LL:   ret void
+// CHECK-LL: }
+
+// CHECK-LL: ; Function Attrs: noinline nounwind optnone uwtable
+// CHECK-LL: define dso_local void @__pp_tag__pp_struct_Figure__Rectangle() #0 {
+// CHECK-LL: entry:
+// CHECK-LL:   %0 = load i32, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   %inc = add nsw i32 %0, 1
+// CHECK-LL:   store i32 %inc, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   %1 = load i32, ptr @__pp_tags_Figure, align 4
+// CHECK-LL:   store i32 %1, ptr @__pp_tag__pp_struct_Figure__Rectangle, align 4
+// CHECK-LL:   ret void
+// CHECK-LL: }
 
 // CHECK-AST:     |-RecordDecl {{.*}} struct Base1 definition
 // CHECK-AST-NEXT:| `-FieldDecl {{.*}} i 'int'
