@@ -254,6 +254,9 @@ public:
     return ParseTopLevelDecl(Result, IS);
   }
 
+  std::vector<clang::Parser::DeclGroupPtrTy> m_PPCtors;
+  std::vector<clang::Parser::DeclGroupPtrTy> m_PPGlobalVars;
+
   /// ConsumeToken - Consume the current 'peek token' and lex the next one.
   /// This does not work with special tokens: string literals, code completion,
   /// annotation tokens and balanced tokens must be handled using the specific

@@ -13,6 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
+#include "clang/AST/Expr.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/Attributes.h"
@@ -20,6 +21,7 @@
 #include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TokenKinds.h"
+#include "clang/Lex/LiteralSupport.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
@@ -31,6 +33,7 @@
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "clang/Sema/SemaObjC.h"
 #include "clang/Sema/SemaOpenMP.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <optional>
@@ -5087,6 +5090,37 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   if (PPExtSpecs.size() > 0) {
     TagDecl->dump();
+
+    auto VarGenerate = [&](std::string TypeVarName, bool IsVariant = false)
+    {
+      SourceLocation Loc;
+      const char* Null = nullptr;
+      unsigned int DiagID = 0;
+      auto PrintPolicy = Actions.getPrintingPolicy();
+      ParsingDeclSpec DS(*this);
+
+      DS.SetTypeSpecType(DeclSpec::TST_int, Loc, Null,
+        DiagID, PrintPolicy);
+      DS.Finish(Actions, PrintPolicy);
+
+      ParsedAttributes attrs(AttrFactory);
+      ParsingDeclarator D(*this,
+                          DS, attrs, DeclaratorContext::File);
+      auto VarName = std::string(IsVariant ? "__pp_tag" : "__pp_tags_") + TypeVarName;
+      auto VarIdentifier = &PP.getIdentifierTable().get(VarName);
+      D.SetIdentifier(VarIdentifier, Loc);
+      Decl* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
+      Actions.ActOnUninitializedDecl(ThisDecl);
+      Actions.FinalizeDeclaration(ThisDecl);
+      D.complete(ThisDecl);
+
+      SmallVector<Decl *, 8> DeclsInGroup;
+      DeclsInGroup.push_back(ThisDecl);
+      return Actions.FinalizeDeclaratorGroup(getCurScope(), DS, DeclsInGroup);
+    };
+
+    m_PPGlobalVars.push_back(VarGenerate(TagDecl->getNameAsString()));
+
     for (auto SpecializationTuple : PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
@@ -5100,6 +5134,9 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
       auto TestName = std::get<1>(SpecializationTuple);
       printf("[] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
+
+      m_PPGlobalVars.push_back(VarGenerate(TestName->getName().str(), true));
+
       ParsingDeclSpec PDS(*this);
       auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
         TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
@@ -5169,7 +5206,112 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
         DiagID, TestDecl, true, Policy);
       TestDecl->dump();
-    }
+
+      //---- ADD CTOR ----//
+      {
+        ParsingDeclSpec DS(*this);
+        unsigned DiagID = 0;
+        const char *PrevSpec = nullptr;
+        PrintingPolicy Policy = Actions.getPrintingPolicy();
+        DS.SetTypeSpecType(DeclSpec::TST_void, SourceLocation(), PrevSpec,
+                                          DiagID, Policy);
+
+        ParsedAttributes& Attrs = DS.getAttributes();
+        // --- Attr ---
+        IdentifierInfo* AttrName = &PP.getIdentifierTable().get("constructor");
+        StringRef TokSpelling = "101";
+        clang::NumericLiteralParser Literal(TokSpelling, Tok.getLocation(),
+                               PP.getSourceManager(), PP.getLangOpts(),
+                               PP.getTargetInfo(), PP.getDiagnostics());
+        llvm::APInt PriorityValue(64, 0);
+        Literal.GetIntegerValue(PriorityValue);
+        PriorityValue = PriorityValue.trunc(32);
+        QualType Ty = Actions.Context.IntTy;
+        auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
+        ArgsVector ArgExprs;
+        ArgExprs.push_back(Expr);
+        IdentifierInfo* ScopeId = nullptr;
+
+        DS.Finish(Actions, Policy);
+
+        ParsedAttributes LocalAttrs(AttrFactory);
+        DeclaratorContext Context = DeclaratorContext::File;
+        ParsingDeclarator D(*this, DS, LocalAttrs, Context);
+        for (auto& E : D.getDeclSpec().getAttributes()) {
+          fprintf(stderr, "[0]!!!>>> %s\n", E.getAttrName()->getNameStart());
+        }
+        std::string CtorName = std::string("__pp_ctor") + TestName->getName().str();
+        fprintf(stderr, "%s\n", CtorName.c_str());
+        auto FuncNameIdentifier = &PP.getIdentifierTable().get(CtorName);
+        D.SetIdentifier(FuncNameIdentifier, SourceLocation());
+        D.SetRangeEnd(SourceLocation());
+        Actions.ActOnStartFunctionDeclarationDeclarator(D, 0);
+        {
+          bool HasProto = false;
+          bool IsAmbiguous = false;
+          bool RefQualifierIsLValueRef = true;
+          SourceLocation LParenLoc, EllipsisLoc,
+                          RParenLoc, RefQualifierLoc, StartLoc,
+                          LocalEndLoc, EndLoc;
+          SmallVector<DeclaratorChunk::ParamInfo, 16> ParamInfo;
+          ExceptionSpecificationType ESpecType = EST_None;
+          SourceRange ESpecRange;
+          SmallVector<ParsedType, 2> DynamicExceptions;
+          SmallVector<SourceRange, 2> DynamicExceptionRanges;
+          ExprResult NoexceptExpr;
+          CachedTokens *ExceptionSpecTokens = nullptr;
+          SmallVector<NamedDecl *, 0> DeclsInPrototype;
+          TypeResult TrailingReturnType;
+          SourceLocation TrailingReturnTypeLoc;
+          ParsedAttributes FnAttrs(AttrFactory);
+          DeclaratorChunk DCh = DeclaratorChunk::getFunction(
+                                  HasProto, IsAmbiguous, LParenLoc, ParamInfo.data(),
+                                  ParamInfo.size(), EllipsisLoc, RParenLoc,
+                                  RefQualifierIsLValueRef, RefQualifierLoc,
+                                  /*MutableLoc=*/SourceLocation(),
+                                  ESpecType, ESpecRange, DynamicExceptions.data(),
+                                  DynamicExceptionRanges.data(), DynamicExceptions.size(),
+                                  NoexceptExpr.isUsable() ? NoexceptExpr.get() : nullptr,
+                                  ExceptionSpecTokens, DeclsInPrototype, StartLoc,
+                                  LocalEndLoc, D, TrailingReturnType, TrailingReturnTypeLoc,
+                                  &DS);
+          D.AddTypeInfo(DCh, std::move(FnAttrs), EndLoc);
+
+          Attrs.addNew(AttrName, SourceRange(), ScopeId, SourceLocation(),
+            ArgExprs.data(), ArgExprs.size(), clang::AttributeCommonInfo::AS_GNU);
+
+          Actions.ActOnFinishFunctionDeclarationDeclarator(D);
+
+          Sema::SkipBodyInfo SkipBody;
+          Sema::FnBodyKind BodyKind = Sema::FnBodyKind::Other;
+          ParseScope BodyScope(this, Scope::FnScope | Scope::DeclScope |
+                                    Scope::CompoundStmtScope);
+
+          Decl *Res = Actions.ActOnStartOfFunctionDef(getCurScope(), D,
+                                                      MultiTemplateParamsArg(),
+                                                      &SkipBody, BodyKind);
+          D.complete(Res);
+          D.getMutableDeclSpec().abort();
+
+          // ParseCompoundStatementBody
+          StmtVector Stmts;
+          SourceLocation CloseLoc;
+          bool isStmtExpr = false;
+          StmtResult FnBody;
+          {
+            Sema::CompoundScopeRAII CompoundScope(Actions, isStmtExpr);
+            Actions.ActOnAfterCompoundStatementLeadingPragmas();
+            Sema::FPFeaturesStateRAII SaveFPFeatures(Actions);
+            FnBody = Actions.ActOnCompoundStmt(SourceLocation(), CloseLoc,
+                                        Stmts, isStmtExpr);
+          }
+          // ParseDeclGroup
+          BodyScope.Exit();
+          Decl *TheDecl = Actions.ActOnFinishFunctionBody(Res, FnBody.get());
+          m_PPCtors.push_back(Actions.ConvertDeclToDeclGroup(TheDecl));
+        }
+      } // ctor
+    } // spec for
   }
 }
 
