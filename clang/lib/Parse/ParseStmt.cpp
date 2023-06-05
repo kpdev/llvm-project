@@ -21,6 +21,7 @@
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
+#include "clang/Sema/Lookup.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCodeCompletion.h"
 #include "clang/Sema/SemaObjC.h"
@@ -1200,10 +1201,95 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable())
+    if (R.isUsable()) {
       Stmts.push_back(R.get());
+
+      // Check if it is pp variant
+      if (isa<DeclStmt>(R.get())) {
+        DeclStmt* DS = cast_or_null<DeclStmt>(R.get());
+        if (VarDecl* VD = cast_or_null<VarDecl>(DS->getSingleDecl())) {
+          auto TName = VD->getType().getCanonicalType().getTypePtr()->
+                          getAsRecordDecl()->getName();
+          auto Tmp = VD->getNameAsString();
+          bool isVariant = TName.startswith("__pp_struct");
+
+          if (isVariant) {
+            // Initialize tag
+            CXXScopeSpec SS;
+            UnqualifiedId FieldName;
+            {
+              // setup field name
+              IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
+              FieldName.setIdentifier(Id, SourceLocation());
+            }
+
+            ExprResult ERes = Actions.ActOnNameClassifiedAsNonType(
+              getCurScope(),
+              SS,
+              VD,
+              SourceLocation(),
+              NextToken()
+            );
+
+            auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+              ERes.get(), SourceLocation(),
+              clang::tok::period,
+              SS,
+              SourceLocation(),
+              FieldName,
+              nullptr);
+
+            IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_specialization_type");
+            FieldName.setIdentifier(Id, SourceLocation());
+            TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+              TagField.get(), SourceLocation(),
+              clang::tok::period,
+              SS,
+              SourceLocation(),
+              FieldName,
+              nullptr);
+
+            DeclRefExpr* RHSRes;
+            { // RHS
+              std::string TagName = std::string("__pp_tag_") + TName.str();
+              IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
+              UnqualifiedId VarName;
+              VarName.setIdentifier(II, SourceLocation());
+              DeclarationNameInfo DNI;
+              DNI.setName(VarName.Identifier);
+              LookupResult R(Actions, DNI,
+                Sema::LookupOrdinaryName);
+              getActions().LookupName(R, getCurScope(), true);
+              auto* D = cast<ValueDecl>(R.getFoundDecl());
+              RHSRes = DeclRefExpr::Create(getActions().Context,
+                NestedNameSpecifierLoc(), SourceLocation(),
+                D,
+                false,
+                R.getLookupNameInfo(),
+                D->getType(),
+                clang::VK_LValue,
+                D);
+              getActions().MarkDeclRefReferenced(RHSRes);
+            } // RHS
+
+            ExprResult AssignmentOpExpr =
+              Actions.ActOnBinOp(
+                getCurScope(),
+                SourceLocation(),
+                clang::tok::equal,
+                TagField.get(),
+                RHSRes
+              );
+
+            Stmts.push_back(AssignmentOpExpr.get());
+          }
+        };
+      }// Check if it is pp varian
+    }
+
     LastIsError = R.isInvalid();
   }
+
   // StmtExpr needs to do copy initialization for last statement.
   // If last statement is invalid, the last statement in `Stmts` will be
   // incorrect. Then the whole compound statement should also be marked as

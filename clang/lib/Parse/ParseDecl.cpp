@@ -5210,6 +5210,62 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         ExprResult CallExpr = Actions.ActOnCallExpr(getCurScope(), E, SourceLocation(), ArgExprs,
           SourceLocation(), NullExpr);
         Stmts.push_back(CallExpr.get());
+
+        {
+          DeclRefExpr* LHSRes, *RHSRes;
+
+          // TODO: Reuse code for LHS and RHS
+          { // LHS
+            IdentifierInfo* II = &PP.getIdentifierTable().get(StrVarName);
+            UnqualifiedId VarName;
+            VarName.setIdentifier(II, SourceLocation());
+            DeclarationNameInfo DNI;
+            DNI.setName(VarName.Identifier);
+            LookupResult R(Actions, DNI,
+              Sema::LookupOrdinaryName);
+            getActions().LookupName(R, getCurScope(), true);
+            auto* D = cast<ValueDecl>(R.getFoundDecl());
+            LHSRes = DeclRefExpr::Create(getActions().Context,
+              NestedNameSpecifierLoc(), SourceLocation(),
+              D,
+              false,
+              R.getLookupNameInfo(),
+              D->getType(),
+              clang::VK_LValue,
+              D);
+            getActions().MarkDeclRefReferenced(LHSRes);
+          } // LHS
+
+          { // RHS
+            IdentifierInfo* II = &PP.getIdentifierTable().get(ppMNames.BaseTagVariableName);
+            UnqualifiedId VarName;
+            VarName.setIdentifier(II, SourceLocation());
+            DeclarationNameInfo DNI;
+            DNI.setName(VarName.Identifier);
+            LookupResult R(Actions, DNI,
+              Sema::LookupOrdinaryName);
+            getActions().LookupName(R, getCurScope(), true);
+            auto* D = cast<ValueDecl>(R.getFoundDecl());
+            RHSRes = DeclRefExpr::Create(getActions().Context,
+              NestedNameSpecifierLoc(), SourceLocation(),
+              D,
+              false,
+              R.getLookupNameInfo(),
+              D->getType(),
+              clang::VK_LValue,
+              D);
+            getActions().MarkDeclRefReferenced(RHSRes);
+          } // RHS
+
+          auto AssignmentExprOp = Actions.ActOnBinOp(
+            getCurScope(),
+            SourceLocation(),
+            clang::tok::equal,
+            LHSRes, RHSRes
+          );
+
+          Stmts.push_back(AssignmentExprOp.get());
+        }
       }
     };
 
@@ -5339,7 +5395,6 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       ParsedAttributes attrs(AttrFactory);
       ParsingDeclarator D(*this,
                           DS, attrs, DeclaratorContext::File);
-      // auto VarName = std::string(IsVariant ? "__pp_tag" : "__pp_tags_") + TypeVarName;
       auto VarIdentifier = &PP.getIdentifierTable().get(TypeVarName);
       D.SetIdentifier(VarIdentifier, Loc);
       Decl* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
@@ -5359,6 +5414,13 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     AddFunc(ppMNames.BaseIncFuncName, PPFuncMode::Increment,
             ppMNames.BaseTagVariableName);
 
+    // TODO: Merge with next loop
+    for (auto S : PPExtSpecs) {
+      auto TestName = std::get<1>(S);
+      std::string VarName = std::string("__pp_tag_") + TestName->getName().str();
+      m_PPGlobalVars.push_back(VarGenerate(VarName));
+    }
+
     for (auto SpecializationTuple : PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
@@ -5374,9 +5436,6 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       printf("[] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
 
       ppMNames.addVariantName(TestName->getName().str());
-      m_PPGlobalVars.push_back(
-        VarGenerate(ppMNames.VariantStructNames.back().VariantTagVariableName));
-
       ParsingDeclSpec PDS(*this);
       auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
         TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
@@ -5447,14 +5506,11 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         DiagID, TestDecl, true, Policy);
       TestDecl->dump();
 
-      // AddFunc(std::string("__pp_ctor") + TestName->getName().str(), true, "");
       auto& V = ppMNames.VariantStructNames.back();
       AddFunc(V.VariantInitFuncName,
         PPFuncMode::Init,
-        "");
-      // "__pp_tags_Figure"
-
-    } // spec for
+        V.VariantTagVariableName);
+    }
   }
 }
 

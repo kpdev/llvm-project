@@ -20,8 +20,8 @@
 // CHECK-LL: %struct.__pp_struct_Generalization__Base2 = type { %struct.Generalization, %struct.Base2 }
 
 // CHECK-LL: @__pp_tags_Figure = dso_local global i32 0, align 4
-// CHECK-LL: @__pp_tag__pp_struct_Figure__Circle = dso_local global i32 0, align 4
-// CHECK-LL: @__pp_tag__pp_struct_Figure__Rectangle = dso_local global i32 0, align 4
+// CHECK-LL: @__pp_tag___pp_struct_Figure__Circle = dso_local global i32 0, align 4
+// CHECK-LL: @__pp_tag___pp_struct_Figure__Rectangle = dso_local global i32 0, align 4
 // CHECK-LL: @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 101, ptr @__pp_tag__pp_struct_Figure__Circle, ptr null }, { i32, ptr, ptr } { i32 101, ptr @__pp_tag__pp_struct_Figure__Rectangle, ptr null }]
 
 // CHECK-LL: double @check_gen_b1(ptr noundef byval(%struct.__pp_struct_Generalization__Base1) align 8 %gb)
@@ -86,13 +86,30 @@ int main() {
     fr<h> = 7;
     fr.color = 0x000000ff;
 
-
     // CHECK-RT:      FigCircle: 42 4294967295
     // CHECK-RT-NEXT: FigRect: 5 7 255
-    // CHECK-RT-NEXT: Figure tags: 2
     printf("FigCircle: %d %u\n", fc<r>, fc.color);
     printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
+
+    // CHECK-RT-NEXT: Figure tags: 2
+    // CHECK-RT-NEXT: Circle tag: 1
+    // CHECK-RT-NEXT: Rectangle tag: 2
     printf("Figure tags: %d\n", __pp_tags_Figure);
+    printf("Circle tag: %d\n", __pp_tag___pp_struct_Figure__Circle);
+    printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
+
+    // CHECK-RT-NEXT: fc.__pp_specialization_type = 1
+    // CHECK-RT-NEXT: fr.__pp_specialization_type = 2
+    printf("fc.__pp_specialization_type = %d\n", fc.__pp_specialization_type);
+    printf("fr.__pp_specialization_type = %d\n", fr.__pp_specialization_type);
+
+    struct Figure<Circle> fc2;
+    struct Figure<Rectangle> fr2;
+
+    // CHECK-RT-NEXT: fc2.__pp_specialization_type = 1
+    // CHECK-RT-NEXT: fr2.__pp_specialization_type = 2
+    printf("fc2.__pp_specialization_type = %d\n", fc2.__pp_specialization_type);
+    printf("fr2.__pp_specialization_type = %d\n", fr2.__pp_specialization_type);
 }
 
 // //----------------------------------------
