@@ -1529,6 +1529,72 @@ private:
                             CachedTokens &Toks, bool StopAtSemi = true,
                             bool ConsumeFinalToken = true);
 
+//===--------------------------------------------------------------------===//
+  // Procedural-parametric extension
+
+  using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
+  using FieldList = SmallVector<FieldDescription, 8>;
+  using SpecsVec = SmallVector<std::tuple<std::string, IdentifierInfo*, FieldList>, 8>;
+  SpecsVec TryParsePPExt(Decl *TagDecl,
+                         SmallVector<Decl *, 32>& FieldDecls,
+                         const ParsedAttributes& Attrs);
+  
+  void FieldGenerator(const char* FieldName,
+                          DeclSpec::TST FieldType,
+                          Decl *TagDecl,
+                          RecordDecl* RD,
+                          SmallVector<Decl *, 32>& FieldDecls,
+                          const ParsedAttributes& Attrs,
+                          bool IsPointer);
+  enum class PPFuncMode {
+    Ctor,
+    Init,
+    Increment
+  };
+
+  struct PPMangledNames {
+    struct PPVariant {
+      std::string VariantName;
+      std::string VariantInitFuncName;
+      std::string VariantTagVariableName;
+    };
+
+    std::string BaseStructName;
+    std::string BaseTagVariableName;
+    std::string BaseCtorName;
+    std::string BaseIncFuncName;
+    std::vector<PPVariant> VariantStructNames;
+
+    void setBaseName(std::string BaseName);
+
+    void addVariantName(std::string VariantName);
+
+    __attribute__((noinline))
+    void dump();
+  };
+
+  static void dumpPPNames(PPMangledNames& p);
+
+  void AddStmts(StmtVector& Stmts,
+                PPFuncMode Mode,
+                std::string StrVarName,
+                PPMangledNames& ppMNames);
+
+  void AddFunc(std::string FuncName,
+               PPFuncMode Mode,
+               std::string TagNameToInit,
+               PPMangledNames& ppMNames);
+
+  void FieldGenerator(const char* FieldName,
+                      DeclSpec::TST FieldType,
+                      RecordDecl* RD,
+                      bool IsPointer,
+                      const ParsedAttributes& TestAttrs,
+                      Decl *TestDecl,
+                      SmallVector<Decl *, 32>& FieldDecls);
+
+  Sema::DeclGroupPtrTy VarGenerate(std::string TypeVarName);
+
   //===--------------------------------------------------------------------===//
   // C99 6.7: Declarations.
 
@@ -5209,16 +5275,6 @@ private:
   ///@{
 
 private:
-  //===--------------------------------------------------------------------===//
-  // Procedural-parametric extension
-
-  using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
-  using FieldList = SmallVector<FieldDescription, 8>;
-  using SpecsVec = SmallVector<std::tuple<std::string, IdentifierInfo*, FieldList>, 8>;
-  SpecsVec TryParsePPExt(Decl *TagDecl,
-                         SmallVector<Decl *, 32>& FieldDecls,
-                         const ParsedAttributes& Attrs);
-
   //===--------------------------------------------------------------------===//
   // C99 6.7.8: Initialization.
 
