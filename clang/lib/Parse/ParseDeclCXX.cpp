@@ -1764,6 +1764,88 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     NameLoc = ConsumeToken();
     DS.SetRangeEnd(NameLoc);
 
+    // PP-EXT
+    if (Tok.is(tok::plus)) {
+      ConsumeToken();
+      assert(Tok.is(tok::less));
+      ConsumeToken();
+      assert(Tok.is(tok::kw_struct));
+      auto CurLoc = ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      printf("!!! %s\n", Tok.getIdentifierInfo()->getNameStart());
+      // Add struct
+      {
+        // TODO: Use functions for this functionality
+        //       together with ParseDecl.cpp:5038
+        Sema::SkipBodyInfo TestSkipBody;
+        CXXScopeSpec TestSS;
+        MultiTemplateParamsArg TestTParams;
+        bool TestOwned = true;
+        bool TestIsDependent = false;
+
+        ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+        ParsedAttributes TestAttrs(AttrFactory);
+        auto VariantName = Tok.getIdentifierInfo()->getName().str();
+        auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
+        auto TestNameStr = std::string("__pp_struct_") + Name->getName().str() + "__" + VariantName;
+        auto TestName = &PP.getIdentifierTable().get(TestNameStr);
+        printf("[+] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
+        auto TestLocation = SourceLocation();
+
+        PPMangledNames ppMNames;
+        ppMNames.setBaseName(Name->getName().str());
+        ppMNames.addVariantName(TestName->getName().str());
+        ParsingDeclSpec PDS(*this);
+
+        auto BaseDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+          TestLocation, TestSS, Name, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+          TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
+          TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
+
+        auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
+        auto BaseRecordDecl = cast<RecordDecl>(BaseDecl);
+        SmallVector<Decl *, 32> FieldDecls;
+        FieldGenerator("__pp_head", DeclSpec::TST_struct, BaseRecordDecl, false,
+                        TestAttrs, TestDecl, FieldDecls);
+        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false,
+                        TestAttrs, TestDecl, FieldDecls);
+        SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
+        Actions.ActOnFields(getCurScope(), CurLoc, TestDecl, TestFieldDecls,
+                      CurLoc, CurLoc, attrs);
+
+        StructScope.Exit();
+        Actions.ActOnTagFinishDefinition(getCurScope(), TestDecl, SourceRange());
+        unsigned DiagID;
+        const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+        const char *PrevSpec = nullptr;
+        PDS.SetTypeSpecType(
+          DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
+          DiagID, TestDecl, true, Policy);
+        // DS = PDS.getRepAsDecl()->getDe
+        TestDecl->dump();
+
+        std::string GVarName = std::string("__pp_tag_") + TestNameStr;
+        m_PPGlobalVars.push_back(VarGenerate(GVarName));
+
+        auto& V = ppMNames.VariantStructNames.back();
+        AddFunc(V.VariantInitFuncName,
+          PPFuncMode::Init,
+          V.VariantTagVariableName, ppMNames);
+      }
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      ConsumeToken();
+      assert(Tok.is(tok::semi));
+    }
     if (Tok.is(tok::less) && getLangOpts().CPlusPlus) {
       // The name was supposed to refer to a template, but didn't.
       // Eat the template argument list and try to continue parsing this as

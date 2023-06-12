@@ -76,6 +76,9 @@ struct Circle { int r; };
 struct Rectangle { int w, h; };
 struct Figure { unsigned color; } < struct Circle, struct Rectangle >;
 
+struct Triangle { int a, b, c; };
+struct Figure + <struct Triangle>;
+
 int main() {
     struct Figure<Circle> fc;
     fc<r> = 42;
@@ -86,30 +89,45 @@ int main() {
     fr<h> = 7;
     fr.color = 0x000000ff;
 
+    struct Figure<Triangle> ft;
+    ft<a> = 1;
+    ft<b> = 2;
+    ft<c> = 3;
+    ft.color = 0x00000001;
+
     // CHECK-RT:      FigCircle: 42 4294967295
     // CHECK-RT-NEXT: FigRect: 5 7 255
+    // CHECK-RT-NEXT: FigTriangle: 1 2 3 1
     printf("FigCircle: %d %u\n", fc<r>, fc.color);
     printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
+    printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
 
-    // CHECK-RT-NEXT: Figure tags: 2
+    // CHECK-RT-NEXT: Figure tags: 3
     // CHECK-RT-NEXT: Circle tag: 1
     // CHECK-RT-NEXT: Rectangle tag: 2
+    // CHECK-RT-NEXT: Triangle tag: 3
     printf("Figure tags: %d\n", __pp_tags_Figure);
     printf("Circle tag: %d\n", __pp_tag___pp_struct_Figure__Circle);
     printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
+    printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
 
     // CHECK-RT-NEXT: fc.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr.__pp_specialization_type = 2
+    // CHECK-RT-NEXT: ft.__pp_specialization_type = 3
     printf("fc.__pp_specialization_type = %d\n", fc.__pp_specialization_type);
     printf("fr.__pp_specialization_type = %d\n", fr.__pp_specialization_type);
+    printf("ft.__pp_specialization_type = %d\n", ft.__pp_specialization_type);
 
     struct Figure<Circle> fc2;
     struct Figure<Rectangle> fr2;
+    struct Figure<Triangle> ft2;
 
     // CHECK-RT-NEXT: fc2.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr2.__pp_specialization_type = 2
+    // CHECK-RT-NEXT: ft2.__pp_specialization_type = 3
     printf("fc2.__pp_specialization_type = %d\n", fc2.__pp_specialization_type);
     printf("fr2.__pp_specialization_type = %d\n", fr2.__pp_specialization_type);
+    printf("ft2.__pp_specialization_type = %d\n", ft2.__pp_specialization_type);
 }
 
 // //----------------------------------------
