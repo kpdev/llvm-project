@@ -4787,7 +4787,7 @@ static std::string GetVariantName(Parser& P, const std::string& CurTokName, cons
   std::string MangledName;
   switch (NextTok.getKind())
   {
-  case tok::comma:
+  case tok::semi:
   case tok::greater:
     return CurTokName;
     break;

@@ -74,10 +74,10 @@
 
 struct Circle { int r; };
 struct Rectangle { int w, h; };
-struct Figure { unsigned color; } < struct Circle, struct Rectangle >;
+struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
 
 struct Triangle { int a, b, c; };
-struct Figure + <struct Triangle>;
+struct Figure + <struct Triangle; >;
 
 int main() {
     struct Figure<Circle> fc;
