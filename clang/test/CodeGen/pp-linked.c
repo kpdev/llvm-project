@@ -8,15 +8,20 @@
 
 #include "Inputs/pp-linked-figure.h"
 #include "Inputs/pp-linked-triangle.h"
+#include <stdio.h>
 
 int main()
 {
     // CHECK-RT: FigCircle: 42 4294967295
+    // CHECK-RT-NEXT: Circle tags check: [1]
     printCircle();
     // CHECK-RT-NEXT: FigRect: 5 7 255
+    // CHECK-RT-NEXT: Rectangle tags check: [1]
     printRectangle();
     // CHECK-RT-NEXT: FigTriangle: 1 2 3 1
+    // CHECK-RT-NEXT: Triangle tags check: [1]
     printTriangle();
+
 
     // TODO: Fix it
     // CHECK-RT-NOT: Figure tags: 3

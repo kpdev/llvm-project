@@ -10,4 +10,6 @@ void printTriangle()
     ft.color = 0x00000001;
 
     printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
+    printf("Triangle tags check: [%d]\n",
+        (int)(ft.__pp_specialization_type == __pp_tag___pp_struct_Figure__Triangle));
 }
