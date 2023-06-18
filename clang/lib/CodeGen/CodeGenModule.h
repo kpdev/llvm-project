@@ -1465,6 +1465,11 @@ public:
     F->setLinkage(getFunctionLinkage(GD));
   }
 
+  // PP-EXT
+  // TODO: Use one method instead of 2
+  void adjustPPLinkage(llvm::Function* F);
+  void adjustPPLinkage(llvm::GlobalVariable* GV);
+
   /// Return the appropriate linkage for the vtable, VTT, and type information
   /// of the given class.
   llvm::GlobalVariable::LinkageTypes getVTableLinkage(const CXXRecordDecl *RD);

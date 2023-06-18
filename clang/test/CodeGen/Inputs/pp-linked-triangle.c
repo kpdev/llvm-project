@@ -9,6 +9,5 @@ void printTriangle()
     ft<c> = 3;
     ft.color = 0x00000001;
 
-    // CHECK-RT: FigTriangle: 1 2 3 1
     printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
 }

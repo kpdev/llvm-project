@@ -130,7 +130,7 @@ int main() {
     printf("ft2.__pp_specialization_type = %d\n", ft2.__pp_specialization_type);
 }
 
-// //----------------------------------------
+//----------------------------------------
 
 // struct Base1 { int i; };
 // struct Base2 { int j; };
