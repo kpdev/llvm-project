@@ -77,7 +77,11 @@ struct Rectangle { int w, h; };
 struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
 
 struct Triangle { int a, b, c; };
-struct Figure + <struct Triangle; >;
+struct Figure + < struct Triangle; >;
+
+struct BaseObject { int a; }<>;
+struct NewObject { int b; };
+struct BaseObject + < struct NewObject; >;
 
 int main() {
     struct Figure<Circle> fc;
@@ -128,6 +132,12 @@ int main() {
     printf("fc2.__pp_specialization_type = %d\n", fc2.__pp_specialization_type);
     printf("fr2.__pp_specialization_type = %d\n", fr2.__pp_specialization_type);
     printf("ft2.__pp_specialization_type = %d\n", ft2.__pp_specialization_type);
+
+    struct BaseObject<NewObject> obj;
+    obj.a = 101;
+    obj<b> = 102;
+    // CHECK-RT-NEXT: BaseObject<NewObject>: 101 102
+    printf("BaseObject<NewObject>: %d %d\n", obj.a, obj<b>);
 }
 
 //----------------------------------------

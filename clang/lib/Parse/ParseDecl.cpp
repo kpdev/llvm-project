@@ -4965,12 +4965,11 @@ void Parser::AddStmts(StmtVector& Stmts,
 }
 
 
-Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
+Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
                                        SmallVector<Decl *, 32>& FieldDecls,
                                        const ParsedAttributes& Attrs) {
-  SpecsVec Result;
   if (Tok.isNot(clang::tok::less)) {
-    return Result;
+    return {};
   }
 
   auto DeclGenerator = [&](std::string BaseName, std::string VarName) {
@@ -4986,6 +4985,7 @@ Parser::SpecsVec Parser::TryParsePPExt(Decl *TagDecl,
   ConsumeAnyToken();
   auto* RD = cast<RecordDecl>(TagDecl);
   const auto GenName = RD->getDeclName().getAsString();
+  SpecsVec Result;
   while (Tok.isNot(clang::tok::greater)) {
     printf("  Token -> Kind: [%s]", Tok.getName());
     if (Tok.is(clang::tok::identifier)) {
@@ -5432,14 +5432,14 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   SmallVector<Decl *, 32> FieldDecls(TagDecl->fields());
 
-  SpecsVec PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls, attrs);
+  Optional<SpecsVec> PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls, attrs);
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);
   StructScope.Exit();
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 
-  if (PPExtSpecs.size() > 0) {
+  if (PPExtSpecs) {
     TagDecl->dump();
 
     PPMangledNames ppMNames;
@@ -5452,13 +5452,13 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
             ppMNames.BaseTagVariableName, ppMNames);
 
     // TODO: Merge with next loop
-    for (auto S : PPExtSpecs) {
+    for (auto S : *PPExtSpecs) {
       auto TestName = std::get<1>(S);
       std::string VarName = std::string("__pp_tag_") + TestName->getName().str();
       m_PPGlobalVars.push_back(VarGenerate(VarName));
     }
 
-    for (auto SpecializationTuple : PPExtSpecs) {
+    for (auto SpecializationTuple : *PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
       MultiTemplateParamsArg TestTParams;
