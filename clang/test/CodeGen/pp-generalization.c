@@ -84,16 +84,16 @@ struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
 int main() {
-    struct Figure<Circle> fc;
+    struct Figure<struct Circle> fc;
     fc<r> = 42;
     fc.color = 0xffffffff;
 
-    struct Figure<Rectangle> fr;
+    struct Figure<struct Rectangle> fr;
     fr<w> = 5;
     fr<h> = 7;
     fr.color = 0x000000ff;
 
-    struct Figure<Triangle> ft;
+    struct Figure<struct Triangle> ft;
     ft<a> = 1;
     ft<b> = 2;
     ft<c> = 3;
@@ -122,9 +122,9 @@ int main() {
     printf("fr.__pp_specialization_type = %d\n", fr.__pp_specialization_type);
     printf("ft.__pp_specialization_type = %d\n", ft.__pp_specialization_type);
 
-    struct Figure<Circle> fc2;
-    struct Figure<Rectangle> fr2;
-    struct Figure<Triangle> ft2;
+    struct Figure<struct Circle> fc2;
+    struct Figure<struct Rectangle> fr2;
+    struct Figure<struct Triangle> ft2;
 
     // CHECK-RT-NEXT: fc2.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr2.__pp_specialization_type = 2
@@ -133,7 +133,7 @@ int main() {
     printf("fr2.__pp_specialization_type = %d\n", fr2.__pp_specialization_type);
     printf("ft2.__pp_specialization_type = %d\n", ft2.__pp_specialization_type);
 
-    struct BaseObject<NewObject> obj;
+    struct BaseObject<struct NewObject> obj;
     obj.a = 101;
     obj<b> = 102;
     // CHECK-RT-NEXT: BaseObject<NewObject>: 101 102

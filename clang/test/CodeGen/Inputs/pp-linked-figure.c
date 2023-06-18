@@ -3,7 +3,7 @@
 
 void printRectangle()
 {
-    struct Figure<Rectangle> fr;
+    struct Figure<struct Rectangle> fr;
     fr<w> = 5;
     fr<h> = 7;
     fr.color = 0x000000ff;
@@ -13,7 +13,7 @@ void printRectangle()
 
 void printCircle()
 {
-    struct Figure<Circle> fc;
+    struct Figure<struct Circle> fc;
     fc<r> = 42;
     fc.color = 0xffffffff;
 

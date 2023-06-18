@@ -3,7 +3,7 @@
 
 void printTriangle()
 {
-    struct Figure<Triangle> ft;
+    struct Figure<struct Triangle> ft;
     ft<a> = 1;
     ft<b> = 2;
     ft<c> = 3;
