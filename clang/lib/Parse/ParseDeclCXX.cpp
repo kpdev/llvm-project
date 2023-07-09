@@ -1789,6 +1789,21 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
         auto TestNameStr = std::string("__pp_struct_") + Name->getName().str() + "__" + VariantName;
         auto TestName = &PP.getIdentifierTable().get(TestNameStr);
+
+        SmallVector<StringRef, 8> Parts;
+        auto MainFileID = Actions.getSourceManager().getMainFileID();
+        auto FullFileName = Actions.getSourceManager().getFileEntryForID(MainFileID)->getName();
+        FullFileName.split(Parts, '/');
+        auto ExactFileName = Parts.back();
+        Parts.clear();
+        ExactFileName.split(Parts, '.');
+        auto OnlyFileName = Parts.front().str();
+        const bool NeedCtorsDefinitions =
+          (OnlyFileName == VariantName || OnlyFileName == Name->getName().str());
+        printf("!!! FullFilename:[%s], OnlyFileName:[%s], Name:[%s]\n",
+          FullFileName.str().c_str(),
+          OnlyFileName.c_str(),
+          Name->getName().str().c_str());
         printf("[+] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
         auto TestLocation = SourceLocation();
 
@@ -1837,9 +1852,11 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         m_PPGlobalVars.push_back(VarGenerate(GVarName));
 
         auto& V = ppMNames.VariantStructNames.back();
-        AddFunc(V.VariantInitFuncName,
-          PPFuncMode::Init,
-          V.VariantTagVariableName, ppMNames);
+        if (NeedCtorsDefinitions) {
+          AddFunc(V.VariantInitFuncName,
+            PPFuncMode::Init,
+            V.VariantTagVariableName, ppMNames);
+        }
       }
       ConsumeToken();
       assert(Tok.is(tok::semi));

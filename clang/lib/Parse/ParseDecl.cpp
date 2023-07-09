@@ -5445,8 +5445,20 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     PPMangledNames ppMNames;
 
     ppMNames.setBaseName(TagDecl->getNameAsString());
+    SmallVector<StringRef, 8> Parts;
+    auto MainFileID = Actions.getSourceManager().getMainFileID();
+    auto FullFileName = Actions.getSourceManager().getFileEntryForID(MainFileID)->getName();
+    FullFileName.split(Parts, '/');
+    auto ExactFileName = Parts.back();
+    Parts.clear();
+    ExactFileName.split(Parts, '.');
+    auto OnlyFileName = Parts.front().str();
+    auto TagDeclFullName = TagDecl->getDeclName().getAsString();
+    const bool NeedCtorsDefinitions = (OnlyFileName == TagDeclFullName);
+    fprintf(stderr, "!!! File Name: [%s]/[%s]\n",
+      OnlyFileName.c_str(), TagDeclFullName.c_str());
     m_PPGlobalVars.push_back(VarGenerate(ppMNames.BaseTagVariableName));
-
+    
     AddFunc(ppMNames.BaseCtorName, PPFuncMode::Ctor, "", ppMNames);
     AddFunc(ppMNames.BaseIncFuncName, PPFuncMode::Increment,
             ppMNames.BaseTagVariableName, ppMNames);
@@ -5504,9 +5516,11 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       TestDecl->dump();
 
       auto& V = ppMNames.VariantStructNames.back();
-      AddFunc(V.VariantInitFuncName,
-        PPFuncMode::Init,
-        V.VariantTagVariableName, ppMNames);
+      if (NeedCtorsDefinitions) {
+        AddFunc(V.VariantInitFuncName,
+          PPFuncMode::Init,
+          V.VariantTagVariableName, ppMNames);
+      }
     }
   }
 }
