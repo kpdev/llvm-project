@@ -4881,6 +4881,7 @@ void Parser::AddStmts(StmtVector& Stmts,
     Stmts.push_back(ResPreInc);
   }
   else if (Mode == PPFuncMode::Init) {
+    StmtVector IfStmts;
     IdentifierInfo* II =
       &PP.getIdentifierTable().get(ppMNames.BaseIncFuncName);
     LookupResult Result(getActions(), II, SourceLocation(),
@@ -4904,7 +4905,7 @@ void Parser::AddStmts(StmtVector& Stmts,
     Expr* NullExpr = nullptr;
     ExprResult CallExpr = Actions.ActOnCallExpr(getCurScope(), E, SourceLocation(), ArgExprs,
       SourceLocation(), NullExpr);
-    Stmts.push_back(CallExpr.get());
+    IfStmts.push_back(CallExpr.get());
 
     {
       DeclRefExpr* LHSRes, *RHSRes;
@@ -4959,7 +4960,54 @@ void Parser::AddStmts(StmtVector& Stmts,
         LHSRes, RHSRes
       );
 
-      Stmts.push_back(AssignmentExprOp.get());
+      IfStmts.push_back(AssignmentExprOp.get());
+
+      {
+        // Create If Stmt
+        // Condition
+        { // LHS
+          IdentifierInfo* II = &PP.getIdentifierTable().get(StrVarName);
+          UnqualifiedId VarName;
+          VarName.setIdentifier(II, SourceLocation());
+          DeclarationNameInfo DNI;
+          DNI.setName(VarName.Identifier);
+          LookupResult R(Actions, DNI,
+            Sema::LookupOrdinaryName);
+          getActions().LookupName(R, getCurScope(), true);
+          auto* D = cast<ValueDecl>(R.getFoundDecl());
+          LHSRes = DeclRefExpr::Create(getActions().Context,
+            NestedNameSpecifierLoc(), SourceLocation(),
+            D,
+            false,
+            R.getLookupNameInfo(),
+            D->getType(),
+            clang::VK_LValue,
+            D);
+          getActions().MarkDeclRefReferenced(LHSRes);
+
+          // RHS
+          // llvm::APInt ZeroInt(32, 0);
+          Expr* ZeroIntExpr = IntegerLiteral::Create(Actions.Context,
+            llvm::APInt(32, 0), Actions.Context.IntTy, SourceLocation());
+
+          // Conditions
+          SourceLocation Loc;
+          ExprResult ComparisonExprRes = Actions.ActOnBinOp(getCurScope(), Loc,
+            clang::tok::equalequal, LHSRes, ZeroIntExpr);
+
+          Sema::ConditionResult Cond = Actions.ActOnCondition(getCurScope(),
+            Loc, ComparisonExprRes.get(), clang::Sema::ConditionKind::Boolean, false);
+
+          // Statements
+          StmtResult InitStmt, ThenStmt, ElseStmt;
+          fprintf(stderr, "!!! IfStmts size %d\n", (int)IfStmts.size());
+          ThenStmt = Actions.ActOnCompoundStmt(Loc, Loc, IfStmts, false);
+
+          StmtResult IfBody = Actions.ActOnIfStmt(Loc, clang::IfStatementKind::Ordinary,
+            Loc, InitStmt.get(), Cond, Loc, ThenStmt.get(), Loc, ElseStmt.get());
+          Stmts.push_back(IfBody.get());
+        }
+      }
     }
   }
 }
@@ -5109,6 +5157,7 @@ void Parser::AddFunc(std::string FuncName,
     SourceLocation CloseLoc;
     bool isStmtExpr = false;
     StmtResult FnBody;
+    Actions.ActOnStartOfCompoundStmt(false);
     {
       AddStmts(Stmts, Mode, TagNameToInit, ppMNames);
       Sema::CompoundScopeRAII CompoundScope(Actions, isStmtExpr);
@@ -5454,7 +5503,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
     ExactFileName.split(Parts, '.');
     auto OnlyFileName = Parts.front().str();
     auto TagDeclFullName = TagDecl->getDeclName().getAsString();
-    const bool NeedCtorsDefinitions = (OnlyFileName == TagDeclFullName);
+    const bool NeedCtorsDefinitions = true;// (OnlyFileName == TagDeclFullName);
     fprintf(stderr, "!!! File Name: [%s]/[%s]\n",
       OnlyFileName.c_str(), TagDeclFullName.c_str());
     m_PPGlobalVars.push_back(VarGenerate(ppMNames.BaseTagVariableName));

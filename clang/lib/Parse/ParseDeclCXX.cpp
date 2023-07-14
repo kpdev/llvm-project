@@ -1798,8 +1798,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         Parts.clear();
         ExactFileName.split(Parts, '.');
         auto OnlyFileName = Parts.front().str();
-        const bool NeedCtorsDefinitions =
-          (OnlyFileName == VariantName || OnlyFileName == Name->getName().str());
+        const bool NeedCtorsDefinitions = true;
+          // (OnlyFileName == VariantName || OnlyFileName == Name->getName().str());
         printf("!!! FullFilename:[%s], OnlyFileName:[%s], Name:[%s]\n",
           FullFileName.str().c_str(),
           OnlyFileName.c_str(),

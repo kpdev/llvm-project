@@ -10,6 +10,9 @@
 #include "Inputs/pp-linked-triangle.h"
 #include <stdio.h>
 
+struct Rhombus { int a, b; };
+struct Figure + <struct Rhombus; >;
+
 int main()
 {
     // CHECK-RT: FigCircle: 42 4294967295
@@ -22,16 +25,16 @@ int main()
     // CHECK-RT-NEXT: Triangle tags check: [1]
     printTriangle();
 
-
-    // TODO: Fix it
-    // CHECK-RT: Figure tags: 3
+    // CHECK-RT: Figure tags: 4
     // CHECK-RT: Circle tag: 1
     // CHECK-RT: Rectangle tag: 2
     // CHECK-RT: Triangle tag: 3
+    // CHECK-RT: Rhombus tag: 4
     printf("Figure tags: %d\n", __pp_tags_Figure);
     printf("Circle tag: %d\n", __pp_tag___pp_struct_Figure__Circle);
     printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
     printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
+    printf("Rhombus tag: %d\n", __pp_tag___pp_struct_Figure__Rhombus);
 
     return 0;
 }
