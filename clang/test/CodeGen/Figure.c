@@ -83,6 +83,16 @@ struct BaseObject { int a; }<>;
 struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
+void PrintFigure<struct Figure*>();
+void PrintFigureWithArg<struct Figure*>(int i);
+void MultiMethod<struct Figure*, struct Figure*>();
+
+// TODO: These defines are temporary needed to avoid linkage errors
+//       will be removed
+void PrintFigure<struct Figure*>() {}
+void PrintFigureWithArg<struct Figure*>(int i) {}
+void MultiMethod<struct Figure*, struct Figure*>() {}
+
 int main() {
     struct Figure<struct Circle> fc;
     fc<r> = 42;
@@ -92,6 +102,10 @@ int main() {
     fr<w> = 5;
     fr<h> = 7;
     fr.color = 0x000000ff;
+
+    PrintFigure<&fc>();
+    PrintFigureWithArg<&fc>(42);
+    MultiMethod<&fc, &fr>();
 
     struct Figure<struct Triangle> ft;
     ft<a> = 1;

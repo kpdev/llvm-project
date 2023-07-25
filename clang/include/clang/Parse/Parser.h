@@ -1532,6 +1532,11 @@ private:
 //===--------------------------------------------------------------------===//
   // Procedural-parametric extension
 
+  /// When true, we are in parsing base types of pp multimethod invocation
+  /// (between '<' and '>')
+  /// MultiMethod<...here...>();
+  bool IsInPPMM = false;
+
   using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
   using FieldList = SmallVector<FieldDescription, 8>;
   using SpecsVec = SmallVector<std::tuple<std::string, IdentifierInfo*, FieldList>, 8>;

@@ -40,6 +40,8 @@
 
 using namespace clang;
 
+static bool IsInPPMultimethod = false;
+
 //===----------------------------------------------------------------------===//
 // C99 6.7: Declarations.
 //===----------------------------------------------------------------------===//
@@ -6733,6 +6735,17 @@ void Parser::ParseTypeQualifierListOpt(
 
   SourceLocation EndLoc;
 
+  if (Tok.is(tok::greater)) {
+    IsInPPMultimethod = false;
+    ConsumeToken();
+    assert(Tok.is(tok::l_paren));
+    if (NextToken().is(tok::r_paren)) {
+      ConsumeAnyToken();
+    } else {
+      Tok.setKind(tok::comma);
+    }
+  }
+
   while (true) {
     bool isInvalid = false;
     const char *PrevSpec = nullptr;
@@ -7417,6 +7430,11 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
   // Don't parse attributes unless we have parsed an unparenthesized name.
   if (D.hasName() && !D.getNumTypeObjects())
     MaybeParseCXX11Attributes(D);
+
+  if (Tok.is(tok::less)) {
+    Tok.setKind(tok::l_paren);
+    IsInPPMultimethod = true;
+  }
 
   while (true) {
     if (Tok.is(tok::l_paren)) {
