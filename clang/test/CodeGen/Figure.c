@@ -84,14 +84,20 @@ struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
 void PrintFigure<struct Figure*>();
-void PrintFigureWithArg<struct Figure*>(int i);
+void PrintFigureWithArg<struct Figure*>(unsigned i);
 void MultiMethod<struct Figure*, struct Figure*>();
+void MultiMethodWithArgs<struct Figure*, struct Figure*>(unsigned c1, unsigned c2);
 
 // TODO: These defines are temporary needed to avoid linkage errors
 //       will be removed
-void PrintFigure<struct Figure*>() {}
-void PrintFigureWithArg<struct Figure*>(int i) {}
-void MultiMethod<struct Figure*, struct Figure*>() {}
+void PrintFigure<struct Figure* f>() { f->color = 0; }
+void PrintFigureWithArg<struct Figure* f>(unsigned i) { f->color = i; }
+void MultiMethod<struct Figure* f1, struct Figure* f2>() { f1->color = f2->color; }
+void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2)
+{
+    f1->color = c1;
+    f2->color = c2;
+}
 
 int main() {
     struct Figure<struct Circle> fc;
@@ -102,10 +108,6 @@ int main() {
     fr<w> = 5;
     fr<h> = 7;
     fr.color = 0x000000ff;
-
-    PrintFigure<&fc>();
-    PrintFigureWithArg<&fc>(42);
-    MultiMethod<&fc, &fr>();
 
     struct Figure<struct Triangle> ft;
     ft<a> = 1;
@@ -119,6 +121,11 @@ int main() {
     printf("FigCircle: %d %u\n", fc<r>, fc.color);
     printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
     printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
+
+    PrintFigure<&fc>();
+    PrintFigureWithArg<&fc>(42);
+    MultiMethod<&fc, &fr>();
+    MultiMethodWithArgs<&fc, &fr>(7, 8);
 
     // CHECK-RT-NEXT: Figure tags: 3
     // CHECK-RT-NEXT: Circle tag: 1

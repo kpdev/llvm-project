@@ -256,6 +256,9 @@ public:
 
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPCtors;
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPGlobalVars;
+  bool IsInPPMultimethod = false;
+
+  void FinalizePPArgsParsing();
 
   /// ConsumeToken - Consume the current 'peek token' and lex the next one.
   /// This does not work with special tokens: string literals, code completion,

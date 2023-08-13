@@ -1648,8 +1648,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
 
     if (isa<DeclRefExpr>(E)) {
       if (auto X = cast_or_null<DeclRefExpr>(E)) {
-        auto TypeName = X->getType().getCanonicalType().getTypePtr()->
-                            getAsRecordDecl()->getName();
+        auto TypeName = X->getType().getCanonicalType()
+          .getBaseTypeIdentifier()->getName();
         return TypeName.startswith("__pp_struct");
       }
     }
