@@ -30,6 +30,7 @@
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
+#include "clang/Sema/Lookup.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCUDA.h"
@@ -1012,6 +1013,25 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       Validator.WantRemainingKeywords = Tok.isNot(tok::r_paren);
     }
     Name.setIdentifier(&II, ILoc);
+    // Check if it is a multimethod call
+    if (Tok.is(tok::less)) {
+      TemplateArgumentListInfo TALI;
+      DeclarationNameInfo DNI;
+      const TemplateArgumentListInfo* SomeInfo = nullptr;
+      Actions.DecomposeUnqualifiedId(Name, TALI, DNI, SomeInfo);
+      LookupResult R(Actions, DNI, Sema::LookupAnyName);
+      if (R.getResultKind() == LookupResult::NotFound) {
+        StringRef NameStr = II.getName();
+        SmallVector<char> TmpOut;
+        StringRef Mangled = Twine("__pp_mm_" + NameStr).toStringRef(TmpOut);
+        auto& IDTbl = PP.getIdentifierTable();
+        if (IDTbl.find(Mangled) != IDTbl.end()) {
+          IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          Tok.setIdentifierInfo(IIMangled);
+          Name.setIdentifier(IIMangled, ILoc);
+        }
+      }
+    }
     Res = Actions.ActOnIdExpression(
         getCurScope(), ScopeSpec, TemplateKWLoc, Name, Tok.is(tok::l_paren),
         isAddressOfOperand, &Validator,
@@ -1665,7 +1685,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
 
   auto* E = LHS.get();
   bool IsFunction = false;
-  if (isa<DeclRefExpr>(E)) {
+  if (E && isa<DeclRefExpr>(E)) {
     if (auto X = cast_or_null<DeclRefExpr>(E)) {
       IsFunction = X->getType().getTypePtr()->isFunctionType();
     }

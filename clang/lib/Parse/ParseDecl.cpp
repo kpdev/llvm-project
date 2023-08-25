@@ -2357,8 +2357,26 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   if (LateParsedAttrs.size() > 0)
     ParseLexedAttributeList(LateParsedAttrs, FirstDecl, true, false);
   D.complete(FirstDecl);
-  if (FirstDecl)
+  if (FirstDecl) {
     DeclsInGroup.push_back(FirstDecl);
+
+    if (isa<FunctionDecl>(FirstDecl)) {
+      auto* FD = cast<FunctionDecl>(FirstDecl);
+      assert(FD);
+      if (FD->getName().startswith("__pp_mm_")) {
+        auto NameStr = FD->getNameAsString();
+        PPMangledNames ppnms;
+        ppnms.setMMName(NameStr);
+        auto NumParam = FD->getNumParams();
+        SmallVector<DeclaratorChunk::ParamInfo, 16U> ParamInfoArray;
+        for (unsigned i = 0; i < NumParam; ++i) {
+          auto* X = FD->getParamDecl(i);
+          ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
+        }
+        AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms, &ParamInfoArray);
+      }
+    }
+  }
 
   bool ExpectSemi = Context != DeclaratorContext::ForInit;
 
@@ -5064,7 +5082,8 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
 void Parser::AddFunc(std::string FuncName,
                     PPFuncMode Mode,
                     std::string TagNameToInit,
-                    PPMangledNames& ppMNames)
+                    PPMangledNames& ppMNames,
+                    SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo)
 {
   ParsingDeclSpec DS(*this);
   unsigned DiagID = 0;
@@ -5110,7 +5129,6 @@ void Parser::AddFunc(std::string FuncName,
     SourceLocation LParenLoc, EllipsisLoc,
                     RParenLoc, RefQualifierLoc, StartLoc,
                     LocalEndLoc, EndLoc;
-    SmallVector<DeclaratorChunk::ParamInfo, 16> ParamInfo;
     ExceptionSpecificationType ESpecType = EST_None;
     SourceRange ESpecRange;
     SmallVector<ParsedType, 2> DynamicExceptions;
@@ -5121,9 +5139,13 @@ void Parser::AddFunc(std::string FuncName,
     TypeResult TrailingReturnType;
     SourceLocation TrailingReturnTypeLoc;
     ParsedAttributes FnAttrs(AttrFactory);
+    SmallVector<DeclaratorChunk::ParamInfo, 16> TmpParamInfo;
+    if (ParamInfo == nullptr) {
+      ParamInfo = &TmpParamInfo;
+    }
     DeclaratorChunk DCh = DeclaratorChunk::getFunction(
-                            HasProto, IsAmbiguous, LParenLoc, ParamInfo.data(),
-                            ParamInfo.size(), EllipsisLoc, RParenLoc,
+                            HasProto, IsAmbiguous, LParenLoc, ParamInfo->data(),
+                            ParamInfo->size(), EllipsisLoc, RParenLoc,
                             RefQualifierIsLValueRef, RefQualifierLoc,
                             /*MutableLoc=*/SourceLocation(),
                             ESpecType, ESpecRange, DynamicExceptions.data(),
@@ -5234,6 +5256,15 @@ void Parser::PPMangledNames::addVariantName(std::string VariantName)
       "__pp_init_" + VariantName,
       "__pp_tag_" + VariantName}
   );
+}
+
+void Parser::PPMangledNames::setMMName(std::string Name)
+{
+  MMName = std::move(Name);
+  auto PrefixSize = sizeof("__pp_mm_");
+  assert(MMName.size() > PrefixSize);
+  std::string BaseName = MMName.substr(PrefixSize);
+  MMArrayName = std::string("__pp_mminitarr_") + BaseName;
 }
 
 __attribute__((noinline))
@@ -7437,6 +7468,11 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
   if (Tok.is(tok::less)) {
     Tok.setKind(tok::l_paren);
     IsInPPMultimethod = true;
+    StringRef FuncName = D.getIdentifier()->getName();
+    SmallVector<char> TmpOut;
+    StringRef Mangled = Twine("__pp_mm_" + FuncName).toStringRef(TmpOut);
+    IdentifierInfo* II = &PP.getIdentifierTable().get(Mangled);
+    D.getName().setIdentifier(II, D.getIdentifierLoc());
   }
   else if (IsInPPMultimethod && Tok.is(tok::greater)) {
     FinalizePPArgsParsing();

@@ -1,6 +1,6 @@
 // RUN~: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-DEFAULT
 // RUN~: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
-// RUN~: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-LL
+// RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-IR
 // RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
 
 // CHECK-DEFAULT: [PPMC] Parse extension
@@ -83,21 +83,10 @@ struct BaseObject { int a; }<>;
 struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
-void PrintFigure<struct Figure*>();
-void PrintFigureWithArg<struct Figure*>(unsigned i);
-void MultiMethod<struct Figure*, struct Figure*>();
-void MultiMethodWithArgs<struct Figure*, struct Figure*>(unsigned c1, unsigned c2);
-
-// TODO: These defines are temporary needed to avoid linkage errors
-//       will be removed
-void PrintFigure<struct Figure* f>() { f->color = 0; }
-void PrintFigureWithArg<struct Figure* f>(unsigned i) { f->color = i; }
-void MultiMethod<struct Figure* f1, struct Figure* f2>() { f1->color = f2->color; }
-void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2)
-{
-    f1->color = c1;
-    f2->color = c2;
-}
+void PrintFigure<struct Figure* f>();
+void PrintFigureWithArg<struct Figure* f>(unsigned i);
+void MultiMethod<struct Figure* f1, struct Figure* f2>();
+void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);
 
 int main() {
     struct Figure<struct Circle> fc;
@@ -122,6 +111,10 @@ int main() {
     printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
     printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
 
+    // CHECK-IR:       call void @__pp_mm_PrintFigure(ptr noundef %fc)
+    // CHECK-IR-NEXT:  call void @__pp_mm_PrintFigureWithArg(ptr noundef %fc, i32 noundef 42)
+    // CHECK-IR-NEXT:  call void @__pp_mm_MultiMethod(ptr noundef %fc, ptr noundef %fr)
+    // CHECK-IR-NEXT:  call void @__pp_mm_MultiMethodWithArgs(ptr noundef %fc, ptr noundef %fr, i32 noundef 7, i32 noundef 8)
     PrintFigure<&fc>();
     PrintFigureWithArg<&fc>(42);
     MultiMethod<&fc, &fr>();
