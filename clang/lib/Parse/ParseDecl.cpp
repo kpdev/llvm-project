@@ -2373,6 +2373,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
           auto* X = FD->getParamDecl(i);
           ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
         }
+
+        // TEST of TypedefGenerate
+        SmallVector<DeclaratorChunk::ParamInfo, 16U> Params;
+        TypedefGenerate("my_typedef_type", DeclSpec::TST_void, Params);
+
         AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms, &ParamInfoArray);
       }
     }
@@ -5355,7 +5360,7 @@ void Parser::ParseLexedCAttribute(LateParsedAttribute &LA, bool EnterScope,
   }
 }
 
-Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName)
+Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName, bool IsPointer)
 {
   SourceLocation Loc;
   const char* Null = nullptr;
@@ -5372,11 +5377,89 @@ Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName)
                       DS, attrs, DeclaratorContext::File);
   auto VarIdentifier = &PP.getIdentifierTable().get(TypeVarName);
   D.SetIdentifier(VarIdentifier, Loc);
+  if (IsPointer) {
+    D.AddTypeInfo(
+      DeclaratorChunk::getPointer(
+        DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+        DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+        DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+        std::move(DS.getAttributes()), Loc
+    );
+  }
   Decl* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
   Actions.ActOnUninitializedDecl(ThisDecl);
   Actions.FinalizeDeclaration(ThisDecl);
   D.complete(ThisDecl);
+  SmallVector<Decl *, 8> DeclsInGroup;
+  DeclsInGroup.push_back(ThisDecl);
+  return Actions.FinalizeDeclaratorGroup(getCurScope(), DS, DeclsInGroup);
+}
 
+Sema::DeclGroupPtrTy Parser::TypedefGenerate(std::string TypeVarName,
+                                             DeclSpec::TST ReturnTypeSpecifier,
+                                             SmallVector<DeclaratorChunk::ParamInfo, 16>& ParamInfo)
+{
+  ParsingDeclSpec DS(*this);
+  SourceLocation TokLoc = Tok.getLocation();
+  const char* TmpNull = nullptr;
+  unsigned int DiagID = 0;
+  auto PPolicy = Actions.getPrintingPolicy();
+  DS.SetStorageClassSpec(Actions,
+                         DeclSpec::SCS_typedef,
+                         TokLoc, TmpNull, DiagID, PPolicy);
+  DS.SetRangeEnd(TokLoc);
+  DS.SetTypeSpecType(ReturnTypeSpecifier, TokLoc, TmpNull, DiagID, PPolicy);
+  DS.Finish(Actions, PPolicy);
+  ParsedAttributes LocalAttrs(AttrFactory);
+  auto Ctx = DeclaratorContext::File;
+  ParsingDeclarator D(*this, DS, LocalAttrs, Ctx);
+  D.SetRangeBegin(TokLoc);
+  D.SetRangeEnd(TokLoc);
+  auto VarIdentifier = &PP.getIdentifierTable().get(TypeVarName);
+  D.SetIdentifier(VarIdentifier, TokLoc);
+  D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(), TokLoc, TokLoc,
+    TokLoc, TokLoc, TokLoc, TokLoc), TokLoc);
+  D.AddTypeInfo(DeclaratorChunk::getParen(TokLoc, TokLoc), std::move(LocalAttrs), TokLoc);
+  D.setGroupingParens(false);
+  // OMITTED INFO for
+  // D.setGroupingParens
+  // -- Now parameters
+  //     -- them should be passed to ParamInfo
+  {
+    DeclSpec DS(AttrFactory);
+    DS.SetRangeStart(TokLoc);
+    DS.SetRangeEnd(TokLoc);
+    DS.SetTypeSpecType(DeclSpec::TST_int, TokLoc, TmpNull, DiagID, PPolicy);
+    DS.Finish(Actions, PPolicy);
+    ParsedAttributes PPattr(AttrFactory);
+    DS.takeAttributesFrom(PPattr);
+    Declarator ParamDeclarator(DS, PPattr, DeclaratorContext::Prototype);
+    ParamDeclarator.SetIdentifier(nullptr, TokLoc);
+    auto Flags = getCurScope()->Flags;
+    getCurScope()->Flags = (Flags | Scope::FunctionPrototypeScope);
+    bool Proto = getCurScope()->isFunctionPrototypeScope();
+    assert(Proto);
+    getCurScope()->PrototypeDepth++;
+    Decl* Param = Actions.ActOnParamDeclarator(getCurScope(), ParamDeclarator);
+    getCurScope()->Flags = Flags;
+    getCurScope()->PrototypeDepth--;
+    ParamInfo.push_back(DeclaratorChunk::ParamInfo(
+      nullptr, TokLoc, Param, nullptr
+    ));
+    clang::ParsedType ExceptionTmpEmpty;
+    clang::SourceRange RangeEmpty;
+    llvm::ArrayRef<clang::NamedDecl*> ArrayEmpty;
+    clang::TypeResult TRes(false);
+
+    D.AddTypeInfo(DeclaratorChunk::getFunction(true, false, TokLoc, ParamInfo.data(), ParamInfo.size(),
+      SourceLocation(), TokLoc, true, SourceLocation(), TokLoc, clang::EST_None, SourceRange(), &ExceptionTmpEmpty,
+      &RangeEmpty, 0, nullptr, nullptr, ArrayEmpty, SourceLocation(), SourceLocation(), D, TRes,
+      SourceLocation(), &DS), std::move(PPattr), TokLoc);
+  }
+  auto* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
+  Actions.ActOnUninitializedDecl(ThisDecl);
+  Actions.FinalizeDeclaration(ThisDecl);
+  D.complete(ThisDecl);
   SmallVector<Decl *, 8> DeclsInGroup;
   DeclsInGroup.push_back(ThisDecl);
   return Actions.FinalizeDeclaratorGroup(getCurScope(), DS, DeclsInGroup);
