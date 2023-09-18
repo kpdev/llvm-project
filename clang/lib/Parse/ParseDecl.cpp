@@ -2374,11 +2374,12 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
           ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
         }
 
-        // TEST of TypedefGenerate
-        SmallVector<DeclaratorChunk::ParamInfo, 16U> Params;
-        TypedefGenerate("my_typedef_type", DeclSpec::TST_void, Params);
+        TypedefGenerate(std::string("__pp_mmtype") + NameStr,
+          D.getDeclSpec().getTypeSpecType(),
+          ParamInfoArray);
 
-        AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms, &ParamInfoArray);
+        AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms,
+          D.getDeclSpec().getTypeSpecType(), &ParamInfoArray);
       }
     }
   }
@@ -5088,14 +5089,15 @@ void Parser::AddFunc(std::string FuncName,
                     PPFuncMode Mode,
                     std::string TagNameToInit,
                     PPMangledNames& ppMNames,
+                    DeclSpec::TST ReturnType,
                     SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo)
 {
   ParsingDeclSpec DS(*this);
   unsigned DiagID = 0;
   const char *PrevSpec = nullptr;
   PrintingPolicy Policy = Actions.getPrintingPolicy();
-  DS.SetTypeSpecType(DeclSpec::TST_void, SourceLocation(), PrevSpec,
-                                    DiagID, Policy);
+  DS.SetTypeSpecType(ReturnType, SourceLocation(), PrevSpec,
+                     DiagID, Policy);
 
   ParsedAttributes& Attrs = DS.getAttributes();
   // --- Attr ---
@@ -5421,42 +5423,21 @@ Sema::DeclGroupPtrTy Parser::TypedefGenerate(std::string TypeVarName,
     TokLoc, TokLoc, TokLoc, TokLoc), TokLoc);
   D.AddTypeInfo(DeclaratorChunk::getParen(TokLoc, TokLoc), std::move(LocalAttrs), TokLoc);
   D.setGroupingParens(false);
-  // OMITTED INFO for
-  // D.setGroupingParens
-  // -- Now parameters
-  //     -- them should be passed to ParamInfo
-  {
-    DeclSpec DS(AttrFactory);
-    DS.SetRangeStart(TokLoc);
-    DS.SetRangeEnd(TokLoc);
-    DS.SetTypeSpecType(DeclSpec::TST_int, TokLoc, TmpNull, DiagID, PPolicy);
-    DS.Finish(Actions, PPolicy);
-    ParsedAttributes PPattr(AttrFactory);
-    DS.takeAttributesFrom(PPattr);
-    Declarator ParamDeclarator(DS, PPattr, DeclaratorContext::Prototype);
-    ParamDeclarator.SetIdentifier(nullptr, TokLoc);
-    auto Flags = getCurScope()->Flags;
-    getCurScope()->Flags = (Flags | Scope::FunctionPrototypeScope);
-    bool Proto = getCurScope()->isFunctionPrototypeScope();
-    assert(Proto);
-    getCurScope()->PrototypeDepth++;
-    Decl* Param = Actions.ActOnParamDeclarator(getCurScope(), ParamDeclarator);
-    getCurScope()->Flags = Flags;
-    getCurScope()->PrototypeDepth--;
-    ParamInfo.push_back(DeclaratorChunk::ParamInfo(
-      nullptr, TokLoc, Param, nullptr
-    ));
-    clang::ParsedType ExceptionTmpEmpty;
-    clang::SourceRange RangeEmpty;
-    llvm::ArrayRef<clang::NamedDecl*> ArrayEmpty;
-    clang::TypeResult TRes(false);
 
-    D.AddTypeInfo(DeclaratorChunk::getFunction(true, false, TokLoc, ParamInfo.data(), ParamInfo.size(),
-      SourceLocation(), TokLoc, true, SourceLocation(), TokLoc, clang::EST_None, SourceRange(), &ExceptionTmpEmpty,
-      &RangeEmpty, 0, nullptr, nullptr, ArrayEmpty, SourceLocation(), SourceLocation(), D, TRes,
-      SourceLocation(), &DS), std::move(PPattr), TokLoc);
-  }
+  ParsedAttributes PPattr(AttrFactory);
+  clang::ParsedType ExceptionTmpEmpty;
+  clang::SourceRange RangeEmpty;
+  llvm::ArrayRef<clang::NamedDecl*> ArrayEmpty;
+  clang::TypeResult TRes(false);
+
+  D.AddTypeInfo(DeclaratorChunk::getFunction(true, false, TokLoc, ParamInfo.data(), ParamInfo.size(),
+    SourceLocation(), TokLoc, true, SourceLocation(), TokLoc, clang::EST_None, SourceRange(), &ExceptionTmpEmpty,
+    &RangeEmpty, 0, nullptr, nullptr, ArrayEmpty, SourceLocation(), SourceLocation(), D, TRes,
+    SourceLocation(), &DS), std::move(PPattr), TokLoc);
+
   auto* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
+  // TODO: Remove this dump. Temporarily used in test
+  ThisDecl->dump();
   Actions.ActOnUninitializedDecl(ThisDecl);
   Actions.FinalizeDeclaration(ThisDecl);
   D.complete(ThisDecl);

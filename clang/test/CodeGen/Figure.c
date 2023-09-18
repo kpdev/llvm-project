@@ -1,13 +1,17 @@
-// RUN~: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-DEFAULT
+// RUN: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LOGS
+// RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-MM
 // RUN~: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
 // RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-IR
 // RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
 
-// CHECK-DEFAULT: [PPMC] Parse extension
-// CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base1]
-// CHECK-DEFAULT:   Token -> Kind: [comma]
-// CHECK-DEFAULT:   Token -> Kind: [identifier], Name:[Base2]
-// CHECK-DEFAULT: [PPMC] Finish parse extension
+// CHECK-LOGS:      [PPMC] Parse extension
+// CHECK-LOGS-NEXT:   Token -> Kind: [struct]
+// CHECK-LOGS-NEXT:   Token -> Kind: [identifier], Name:[Circle]
+// CHECK-LOGS-NEXT:   Token -> Kind: [semi]
+// CHECK-LOGS-NEXT:   Token -> Kind: [struct]
+// CHECK-LOGS-NEXT:   Token -> Kind: [identifier], Name:[Rectangle]
+// CHECK-LOGS-NEXT:   Token -> Kind: [semi]
+// CHECK-LOGS-NEXT: [PPMC] Finish parse extension
 
 // CHECK-LL: struct Generalization definition
 // CHECK-LL: load 'double'
@@ -70,6 +74,9 @@
 
 //---------------------------------------
 
+// typedef void(*ftype)(int);
+// ftype* my_ptr;
+
 #include <stdio.h>
 
 struct Circle { int r; };
@@ -83,9 +90,13 @@ struct BaseObject { int a; }<>;
 struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
+// CHECK-MM: TypedefDecl {{.*}} __pp_mmtype__pp_mm_PrintFigure 'void (*)(struct Figure *)'
 void PrintFigure<struct Figure* f>();
+// CHECK-MM: TypedefDecl {{.*}} __pp_mmtype__pp_mm_PrintFigureWithArg 'void (*)(struct Figure *, unsigned int)'
 void PrintFigureWithArg<struct Figure* f>(unsigned i);
+// CHECK-MM: TypedefDecl {{.*}} __pp_mmtype__pp_mm_MultiMethod 'void (*)(struct Figure *, struct Figure *)'
 void MultiMethod<struct Figure* f1, struct Figure* f2>();
+// CHECK-MM: TypedefDecl {{.*}} __pp_mmtype__pp_mm_MultiMethodWithArgs 'void (*)(struct Figure *, struct Figure *, unsigned int, unsigned int)'
 void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);
 
 int main() {
