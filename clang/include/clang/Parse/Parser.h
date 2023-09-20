@@ -254,6 +254,7 @@ public:
     return ParseTopLevelDecl(Result, IS);
   }
 
+  std::vector<clang::Parser::DeclGroupPtrTy> m_PPTypedefs;
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPCtors;
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPGlobalVars;
   bool IsInPPMultimethod = false;
@@ -1609,7 +1610,9 @@ private:
                       Decl *TestDecl,
                       SmallVector<Decl *, 32>& FieldDecls);
 
-  Sema::DeclGroupPtrTy VarGenerate(std::string TypeVarName, bool IsPointer = false);
+  Sema::DeclGroupPtrTy VarGenerate(std::string TypeVarName,
+                                   bool IsPointer = false,
+                                   std::string TypeNameStr = "");
   Sema::DeclGroupPtrTy TypedefGenerate(std::string TypeVarName,
                                        DeclSpec::TST ReturnTypeSpecifier,
                                        SmallVector<DeclaratorChunk::ParamInfo, 16>& ParamInfo);

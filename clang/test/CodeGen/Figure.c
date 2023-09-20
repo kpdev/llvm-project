@@ -99,6 +99,11 @@ void MultiMethod<struct Figure* f1, struct Figure* f2>();
 // CHECK-MM: TypedefDecl {{.*}} __pp_mmtype__pp_mm_MultiMethodWithArgs 'void (*)(struct Figure *, struct Figure *, unsigned int, unsigned int)'
 void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);
 
+// CHECK-IR:      @__pp_mminitarr__pp_mm_PrintFigure = linkonce_odr dso_local global ptr null, align 8
+// CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_PrintFigureWithArg = linkonce_odr dso_local global ptr null, align 8
+// CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethod = linkonce_odr dso_local global ptr null, align 8
+// CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethodWithArgs = linkonce_odr dso_local global ptr null, align 8
+
 int main() {
     struct Figure<struct Circle> fc;
     fc<r> = 42;

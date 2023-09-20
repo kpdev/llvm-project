@@ -2374,9 +2374,15 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
           ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
         }
 
-        TypedefGenerate(std::string("__pp_mmtype") + NameStr,
-          D.getDeclSpec().getTypeSpecType(),
-          ParamInfoArray);
+        auto MMTypeDefName = std::string("__pp_mmtype") + NameStr;
+        m_PPTypedefs.push_back(
+          TypedefGenerate(MMTypeDefName,
+            D.getDeclSpec().getTypeSpecType(),
+            ParamInfoArray));
+        auto MMInitArrayName = std::string("__pp_mminitarr") + NameStr;
+        m_PPGlobalVars.push_back(
+          VarGenerate(MMInitArrayName, true, MMTypeDefName)
+        );
 
         AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms,
           D.getDeclSpec().getTypeSpecType(), &ParamInfoArray);
@@ -5362,16 +5368,40 @@ void Parser::ParseLexedCAttribute(LateParsedAttribute &LA, bool EnterScope,
   }
 }
 
-Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName, bool IsPointer)
+Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName,
+                                         bool IsPointer,
+                                         std::string TypeNameStr)
 {
   SourceLocation Loc;
   const char* Null = nullptr;
   unsigned int DiagID = 0;
   auto PrintPolicy = Actions.getPrintingPolicy();
   ParsingDeclSpec DS(*this);
-
-  DS.SetTypeSpecType(DeclSpec::TST_int, Loc, Null,
-    DiagID, PrintPolicy);
+  const bool IsTypedef = (not TypeNameStr.empty());
+  if (IsTypedef) {
+    auto TypeIdentifier = &PP.getIdentifierTable().get(TypeNameStr);
+    LookupResult Result(Actions,
+                        TypeIdentifier,
+                        SourceLocation(),
+                        clang::Sema::LookupOrdinaryName);
+    Actions.LookupName(Result, getCurScope());
+    assert(Result.getResultKind() == LookupResult::Found);
+    NamedDecl* IIDecl = Result.getFoundDecl();
+    TypeDecl* TD = dyn_cast<TypeDecl>(IIDecl);
+    auto T = Actions.Context.getTypeDeclType(TD);
+    Actions.MarkAnyDeclReferenced(Tok.getLocation(), TD, false);
+    ParsedType TypeRep = ParsedType::make(T);
+    //---
+    // All Above can be replaced with
+    // Note 1
+    // ---
+    DS.SetTypeSpecType(TST_typename, Loc, Null, DiagID, TypeRep, PrintPolicy);
+    DS.SetRangeEnd(Tok.getLocation());
+  }
+  else {
+    DS.SetTypeSpecType(DeclSpec::TST_int, Loc, Null,
+      DiagID, PrintPolicy);
+  }
   DS.Finish(Actions, PrintPolicy);
 
   ParsedAttributes attrs(AttrFactory);
