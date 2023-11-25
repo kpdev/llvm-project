@@ -104,15 +104,26 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethod = linkonce_odr dso_local global ptr null, align 8
 // CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethodWithArgs = linkonce_odr dso_local global ptr null, align 8
 
+void test_type_tag(struct Figure* f)
+{
+    printf("[foo_test] f->__pp_specialization_type = %d\n", f->__pp_specialization_type);
+}
+
 int main() {
     struct Figure<struct Circle> fc;
     fc<r> = 42;
     fc.color = 0xffffffff;
 
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
+    test_type_tag(&fc);
+
     struct Figure<struct Rectangle> fr;
     fr<w> = 5;
     fr<h> = 7;
     fr.color = 0x000000ff;
+
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 2
+    test_type_tag(&fr);
 
     struct Figure<struct Triangle> ft;
     ft<a> = 1;
