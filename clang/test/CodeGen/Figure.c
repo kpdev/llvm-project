@@ -104,6 +104,12 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethod = linkonce_odr dso_local global ptr null, align 8
 // CHECK-IR-NEXT: @__pp_mminitarr__pp_mm_MultiMethodWithArgs = linkonce_odr dso_local global ptr null, align 8
 
+// CHECK-IR: @llvm.global_ctors =
+// CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_PrintFigure, ptr null },
+// CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_PrintFigureWithArg, ptr null },
+// CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethod, ptr null },
+// CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethodWithArgs, ptr null }
+
 void test_type_tag(struct Figure* f)
 {
     printf("[foo_test] f->__pp_specialization_type = %d\n", f->__pp_specialization_type);

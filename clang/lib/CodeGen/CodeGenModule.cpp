@@ -6350,6 +6350,30 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalDtor(Fn, DA->getPriority(), true);
   if (getLangOpts().OpenMP && D->hasAttr<OMPDeclareTargetDeclAttr>())
     getOpenMPRuntime().emitDeclareTargetFunction(D, GV);
+
+  HandlePPExtensionMethods(Fn);
+}
+
+void CodeGenModule::HandlePPExtensionMethods(llvm::Function* F)
+{
+  auto FName = F->getName();
+  if (not FName.startswith("__pp_mm")) {
+    return;
+  }
+
+  printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
+
+  auto* Ty = F->getFunctionType();
+  auto* NewF = llvm::Function::Create(Ty,
+    llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+    std::string("__pp_alloc") + FName.str(),
+    &getModule());
+
+  auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
+
+  llvm::ReturnInst::Create(getLLVMContext(), BB);
+
+  AddGlobalCtor(NewF, 102);
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
