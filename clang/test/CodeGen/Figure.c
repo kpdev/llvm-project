@@ -110,6 +110,11 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethod, ptr null },
 // CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethodWithArgs, ptr null }
 
+// Generated default handlers
+// CHECK-IR: @__pp_default__pp_mm_PrintFigure
+// CHECK-IR: @__pp_default__pp_mm_PrintFigureWithArg
+// CHECK-IR: @__pp_default__pp_mm_MultiMethod
+// CHECK-IR: @__pp_default__pp_mm_MultiMethodWithArgs
 void test_type_tag(struct Figure* f)
 {
     printf("[foo_test] f->__pp_specialization_type = %d\n", f->__pp_specialization_type);

@@ -73,6 +73,7 @@
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/BuildLibCalls.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <optional>
 #include <set>
 
@@ -6369,11 +6370,31 @@ void CodeGenModule::HandlePPExtensionMethods(llvm::Function* F)
     std::string("__pp_alloc") + FName.str(),
     &getModule());
 
+  // TODO: Add allocation logic
   auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
-
   llvm::ReturnInst::Create(getLLVMContext(), BB);
 
   AddGlobalCtor(NewF, 102);
+
+  ExtractDefaultPPMMImplementation(F);
+}
+
+void CodeGenModule::ExtractDefaultPPMMImplementation(
+  llvm::Function* F) {
+
+    // Create default handler function
+    // TODO: Check if multimethod is empty
+    //       and then do not clone it
+    llvm::ValueToValueMapTy VMap;
+    llvm::Function *NewFn = llvm::CloneFunction(F, VMap);
+    NewFn->setName(std::string("__pp_default") + F->getName().str());
+
+    // Clear multimethod
+    F->deleteBody();
+    auto* BB = llvm::BasicBlock::Create(
+        getLLVMContext(), "entry", F);
+    llvm::ReturnInst::Create(getLLVMContext(), BB);
+    // TODO: Create body for dispatch function
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {

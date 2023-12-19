@@ -1869,6 +1869,7 @@ private:
 
   void EmitGlobalFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
   void HandlePPExtensionMethods(llvm::Function* F);
+  void ExtractDefaultPPMMImplementation(llvm::Function* F);
   void EmitMultiVersionFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
 
   void EmitGlobalVarDefinition(const VarDecl *D, bool IsTentative = false);
