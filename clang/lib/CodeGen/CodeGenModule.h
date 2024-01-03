@@ -1868,7 +1868,7 @@ private:
   void EmitGlobalDefinition(GlobalDecl D, llvm::GlobalValue *GV = nullptr);
 
   void EmitGlobalFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
-  void HandlePPExtensionMethods(llvm::Function* F);
+  void HandlePPExtensionMethods(llvm::Function* F, GlobalDecl GD);
   void ExtractDefaultPPMMImplementation(llvm::Function* F);
   void EmitMultiVersionFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
 

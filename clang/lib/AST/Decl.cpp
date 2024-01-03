@@ -3773,6 +3773,27 @@ void FunctionDecl::setParams(ASTContext &C,
   }
 }
 
+std::vector<std::string>
+FunctionDecl::getNamesOfGenArgsForPPMM() const {
+  std::vector<std::string> Result;
+  for (auto p = param_begin();
+        p != param_end(); ++p) {
+    auto PT = dyn_cast_or_null<PointerType>(
+                                  (*p)->getType().getTypePtr());
+    if (PT) {
+      auto RD = PT->getPointeeType().getTypePtr()->getAsRecordDecl();
+      if (RD) {
+        for (auto F = RD->field_begin();
+              F != RD->field_end(); ++F) {
+          if (F->getName().equals("__pp_specialization_type"))
+            Result.push_back(RD->getNameAsString());
+        }
+      }
+    }
+  }
+  return Result;
+}
+
 /// getMinRequiredArguments - Returns the minimum number of arguments
 /// needed to call this function. This may be fewer than the number of
 /// function parameters, if some of the parameters have default

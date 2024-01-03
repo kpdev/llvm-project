@@ -110,6 +110,16 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethod, ptr null },
 // CHECK-IR: { i32 102, ptr @__pp_alloc__pp_mm_MultiMethodWithArgs, ptr null }
 
+// CHECK-IR:      define void @__pp_alloc__pp_mm_PrintFigure(ptr %0) {
+// CHECK-IR-NEXT: entry:
+// CHECK-IR-NEXT:   %1 = load i32, ptr @__pp_tags_Figure, align 4
+// CHECK-IR-NEXT:   %2 = sext i32 %1 to i64
+// CHECK-IR-NEXT:   %3 = mul i64 8, %2
+// CHECK-IR-NEXT:   %call_malloc = call ptr @malloc(i64 noundef %3) #2
+// CHECK-IR-NEXT:   store ptr %call_malloc, ptr @__pp_mminitarr__pp_mm_PrintFigure, align 8
+// CHECK-IR-NEXT:   ret void
+// CHECK-IR-NEXT: }
+
 // Generated default handlers
 // CHECK-IR: @__pp_default__pp_mm_PrintFigure
 // CHECK-IR: @__pp_default__pp_mm_PrintFigureWithArg
