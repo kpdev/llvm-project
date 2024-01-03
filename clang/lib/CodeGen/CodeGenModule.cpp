@@ -6397,6 +6397,20 @@ void CodeGenModule::HandlePPExtensionMethods(
       "", BB);
   auto MulInstr = llvm::BinaryOperator::Create(llvm::BinaryOperator::BinaryOps::Mul,
     Int8_Number, CInstr, "", BB);
+  // TODO: Make loop starting with i = 0
+  for (auto i = 1UL; i < Generalizations.size(); ++i) {
+    auto nextGenName = std::string("__pp_tags_") + Generalizations[i];
+    auto *nextGV = getModule().getGlobalVariable(nextGenName);
+    auto* LoadNextGV = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
+      false, MyAlignment.getAsAlign(), BB);
+    auto* nextCInstr = llvm::CastInst::Create(
+        llvm::Instruction::CastOps::SExt,
+        LoadNextGV,
+        MyLongLongTy,
+        "", BB);
+    MulInstr = llvm::BinaryOperator::Create(llvm::BinaryOperator::BinaryOps::Mul,
+        MulInstr, nextCInstr, "", BB);
+  }
 
   // Construct and invoke malloc
   {
