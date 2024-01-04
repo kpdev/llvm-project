@@ -118,6 +118,29 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR-NEXT:   %3 = mul i64 8, %2
 // CHECK-IR-NEXT:   %call_malloc = call ptr @malloc(i64 noundef %3) #2
 // CHECK-IR-NEXT:   store ptr %call_malloc, ptr @__pp_mminitarr__pp_mm_PrintFigure, align 8
+// CHECK-IR-NEXT:   %Size = alloca i64, align 8
+// CHECK-IR-NEXT:   %Iter = alloca i64, align 8
+// CHECK-IR-NEXT:   %4 = udiv i64 %3, 8
+// CHECK-IR-NEXT:   store i64 %4, ptr %Size, align 8
+// CHECK-IR-NEXT:   store i64 0, ptr %Iter, align 8
+// CHECK-IR-NEXT:   br label %for.cond
+// CHECK-IR: for.cond:                                         ; preds = %for.inc, %entry
+// CHECK-IR-NEXT:   %5 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %6 = load i64, ptr %Size, align 8
+// CHECK-IR-NEXT:   %7 = icmp ult i64 %5, %6
+// CHECK-IR-NEXT:   br i1 %7, label %for.body, label %for.end
+// CHECK-IR: for.body:                                         ; preds = %for.cond
+// CHECK-IR-NEXT:   %8 = load ptr, ptr @__pp_mminitarr__pp_mm_PrintFigure, align 8
+// CHECK-IR-NEXT:   %9 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %10 = getelementptr inbounds ptr, ptr %8, i64 %9
+// CHECK-IR-NEXT:   store ptr @__pp_default__pp_mm_PrintFigure, ptr %10, align 8
+// CHECK-IR-NEXT:   br label %for.inc
+// CHECK-IR: for.inc:                                          ; preds = %for.body
+// CHECK-IR-NEXT:   %11 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %12 = add i64 %11, 1
+// CHECK-IR-NEXT:   store i64 %12, ptr %Iter, align 8
+// CHECK-IR-NEXT:   br label %for.cond
+// CHECK-IR: for.end:                                          ; preds = %for.cond
 // CHECK-IR-NEXT:   ret void
 // CHECK-IR-NEXT: }
 
@@ -134,6 +157,29 @@ void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsi
 // CHECK-IR-NEXT:   %7 = mul i64 %4, %6
 // CHECK-IR-NEXT:   %call_malloc = call ptr @malloc(i64 noundef %7) #2
 // CHECK-IR-NEXT:   store ptr %call_malloc, ptr @__pp_mminitarr__pp_mm_MultiMethod, align 8
+// CHECK-IR-NEXT:   %Size = alloca i64, align 8
+// CHECK-IR-NEXT:   %Iter = alloca i64, align 8
+// CHECK-IR-NEXT:   %8 = udiv i64 %7, 8
+// CHECK-IR-NEXT:   store i64 %8, ptr %Size, align 8
+// CHECK-IR-NEXT:   store i64 0, ptr %Iter, align 8
+// CHECK-IR-NEXT:   br label %for.cond
+// CHECK-IR: for.cond:                                         ; preds = %for.inc, %entry
+// CHECK-IR-NEXT:   %9 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %10 = load i64, ptr %Size, align 8
+// CHECK-IR-NEXT:   %11 = icmp ult i64 %9, %10
+// CHECK-IR-NEXT:   br i1 %11, label %for.body, label %for.end
+// CHECK-IR: for.body:                                         ; preds = %for.cond
+// CHECK-IR-NEXT:   %12 = load ptr, ptr @__pp_mminitarr__pp_mm_MultiMethod, align 8
+// CHECK-IR-NEXT:   %13 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %14 = getelementptr inbounds ptr, ptr %12, i64 %13
+// CHECK-IR-NEXT:   store ptr @__pp_default__pp_mm_MultiMethod, ptr %14, align 8
+// CHECK-IR-NEXT:   br label %for.inc
+// CHECK-IR: for.inc:                                          ; preds = %for.body
+// CHECK-IR-NEXT:   %15 = load i64, ptr %Iter, align 8
+// CHECK-IR-NEXT:   %16 = add i64 %15, 1
+// CHECK-IR-NEXT:   store i64 %16, ptr %Iter, align 8
+// CHECK-IR-NEXT:   br label %for.cond
+// CHECK-IR: for.end:                                          ; preds = %for.cond
 // CHECK-IR-NEXT:   ret void
 // CHECK-IR-NEXT: }
 

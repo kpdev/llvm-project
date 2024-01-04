@@ -6368,6 +6368,8 @@ void CodeGenModule::HandlePPExtensionMethods(
 
   printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
 
+  auto* DefaultHandler = ExtractDefaultPPMMImplementation(F);
+
   auto* Ty = F->getFunctionType();
   auto* NewF = llvm::Function::Create(Ty,
     llvm::GlobalValue::LinkageTypes::ExternalLinkage,
@@ -6465,14 +6467,101 @@ void CodeGenModule::HandlePPExtensionMethods(
     new llvm::StoreInst(CI, Ptr, BB);
   }
 
-  llvm::ReturnInst::Create(getLLVMContext(), BB);
-  AddGlobalCtor(NewF, 102);
+  auto* HandlersArray = getModule().getGlobalVariable(initArrName);
+  auto* BBEnd = InitPPHandlersArray(BB,
+                                    MulInstr,
+                                    HandlersArray,
+                                    DefaultHandler);
 
-  ExtractDefaultPPMMImplementation(F);
+  llvm::ReturnInst::Create(getLLVMContext(), BBEnd);
+  AddGlobalCtor(NewF, 102);
 }
 
-void CodeGenModule::ExtractDefaultPPMMImplementation(
-  llvm::Function* F) {
+llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
+  llvm::BasicBlock* BB,
+  llvm::Value* AllocatedBytes,
+  llvm::Value* HandlersArray,
+  llvm::Value* DefaultHandler)
+{
+  auto ASTLongLongTy = getContext().LongLongTy;
+  auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+
+  auto* SizeAlloca = new llvm::AllocaInst(LongLongTy, 0, "Size", BB);
+  auto* IterAlloca = new llvm::AllocaInst(LongLongTy, 0, "Iter", BB);
+
+  llvm::APInt apint8(64, 8);
+  auto* Int8_Number = llvm::ConstantInt::get(getLLVMContext(), apint8);
+  llvm::APInt apint0(64, 0);
+  auto* Int0_Number = llvm::ConstantInt::get(getLLVMContext(), apint0);
+  llvm::APInt apint1(64, 1);
+  auto* Int1_Number = llvm::ConstantInt::get(getLLVMContext(), apint1);
+
+  auto* NumOfHandlers = llvm::BinaryOperator::Create(
+    llvm::Instruction::BinaryOps::UDiv,
+    AllocatedBytes, Int8_Number, "", BB);
+  new llvm::StoreInst(NumOfHandlers, SizeAlloca, BB);
+  new llvm::StoreInst(Int0_Number, IterAlloca, BB);
+
+  auto* BBCond = llvm::BasicBlock::Create(
+    getLLVMContext(), "for.cond", BB->getParent());
+  llvm::BranchInst::Create(BBCond, BB);
+
+  // Condition BB
+  auto* CurIter = new llvm::LoadInst(
+                              LongLongTy,
+                              IterAlloca, "", BBCond);
+  // TODO: Load it only once in entry BB
+  auto* CurSize = new llvm::LoadInst(
+                              LongLongTy,
+                              SizeAlloca, "", BBCond);
+  auto* CurCmp = llvm::CmpInst::Create(
+    llvm::Instruction::OtherOps::ICmp,
+    llvm::CmpInst::Predicate::ICMP_ULT,
+    CurIter, CurSize, "", BBCond);
+
+  auto* BBBody = llvm::BasicBlock::Create(
+    getLLVMContext(), "for.body", BB->getParent());
+  auto* BBInc = llvm::BasicBlock::Create(
+    getLLVMContext(), "for.inc", BB->getParent());
+  auto* BBEnd = llvm::BasicBlock::Create(
+    getLLVMContext(), "for.end", BB->getParent());
+
+  llvm::BranchInst::Create(BBBody, BBEnd,
+                           CurCmp, BBCond);
+
+  // Body BB
+  auto* FnTy = cast<llvm::Function>(DefaultHandler)
+                    ->getFunctionType()->getPointerTo();
+  auto* ArrayPtr = new llvm::LoadInst(
+                              FnTy,
+                              HandlersArray, "", BBBody);
+  auto* CurIdx = new llvm::LoadInst(
+                              LongLongTy,
+                              IterAlloca, "", BBBody);
+
+  ArrayRef<llvm::Value*> Idxs({CurIdx});
+  auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
+    FnTy, ArrayPtr, Idxs, "", BBBody);
+  new llvm::StoreInst(DefaultHandler, Elem, BBBody);
+  llvm::BranchInst::Create(BBInc, BBBody);
+
+  // Inc BB
+  auto* IterForInc = new llvm::LoadInst(
+                              LongLongTy,
+                              IterAlloca, "", BBInc);
+  auto* IncrementedIter = llvm::BinaryOperator::CreateAdd(
+    IterForInc,
+    Int1_Number, "", BBInc);
+  new llvm::StoreInst(IncrementedIter, IterAlloca, BBInc);
+  llvm::BranchInst::Create(BBCond, BBInc);
+
+  return BBEnd;
+}
+
+llvm::Function*
+CodeGenModule::ExtractDefaultPPMMImplementation(
+  llvm::Function* F)
+{
 
     // Create default handler function
     // TODO: Check if multimethod is empty
@@ -6487,6 +6576,12 @@ void CodeGenModule::ExtractDefaultPPMMImplementation(
         getLLVMContext(), "entry", F);
     llvm::ReturnInst::Create(getLLVMContext(), BB);
     // TODO: Create body for dispatch function
+    if (NewFn->getBasicBlockList().empty()) {
+      auto* NewBB = llvm::BasicBlock::Create(
+          getLLVMContext(), "entry", NewFn);
+      llvm::ReturnInst::Create(getLLVMContext(), NewBB);
+    }
+    return NewFn;
 }
 
 void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
