@@ -6364,11 +6364,11 @@ void CodeGenModule::HandlePPExtensionMethods(
   }
 
   auto FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl());
-  auto Generalizations = FD->getNamesOfGenArgsForPPMM();
+  auto Generalizations = FD->getRecordDeclsGenArgsForPPMM();
 
   printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
 
-  auto* DefaultHandler = ExtractDefaultPPMMImplementation(F);
+  auto* DefaultHandler = ExtractDefaultPPMMImplementation(F, FD);
 
   auto* Ty = F->getFunctionType();
   auto* NewF = llvm::Function::Create(Ty,
@@ -6378,7 +6378,8 @@ void CodeGenModule::HandlePPExtensionMethods(
 
   auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
 
-  auto genName = std::string("__pp_tags_") + Generalizations[0];
+  auto genName = std::string("__pp_tags_")
+    + std::get<0>(Generalizations[0])->getNameAsString();
   auto initArrName = std::string("__pp_mminitarr") + FName.str();
   auto ASTIntTy = getContext().IntTy;
   auto ASTLongLongTy = getContext().LongLongTy;
@@ -6401,7 +6402,8 @@ void CodeGenModule::HandlePPExtensionMethods(
     Int8_Number, CInstr, "", BB);
   // TODO: Make loop starting with i = 0
   for (auto i = 1UL; i < Generalizations.size(); ++i) {
-    auto nextGenName = std::string("__pp_tags_") + Generalizations[i];
+    auto nextGenName = std::string("__pp_tags_")
+      + std::get<0>(Generalizations[i])->getNameAsString();
     auto *nextGV = getModule().getGlobalVariable(nextGenName);
     auto* LoadNextGV = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
@@ -6462,8 +6464,22 @@ void CodeGenModule::HandlePPExtensionMethods(
     auto* CI = llvm::CallInst::Create(F->getFunctionType(),
       F, IRCallArgs, "call_malloc", BB);
     CI->setAttributes(PAL);
-    auto* Ptr = getModule().getOrInsertGlobal(initArrName,
-      Ty->getPointerTo());
+    auto ArrayTy = llvm::ArrayType::get(Ty->getPointerTo(), 1);
+    Twine Nm(std::string("__pp_mminitarr") + F->getName().str());
+    auto* Ptr = getModule().getGlobalVariable(initArrName);
+    if (!Ptr) {
+      auto initArrName = std::string("__pp_mminitarr") + FName.str();
+      auto InitArr = new llvm::GlobalVariable(getModule(),
+        ArrayTy,
+        false,
+        llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+        nullptr, initArrName);
+      InitArr->setAlignment(llvm::MaybeAlign(8));
+      InitArr->setDSOLocal(true);
+      InitArr->setInitializer(
+                  llvm::Constant::getNullValue(ArrayTy));
+      Ptr = InitArr;
+    }
     new llvm::StoreInst(CI, Ptr, BB);
   }
 
@@ -6560,7 +6576,8 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
 
 llvm::Function*
 CodeGenModule::ExtractDefaultPPMMImplementation(
-  llvm::Function* F)
+  llvm::Function* F,
+  const clang::FunctionDecl* FD)
 {
 
     // Create default handler function
@@ -6570,12 +6587,135 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     llvm::Function *NewFn = llvm::CloneFunction(F, VMap);
     NewFn->setName(std::string("__pp_default") + F->getName().str());
 
-    // Clear multimethod
+    // Add dispatch
     F->deleteBody();
     auto* BB = llvm::BasicBlock::Create(
         getLLVMContext(), "entry", F);
+    auto Gens = FD->getRecordDeclsGenArgsForPPMM();
+    assert(!Gens.empty());
+
+    auto ASTLongLongTy = getContext().LongLongTy;
+    auto ASTIntTy = getContext().IntTy;
+    auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+    auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+
+    for (auto& g: Gens) {
+      std::get<0>(g)->getTypeForDecl()->dump();
+      auto Qty = std::get<0>(g)->getTypeForDecl()->getCanonicalTypeInternal();
+      Qty.dump();
+      auto* Tty = getTypes().ConvertTypeForMem(Qty);
+      Tty->dump();
+    }
+
+    if (Gens.size() == 1 && F->arg_size() == 1) {
+      llvm::AttributeList PAL;
+      {
+        // Add attributes to parameters
+        llvm::AttrBuilder Attrs(getLLVMContext());
+        Attrs.addAttribute(llvm::Attribute::NoUndef);
+        Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+        SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+        ArgAttrs[0] = ArgAttrs[0].addAttributes(
+                    getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+        llvm::AttrBuilder FuncAttrs(getLLVMContext());
+        llvm::AttrBuilder RetAttrs(getLLVMContext());
+        PAL = llvm::AttributeList::get(
+                getLLVMContext(),
+                F->getAttributes().getFnAttrs(),
+                F->getAttributes().getRetAttrs(),
+                ArgAttrs);
+        F->setAttributes(PAL);
+      }
+      auto& g = Gens[0];
+      auto Qty = std::get<0>(g)->getTypeForDecl()
+                               ->getCanonicalTypeInternal();
+      auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+
+      auto* GenRecPtr = new llvm::AllocaInst(
+                              GenRecTy->getPointerTo(), 0, "", BB);
+      auto CurIdxInt = std::get<2>(g);
+      auto ParamIdxInt = std::get<3>(g);
+      auto* GenRecParamPtr = F->getArg(ParamIdxInt);
+      new llvm::StoreInst(GenRecParamPtr, GenRecPtr, BB);
+      auto* GenRecLoad = new llvm::LoadInst(
+        GenRecTy->getPointerTo(), GenRecParamPtr, "", BB);
+
+      llvm::APInt api0(32, 0);
+      llvm::APInt api0_64(64, 0);
+      llvm::APInt apiIndx(32, CurIdxInt);
+      auto* ZeroVal = llvm::ConstantInt::get(getLLVMContext(), api0);
+      auto* ZeroVal64 = llvm::ConstantInt::get(getLLVMContext(), api0_64);
+
+      auto* CurIdx = llvm::ConstantInt::get(getLLVMContext(), apiIndx);
+
+      // Value *Idxs[] = {
+      //   ConstantInt::get(Type::getInt32Ty(Context), Idx0),
+      //   ConstantInt::get(Type::getInt32Ty(Context), Idx1)
+      // };
+
+      ArrayRef<llvm::Value*> Idxs({ZeroVal, CurIdx});
+      auto* TypeTagPtr = llvm::GetElementPtrInst::CreateInBounds(
+        GenRecTy, GenRecLoad, Idxs, "", BB);
+      TypeTagPtr->dump();
+
+      auto* TypeTag = new llvm::LoadInst(IntTy, TypeTagPtr, "", BB);
+
+      llvm::APInt api1(32, 1);
+      auto OneInt = llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(getLLVMContext()), 1);
+      auto TypeTagIdx = llvm::BinaryOperator::CreateNSWSub(TypeTag, OneInt, "", BB);
+
+      auto* TypeTagIdxExt = llvm::CastInst::Create(
+          llvm::Instruction::CastOps::SExt,
+          TypeTagIdx,
+          LongLongTy,
+          "", BB);
+
+      auto FName = F->getName();
+      auto FnTy = F->getFunctionType();
+      auto ArrayTy = llvm::ArrayType::get(FnTy->getPointerTo(), 1);
+      auto ArrayZeroTy = llvm::ArrayType::get(FnTy->getPointerTo(), 0);
+      auto initArrName = std::string("__pp_mminitarr") + FName.str();
+      auto InitArr = new llvm::GlobalVariable(getModule(),
+        ArrayTy,
+        false,
+        llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+        nullptr, initArrName);
+      InitArr->setAlignment(llvm::MaybeAlign(8));
+      InitArr->setDSOLocal(true);
+      InitArr->setInitializer(
+                  llvm::Constant::getNullValue(ArrayTy));
+      InitArr->dump();
+
+      ArrayRef<llvm::Value*> TypeTagsIdxs({
+        ZeroVal64,
+        TypeTagIdxExt});
+      auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
+        ArrayZeroTy,
+        InitArr, TypeTagsIdxs, "", BB);
+
+      auto LoadElem = new llvm::LoadInst(
+        FnTy->getPointerTo(),
+        Elem, "", BB);
+      auto LoadGen = new llvm::LoadInst(
+        GenRecTy->getPointerTo(),
+        GenRecPtr, "", BB);
+
+      ArrayRef<llvm::Value *> Args({LoadGen});
+      auto *CI = llvm::CallInst::Create(FnTy,
+                  LoadElem, Args, "", BB);
+      CI->setAttributes(PAL);
+    }
+    // TODO: Implement
+    // else if (Gens.size() == 2) {
+
+    // }
+    // else {
+    //   llvm_unreachable("[PP-EXT] Not yet implemented");
+    // }
+
     llvm::ReturnInst::Create(getLLVMContext(), BB);
-    // TODO: Create body for dispatch function
+
     if (NewFn->getBasicBlockList().empty()) {
       auto* NewBB = llvm::BasicBlock::Create(
           getLLVMContext(), "entry", NewFn);

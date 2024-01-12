@@ -3773,20 +3773,24 @@ void FunctionDecl::setParams(ASTContext &C,
   }
 }
 
-std::vector<std::string>
-FunctionDecl::getNamesOfGenArgsForPPMM() const {
-  std::vector<std::string> Result;
+std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>>
+FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
+  std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>> Result;
+  int ParamIdx = 0;
   for (auto p = param_begin();
-        p != param_end(); ++p) {
+        p != param_end(); ++p, ++ParamIdx) {
+    auto Param = *p;
+    Param->dump();
     auto PT = dyn_cast_or_null<PointerType>(
                                   (*p)->getType().getTypePtr());
     if (PT) {
       auto RD = PT->getPointeeType().getTypePtr()->getAsRecordDecl();
       if (RD) {
+        int Idx = 0;
         for (auto F = RD->field_begin();
-              F != RD->field_end(); ++F) {
+              F != RD->field_end(); ++F, ++Idx) {
           if (F->getName().equals("__pp_specialization_type"))
-            Result.push_back(RD->getNameAsString());
+            Result.push_back({RD, *p, Idx, ParamIdx});
         }
       }
     }

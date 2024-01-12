@@ -2779,7 +2779,8 @@ public:
     setParams(getASTContext(), NewParamInfo);
   }
 
-  std::vector<std::string> getNamesOfGenArgsForPPMM() const;
+  std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>>
+  getRecordDeclsGenArgsForPPMM() const;
 
   /// Returns the minimum number of arguments needed to call this function. This
   /// may be fewer than the number of function parameters, if some of the

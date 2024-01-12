@@ -2374,16 +2374,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
           ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
         }
 
-        auto MMTypeDefName = std::string("__pp_mmtype") + NameStr;
-        m_PPTypedefs.push_back(
-          TypedefGenerate(MMTypeDefName,
-            D.getDeclSpec().getTypeSpecType(),
-            ParamInfoArray));
-        auto MMInitArrayName = std::string("__pp_mminitarr") + NameStr;
-        m_PPGlobalVars.push_back(
-          VarGenerate(MMInitArrayName, true, MMTypeDefName)
-        );
-
         AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms,
           D.getDeclSpec().getTypeSpecType(), &ParamInfoArray);
       }
