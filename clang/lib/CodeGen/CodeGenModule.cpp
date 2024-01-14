@@ -6591,6 +6591,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     F->deleteBody();
     auto* BB = llvm::BasicBlock::Create(
         getLLVMContext(), "entry", F);
+
     auto Gens = FD->getRecordDeclsGenArgsForPPMM();
     assert(!Gens.empty());
 
@@ -6645,6 +6646,8 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
       llvm::APInt apiIndx(32, CurIdxInt);
       auto* ZeroVal = llvm::ConstantInt::get(getLLVMContext(), api0);
       auto* ZeroVal64 = llvm::ConstantInt::get(getLLVMContext(), api0_64);
+
+      CreateCallPrintf(BB, "Hello %d\n", ZeroVal);
 
       auto* CurIdx = llvm::ConstantInt::get(getLLVMContext(), apiIndx);
 
@@ -7198,6 +7201,75 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
   CGM.setDSOLocal(GV);
 
   return GV;
+}
+
+llvm::CallInst*
+CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
+                                StringRef FormatStr,
+                                llvm::Value* Arg)
+{
+  StringRef MangledName = "printf";
+  llvm::Function *F = getModule().getFunction(MangledName);
+  if (!F) {
+    auto* IntType = llvm::Type::getInt32Ty(getLLVMContext());
+    auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+    auto* StrType = llvm::PointerType::get(PointeeType, 0);
+    SmallVector<llvm::Type*, 8> ArgTypes(1);
+    ArgTypes[0] = StrType;
+    auto* FTy = llvm::FunctionType::get(IntType,
+                              ArgTypes, true);
+    F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+                      MangledName, &getModule());
+  }
+
+  llvm::AttrBuilder FuncAttrs(getLLVMContext());
+  llvm::AttrBuilder RetAttrs(getLLVMContext());
+  getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
+  std::vector<std::string> Features;
+  Features = getTarget().getTargetOpts().Features;
+  FuncAttrs.addAttribute("target-cpu", "x86-64");
+  FuncAttrs.addAttribute("tune-cpu", "generic");
+  llvm::sort(Features);
+  FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
+  llvm::AttrBuilder Attrs(getLLVMContext());
+  Attrs.addAttribute(llvm::Attribute::NoUndef);
+  Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+  SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+  ArgAttrs[0] = ArgAttrs[0].addAttributes(
+              getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+  llvm::AttributeList PAL;
+  PAL = llvm::AttributeList::get(
+        getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
+        llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
+  F->setAttributes(PAL);
+  F->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
+  F->setDSOLocal(false);
+
+  SmallString<64> Str(FormatStr);
+  auto NewSize = FormatStr.size();
+  Str.resize(NewSize + 1);
+  auto* C = llvm::ConstantDataArray::getString(
+    getLLVMContext(),
+    Str,
+    false
+  );
+  auto* GV = GenerateStringLiteral(
+    C,
+    llvm::GlobalValue::LinkageTypes::PrivateLinkage,
+    *this,
+    "SomeStrName",
+    CharUnits::One()
+  );
+
+  SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
+  SmallVector<llvm::Value *, 16> IRCallArgs(2);
+  IRCallArgs[0] = GV;
+  IRCallArgs[1] = Arg;
+  auto* CI = llvm::CallInst::Create(F->getFunctionType(),
+    F, IRCallArgs, "call_printf", BB);
+  CI->setAttributes(PAL);
+
+  return CI;
 }
 
 /// GetAddrOfConstantStringFromLiteral - Return a pointer to a
