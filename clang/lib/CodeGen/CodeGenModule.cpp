@@ -6377,10 +6377,9 @@ void CodeGenModule::HandlePPExtensionMethods(
     &getModule());
 
   auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
-
+  CreateCallPrintf(BB, "[PP-EXT] Allocation start\n");
   auto genName = std::string("__pp_tags_")
     + std::get<0>(Generalizations[0])->getNameAsString();
-  auto initArrName = std::string("__pp_mminitarr") + FName.str();
   auto ASTIntTy = getContext().IntTy;
   auto ASTLongLongTy = getContext().LongLongTy;
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
@@ -6417,6 +6416,7 @@ void CodeGenModule::HandlePPExtensionMethods(
   }
 
   // Construct and invoke malloc
+  auto initArrName = std::string("__pp_mminitarr") + FName.str();
   {
     StringRef MangledName = "malloc";
     llvm::Function *F = getModule().getFunction(MangledName);
@@ -6461,26 +6461,25 @@ void CodeGenModule::HandlePPExtensionMethods(
     SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
     SmallVector<llvm::Value *, 16> IRCallArgs(1);
     IRCallArgs[0] = MulInstr;
+    CreateCallPrintf(BB,
+      "[PP-EXT] Allocation size for malloc (bytes): %lld\n",
+      MulInstr);
     auto* CI = llvm::CallInst::Create(F->getFunctionType(),
       F, IRCallArgs, "call_malloc", BB);
     CI->setAttributes(PAL);
-    auto ArrayTy = llvm::ArrayType::get(Ty->getPointerTo(), 1);
-    Twine Nm(std::string("__pp_mminitarr") + F->getName().str());
     auto* Ptr = getModule().getGlobalVariable(initArrName);
-    if (!Ptr) {
-      auto initArrName = std::string("__pp_mminitarr") + FName.str();
-      auto InitArr = new llvm::GlobalVariable(getModule(),
-        ArrayTy,
-        false,
-        llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-        nullptr, initArrName);
-      InitArr->setAlignment(llvm::MaybeAlign(8));
-      InitArr->setDSOLocal(true);
-      InitArr->setInitializer(
-                  llvm::Constant::getNullValue(ArrayTy));
-      Ptr = InitArr;
-    }
+    assert(Ptr &&
+      "[PP-EXT] Asked for unnallocated array of handlers");
+
+    CreateCallPrintf(BB,
+      "[PP-EXT] Allocation Set InitArr %p\n",
+      Ptr);
     new llvm::StoreInst(CI, Ptr, BB);
+    auto* LoadTmp =
+      new llvm::LoadInst(Int64Ty, Ptr, "", BB);
+    CreateCallPrintf(BB,
+      "[PP-EXT] Allocation Set InitArr First 64bits: %p\n",
+      LoadTmp);
   }
 
   auto* HandlersArray = getModule().getGlobalVariable(initArrName);
@@ -6489,6 +6488,7 @@ void CodeGenModule::HandlePPExtensionMethods(
                                     HandlersArray,
                                     DefaultHandler);
 
+  CreateCallPrintf(BBEnd, "[PP-EXT] Allocation end\n");
   llvm::ReturnInst::Create(getLLVMContext(), BBEnd);
   AddGlobalCtor(NewF, 102);
 }
@@ -6512,9 +6512,29 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   llvm::APInt apint1(64, 1);
   auto* Int1_Number = llvm::ConstantInt::get(getLLVMContext(), apint1);
 
+  CreateCallPrintf(BB,
+    "[PP-EXT] InitPPHandlersArray\n");
   auto* NumOfHandlers = llvm::BinaryOperator::Create(
     llvm::Instruction::BinaryOps::UDiv,
     AllocatedBytes, Int8_Number, "", BB);
+
+  {
+    CreateCallPrintf(BB,
+      "[PP-EXT] InitPPHandlersArray Addr: %p\n",
+      HandlersArray);
+    auto* LoadTmp =
+      new llvm::LoadInst(Int64Ty, HandlersArray, "", BB);
+    CreateCallPrintf(BB,
+      "[PP-EXT] InitPPHandlersArray First 64bit: %p\n",
+      LoadTmp);
+  }
+
+  CreateCallPrintf(BB,
+    "[PP-EXT] InitPPHandlersArray NumOfHandlers %d\n",
+    NumOfHandlers);
+  CreateCallPrintf(BB,
+    "[PP-EXT] InitPPHandlersArray DefaultHandler %p\n",
+    DefaultHandler);
   new llvm::StoreInst(NumOfHandlers, SizeAlloca, BB);
   new llvm::StoreInst(Int0_Number, IterAlloca, BB);
 
@@ -6548,17 +6568,31 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   // Body BB
   auto* FnTy = cast<llvm::Function>(DefaultHandler)
                     ->getFunctionType()->getPointerTo();
-  auto* ArrayPtr = new llvm::LoadInst(
-                              FnTy,
-                              HandlersArray, "", BBBody);
+
+  auto* ArrayPtr = HandlersArray;
   auto* CurIdx = new llvm::LoadInst(
                               LongLongTy,
                               IterAlloca, "", BBBody);
-
+  CreateCallPrintf(BBBody,
+    "[PP-EXT] InitPPHandlersArray CurIdx %lld\n",
+    CurIdx);
   ArrayRef<llvm::Value*> Idxs({CurIdx});
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
     FnTy, ArrayPtr, Idxs, "", BBBody);
+  CreateCallPrintf(BBBody,
+    "[PP-EXT] InitPPHandlersArray Elem ptr: %p\n",
+    Elem);
+  auto* ElemValB = new llvm::LoadInst(LongLongTy,
+                                     Elem, "", BBBody);
+  CreateCallPrintf(BBBody,
+    "[PP-EXT] InitPPHandlersArray ElemVal before init: %p\n",
+    ElemValB);
   new llvm::StoreInst(DefaultHandler, Elem, BBBody);
+  auto* ElemValA = new llvm::LoadInst(LongLongTy,
+                                     Elem, "", BBBody);
+  CreateCallPrintf(BBBody,
+    "[PP-EXT] InitPPHandlersArray ElemVal after init: %p\n",
+    ElemValA);
   llvm::BranchInst::Create(BBInc, BBBody);
 
   // Inc BB
@@ -6571,6 +6605,13 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   new llvm::StoreInst(IncrementedIter, IterAlloca, BBInc);
   llvm::BranchInst::Create(BBCond, BBInc);
 
+  {
+    auto* LoadTmp =
+      new llvm::LoadInst(Int64Ty, HandlersArray, "", BBEnd);
+    CreateCallPrintf(BBEnd,
+      "[PP-EXT] InitPPHandlersArray First 64bit after init: %p\n",
+      LoadTmp);
+  }
   return BBEnd;
 }
 
@@ -6638,18 +6679,15 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
       auto ParamIdxInt = std::get<3>(g);
       auto* GenRecParamPtr = F->getArg(ParamIdxInt);
       new llvm::StoreInst(GenRecParamPtr, GenRecPtr, BB);
-      auto* GenRecLoad = new llvm::LoadInst(
-        GenRecTy->getPointerTo(), GenRecParamPtr, "", BB);
 
       llvm::APInt api0(32, 0);
       llvm::APInt api0_64(64, 0);
       llvm::APInt apiIndx(32, CurIdxInt);
       auto* ZeroVal = llvm::ConstantInt::get(getLLVMContext(), api0);
       auto* ZeroVal64 = llvm::ConstantInt::get(getLLVMContext(), api0_64);
-
-      CreateCallPrintf(BB, "Hello %d\n", ZeroVal);
-
       auto* CurIdx = llvm::ConstantInt::get(getLLVMContext(), apiIndx);
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM Index of typetag %d\n", CurIdx);
 
       // Value *Idxs[] = {
       //   ConstantInt::get(Type::getInt32Ty(Context), Idx0),
@@ -6657,11 +6695,16 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
       // };
 
       ArrayRef<llvm::Value*> Idxs({ZeroVal, CurIdx});
+
       auto* TypeTagPtr = llvm::GetElementPtrInst::CreateInBounds(
-        GenRecTy, GenRecLoad, Idxs, "", BB);
+        GenRecTy, GenRecParamPtr, Idxs, "", BB);
       TypeTagPtr->dump();
 
       auto* TypeTag = new llvm::LoadInst(IntTy, TypeTagPtr, "", BB);
+
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM TypeTag %d\n",
+        TypeTag);
 
       llvm::APInt api1(32, 1);
       auto OneInt = llvm::ConstantInt::get(
@@ -6674,37 +6717,49 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
           LongLongTy,
           "", BB);
 
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM TypeTagIdxExt %lld\n",
+        TypeTagIdxExt);
+
       auto FName = F->getName();
       auto FnTy = F->getFunctionType();
       auto ArrayTy = llvm::ArrayType::get(FnTy->getPointerTo(), 1);
       auto ArrayZeroTy = llvm::ArrayType::get(FnTy->getPointerTo(), 0);
       auto initArrName = std::string("__pp_mminitarr") + FName.str();
-      auto InitArr = new llvm::GlobalVariable(getModule(),
-        ArrayTy,
-        false,
-        llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-        nullptr, initArrName);
-      InitArr->setAlignment(llvm::MaybeAlign(8));
-      InitArr->setDSOLocal(true);
-      InitArr->setInitializer(
-                  llvm::Constant::getNullValue(ArrayTy));
-      InitArr->dump();
+      auto* InitArr = getModule().getGlobalVariable(initArrName);
+      if (!InitArr) {
+        InitArr = new llvm::GlobalVariable(getModule(),
+          ArrayTy,
+          false,
+          llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+          nullptr, initArrName);
+        InitArr->setAlignment(llvm::MaybeAlign(8));
+        InitArr->setDSOLocal(true);
+        InitArr->setInitializer(
+                    llvm::Constant::getNullValue(ArrayTy));
+        InitArr->dump();
+      }
 
       ArrayRef<llvm::Value*> TypeTagsIdxs({
         ZeroVal64,
         TypeTagIdxExt});
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM InitArr ptr %p\n",
+        InitArr);
       auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
         ArrayZeroTy,
         InitArr, TypeTagsIdxs, "", BB);
-
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM InitArr elem %p\n",
+        Elem);
       auto LoadElem = new llvm::LoadInst(
         FnTy->getPointerTo(),
         Elem, "", BB);
-      auto LoadGen = new llvm::LoadInst(
-        GenRecTy->getPointerTo(),
-        GenRecPtr, "", BB);
+      CreateCallPrintf(BB,
+        "[PP-EXT] MM InitArr LoadElem (to be executed): %p\n",
+        LoadElem);
 
-      ArrayRef<llvm::Value *> Args({LoadGen});
+      ArrayRef<llvm::Value *> Args({GenRecParamPtr});
       auto *CI = llvm::CallInst::Create(FnTy,
                   LoadElem, Args, "", BB);
       CI->setAttributes(PAL);
@@ -6722,6 +6777,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     if (NewFn->getBasicBlockList().empty()) {
       auto* NewBB = llvm::BasicBlock::Create(
           getLLVMContext(), "entry", NewFn);
+      CreateCallPrintf(NewBB, "[PP-EXT] Default handler executed\n");
       llvm::ReturnInst::Create(getLLVMContext(), NewBB);
     }
     return NewFn;
@@ -7262,9 +7318,9 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
   );
 
   SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
-  SmallVector<llvm::Value *, 16> IRCallArgs(2);
+  SmallVector<llvm::Value *, 16> IRCallArgs(Arg ? 2 : 1);
   IRCallArgs[0] = GV;
-  IRCallArgs[1] = Arg;
+  if (Arg) IRCallArgs[1] = Arg;
   auto* CI = llvm::CallInst::Create(F->getFunctionType(),
     F, IRCallArgs, "call_printf", BB);
   CI->setAttributes(PAL);

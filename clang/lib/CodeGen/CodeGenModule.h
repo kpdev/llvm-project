@@ -1881,7 +1881,7 @@ private:
                       llvm::Value* DefaultHandler);
   llvm::CallInst* CreateCallPrintf(llvm::BasicBlock* BB,
                                    StringRef FormatStr,
-                                   llvm::Value* Arg);
+                                   llvm::Value* Arg = nullptr);
 
   void EmitGlobalVarDefinition(const VarDecl *D, bool IsTentative = false);
   void EmitAliasDefinition(GlobalDecl GD);
