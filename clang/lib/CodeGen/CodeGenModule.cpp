@@ -2386,8 +2386,6 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
 
     Error(Loc, "__vectorcall calling convention is not currently supported");
   }
-
-  HandlePPExtensionMethods(F, GD);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
 }
@@ -6353,6 +6351,8 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
     AddGlobalDtor(Fn, DA->getPriority(), true);
   if (getLangOpts().OpenMP && D->hasAttr<OMPDeclareTargetDeclAttr>())
     getOpenMPRuntime().emitDeclareTargetFunction(D, GV);
+
+  HandlePPExtensionMethods(Fn, GD);
 }
 
 void CodeGenModule::HandlePPExtensionMethods(
