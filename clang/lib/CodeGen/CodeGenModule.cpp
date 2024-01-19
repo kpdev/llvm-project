@@ -6355,18 +6355,107 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   HandlePPExtensionMethods(Fn, GD);
 }
 
+void CodeGenModule::AddPPSpecialization(
+  llvm::Function* F,
+  const std::vector<FunctionDecl::PPMMParam>& Gens)
+{
+  auto FName = F->getName();
+  auto RDName = Gens[0].RD->getNameAsString();
+  auto initArrName = std::string("__pp_mminitarr")
+    + FName.substr(0, FName.size()
+                    - RDName.size()
+                    - sizeof("__pp_spec")
+                    + 1).str();
+  StringRef Nm(initArrName);
+  auto* InitArrPtr = getModule().getGlobalVariable(Nm);
+
+  llvm::ValueToValueMapTy VMap;
+  llvm::Function *FRecorder = llvm::CloneFunction(F, VMap);
+  FRecorder->setName(std::string("__pp_record") + F->getName().str());
+  FRecorder->deleteBody();
+  auto* BB = llvm::BasicBlock::Create(
+      getLLVMContext(), "entry", FRecorder);
+
+  CreateCallPrintf(
+    BB, "[PP-EXT] FRecorder start\n");
+
+  assert((Gens.size() == 1)
+    && "[PP-EXT] At this moment only 1D MM are supported");
+
+  auto& g = Gens[0];
+  auto genName = std::string("__pp_tag_")
+    + g.RD->getNameAsString();
+  StringRef StrRefTagsName(genName);
+  auto ASTIntTy = getContext().IntTy;
+  auto ASTLongLongTy = getContext().LongLongTy;
+  auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+  auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+  auto *GV = getModule().getGlobalVariable(genName);
+  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
+    false, MyAlignment.getAsAlign(), BB);
+
+  llvm::APInt api1(32, 1);
+  auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
+  auto* DecrementedIdx = llvm::BinaryOperator::CreateNSWSub(
+    LoadGV, OneVal, "", BB);
+  auto DecrIdx64 = llvm::CastInst::Create(
+    llvm::Instruction::CastOps::SExt,
+    DecrementedIdx,
+    MyLongLongTy, "", BB);
+
+  CreateCallPrintf(
+    BB,
+    "[PP-EXT] FRecorder. Will write to index %lld\n",
+    DecrIdx64);
+
+  auto* FnTy = F->getFunctionType()->getPointerTo();
+  ArrayRef<llvm::Value*> Idxs(
+    {DecrIdx64});
+  auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
+    FnTy, InitArrPtr, Idxs, "", BB);
+  new llvm::StoreInst(F, Elem, BB);
+
+  llvm::ReturnInst::Create(getLLVMContext(), BB);
+  AddGlobalCtor(FRecorder, 103);
+}
+
 void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
   auto FName = F->getName();
   if (not FName.startswith("__pp_mm")) {
+    if (FName.equals("main")) {
+      auto& BB = F->getEntryBlock();
+      CreateCallPrintf(
+        &BB, "[PP-EXT] === main start ===\n",
+        nullptr, true);
+    }
     return;
   }
 
   auto FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl());
   auto Generalizations = FD->getRecordDeclsGenArgsForPPMM();
 
-  printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
+  assert(not Generalizations.empty());
+
+  bool IsSpecialization =
+    Generalizations[0].IsSpecialization;
+  for (auto& G : Generalizations) {
+    // Sanity check
+    // TODO: Make it properly
+    // (maybe on AST level add info about it)
+    assert(IsSpecialization == G.IsSpecialization);
+  }
+
+  if (IsSpecialization) {
+    printf("Found MM Specialization: %s\n", FName.str().c_str());
+    AddPPSpecialization(F, Generalizations);
+    return;
+  }
+  else {
+    printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
+  }
 
   auto* DefaultHandler = ExtractDefaultPPMMImplementation(F, FD);
 
@@ -6379,7 +6468,7 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
   CreateCallPrintf(BB, "[PP-EXT] Allocation start\n");
   auto genName = std::string("__pp_tags_")
-    + std::get<0>(Generalizations[0])->getNameAsString();
+    + Generalizations[0].RD->getNameAsString();
   auto ASTIntTy = getContext().IntTy;
   auto ASTLongLongTy = getContext().LongLongTy;
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
@@ -6402,7 +6491,7 @@ void CodeGenModule::HandlePPExtensionMethods(
   // TODO: Make loop starting with i = 0
   for (auto i = 1UL; i < Generalizations.size(); ++i) {
     auto nextGenName = std::string("__pp_tags_")
-      + std::get<0>(Generalizations[i])->getNameAsString();
+      + Generalizations[i].RD->getNameAsString();
     auto *nextGV = getModule().getGlobalVariable(nextGenName);
     auto* LoadNextGV = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
@@ -6641,14 +6730,6 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
     auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
 
-    for (auto& g: Gens) {
-      std::get<0>(g)->getTypeForDecl()->dump();
-      auto Qty = std::get<0>(g)->getTypeForDecl()->getCanonicalTypeInternal();
-      Qty.dump();
-      auto* Tty = getTypes().ConvertTypeForMem(Qty);
-      Tty->dump();
-    }
-
     if (Gens.size() == 1 && F->arg_size() == 1) {
       llvm::AttributeList PAL;
       {
@@ -6669,14 +6750,14 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         F->setAttributes(PAL);
       }
       auto& g = Gens[0];
-      auto Qty = std::get<0>(g)->getTypeForDecl()
+      auto Qty = g.RD->getTypeForDecl()
                                ->getCanonicalTypeInternal();
       auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
 
       auto* GenRecPtr = new llvm::AllocaInst(
                               GenRecTy->getPointerTo(), 0, "", BB);
-      auto CurIdxInt = std::get<2>(g);
-      auto ParamIdxInt = std::get<3>(g);
+      auto CurIdxInt = g.IdxOfTypeTag;
+      auto ParamIdxInt = g.ParamIdx;
       auto* GenRecParamPtr = F->getArg(ParamIdxInt);
       new llvm::StoreInst(GenRecParamPtr, GenRecPtr, BB);
 
@@ -7262,7 +7343,8 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
 llvm::CallInst*
 CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
                                 StringRef FormatStr,
-                                llvm::Value* Arg)
+                                llvm::Value* Arg,
+                                bool InsertInTheBeginning)
 {
   StringRef MangledName = "printf";
   llvm::Function *F = getModule().getFunction(MangledName);
@@ -7321,8 +7403,19 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
   SmallVector<llvm::Value *, 16> IRCallArgs(Arg ? 2 : 1);
   IRCallArgs[0] = GV;
   if (Arg) IRCallArgs[1] = Arg;
-  auto* CI = llvm::CallInst::Create(F->getFunctionType(),
-    F, IRCallArgs, "call_printf", BB);
+
+  llvm::CallInst* CI = nullptr;
+  if (InsertInTheBeginning) {
+    assert(not BB->getInstList().empty());
+    auto* I = &*BB->getInstList().begin();
+    CI = llvm::CallInst::Create(F->getFunctionType(),
+      F, IRCallArgs, "call_printf", I);
+  }
+  else {
+    CI = llvm::CallInst::Create(F->getFunctionType(),
+      F, IRCallArgs, "call_printf", BB);
+  }
+
   CI->setAttributes(PAL);
 
   return CI;

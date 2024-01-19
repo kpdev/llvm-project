@@ -3773,9 +3773,9 @@ void FunctionDecl::setParams(ASTContext &C,
   }
 }
 
-std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>>
+std::vector<FunctionDecl::PPMMParam>
 FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
-  std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>> Result;
+  std::vector<FunctionDecl::PPMMParam> Result;
   int ParamIdx = 0;
   for (auto p = param_begin();
         p != param_end(); ++p, ++ParamIdx) {
@@ -3787,10 +3787,26 @@ FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
       auto RD = PT->getPointeeType().getTypePtr()->getAsRecordDecl();
       if (RD) {
         int Idx = 0;
-        for (auto F = RD->field_begin();
-              F != RD->field_end(); ++F, ++Idx) {
+        bool IsSpec = false;
+        if (RD->getName().startswith("__pp_struct_")) {
+          IsSpec = true;
+        }
+
+        RecordDecl* BaseRD = nullptr;
+        if (IsSpec) {
+          auto F = *RD->field_begin();
+          assert(F->getName().equals("__pp_head"));
+          assert(F->getType().getTypePtr() &&
+                F->getType().getTypePtr()->getAsRecordDecl());
+          BaseRD = F->getType().getTypePtr()->getAsRecordDecl();
+        }
+
+        auto RecordToIterate = (IsSpec ? BaseRD : RD);
+        for (auto F = RecordToIterate->field_begin();
+              F != RecordToIterate->field_end();
+              ++F, ++Idx) {
           if (F->getName().equals("__pp_specialization_type"))
-            Result.push_back({RD, *p, Idx, ParamIdx});
+            Result.push_back({RD, *p, Idx, ParamIdx, IsSpec, BaseRD});
         }
       }
     }

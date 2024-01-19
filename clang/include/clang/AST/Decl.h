@@ -2779,7 +2779,16 @@ public:
     setParams(getASTContext(), NewParamInfo);
   }
 
-  std::vector<std::tuple<RecordDecl*, ParmVarDecl*, int, int>>
+  struct PPMMParam {
+    RecordDecl* RD;
+    ParmVarDecl* PVD;
+    int IdxOfTypeTag; // of __pp_specialization_type
+    int ParamIdx; //- index of this parameter
+    bool IsSpecialization; //- is specialization
+    RecordDecl* BaseRD; // base of generalization
+  };
+
+  std::vector<PPMMParam>
   getRecordDeclsGenArgsForPPMM() const;
 
   /// Returns the minimum number of arguments needed to call this function. This

@@ -8057,16 +8057,30 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     }
   }
 
+  bool IsMultimethod =
+    D.getName().Identifier->getName().startswith("__pp_mm_");
   // Collect non-parameter declarations from the prototype if this is a function
   // declaration. They will be moved into the scope of the function. Only do
   // this in C and not C++, where the decls will continue to live in the
   // surrounding context.
   SmallVector<NamedDecl *, 0> DeclsInPrototype;
+  bool IsSpecialization = false;
   if (getCurScope()->isFunctionDeclarationScope() && !getLangOpts().CPlusPlus) {
     for (Decl *D : getCurScope()->decls()) {
       NamedDecl *ND = dyn_cast<NamedDecl>(D);
+      auto PVD = cast<ParmVarDecl>(ND);
+      if (PVD) {
+        auto* ID = PVD->getType().getBaseTypeIdentifier();
+        if (ID &&
+            ID->getName().startswith("__pp_struct"))
+          IsSpecialization = true;
+      }
+
       if (!ND || isa<ParmVarDecl>(ND))
         continue;
+      if (IsMultimethod &&
+          ND->getName().startswith("__pp_struct"))
+        IsSpecialization = true;
       DeclsInPrototype.push_back(ND);
     }
     // Sort DeclsInPrototype based on raw encoding of the source location.
@@ -8078,6 +8092,22 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       return D1->getLocation().getRawEncoding() <
              D2->getLocation().getRawEncoding();
     });
+  }
+
+  if (IsSpecialization) {
+    StringRef FuncName = D.getIdentifier()->getName();
+    std::string strMangled = FuncName.str();
+    for(auto& PIn : ParamInfo) {
+      strMangled += cast<ParmVarDecl>(
+                      PIn.Param)
+                        ->getType()
+                        .getBaseTypeIdentifier()
+                        ->getName().str();
+    }
+    strMangled += std::string("__pp_spec");
+    StringRef Mangled(strMangled);
+    IdentifierInfo* II = &PP.getIdentifierTable().get(Mangled);
+    D.getName().setIdentifier(II, D.getIdentifierLoc());
   }
 
   // Remember that we parsed a function type, and remember the attributes.
