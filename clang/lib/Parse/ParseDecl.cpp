@@ -2359,25 +2359,6 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   D.complete(FirstDecl);
   if (FirstDecl) {
     DeclsInGroup.push_back(FirstDecl);
-
-    if (isa<FunctionDecl>(FirstDecl)) {
-      auto* FD = cast<FunctionDecl>(FirstDecl);
-      assert(FD);
-      if (FD->getName().startswith("__pp_mm_")) {
-        auto NameStr = FD->getNameAsString();
-        PPMangledNames ppnms;
-        ppnms.setMMName(NameStr);
-        auto NumParam = FD->getNumParams();
-        SmallVector<DeclaratorChunk::ParamInfo, 16U> ParamInfoArray;
-        for (unsigned i = 0; i < NumParam; ++i) {
-          auto* X = FD->getParamDecl(i);
-          ParamInfoArray.emplace_back(X->getIdentifier(), X->getLocation(), X);
-        }
-
-        AddFunc(NameStr, PPFuncMode::MMDefault, "", ppnms,
-          D.getDeclSpec().getTypeSpecType(), &ParamInfoArray);
-      }
-    }
   }
 
   bool ExpectSemi = Context != DeclaratorContext::ForInit;

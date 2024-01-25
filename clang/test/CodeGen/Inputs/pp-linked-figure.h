@@ -6,3 +6,6 @@ struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
 
 void printRectangle();
 void printCircle();
+
+
+void PrintFigure<struct Figure* f>();

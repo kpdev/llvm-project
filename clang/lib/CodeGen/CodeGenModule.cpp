@@ -6367,8 +6367,6 @@ void CodeGenModule::AddPPSpecialization(
                     - sizeof("__pp_spec")
                     + 1).str();
   StringRef Nm(initArrName);
-  auto* InitArrPtr = getModule().getGlobalVariable(Nm);
-
   llvm::ValueToValueMapTy VMap;
   llvm::Function *FRecorder = llvm::CloneFunction(F, VMap);
   FRecorder->setName(std::string("__pp_record") + F->getName().str());
@@ -6410,10 +6408,16 @@ void CodeGenModule::AddPPSpecialization(
     DecrIdx64);
 
   auto* FnTy = F->getFunctionType()->getPointerTo();
+  auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+  auto* InitArrPtr =
+    getModule().getOrInsertGlobal(Nm, FnPtrType);
+  auto* LoadInitArr = new llvm::LoadInst(
+                            FnPtrType,
+                            InitArrPtr, "", BB);
   ArrayRef<llvm::Value*> Idxs(
     {DecrIdx64});
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
-    FnTy, InitArrPtr, Idxs, "", BB);
+    FnTy, LoadInitArr, Idxs, "", BB);
   new llvm::StoreInst(F, Elem, BB);
 
   llvm::ReturnInst::Create(getLLVMContext(), BB);
@@ -6429,8 +6433,12 @@ void CodeGenModule::HandlePPExtensionMethods(
       auto& BB = F->getEntryBlock();
       CreateCallPrintf(
         &BB, "[PP-EXT] === main start ===\n",
-        nullptr, true);
+        nullptr, InsertPrintfPos::BeforeFirstInstr);
     }
+    return;
+  }
+
+  if (F->empty()) {
     return;
   }
 
@@ -6656,7 +6664,7 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
 
   // Body BB
   auto* FnTy = cast<llvm::Function>(DefaultHandler)
-                    ->getFunctionType()->getPointerTo();
+                    ->getFunctionType();
 
   auto* ArrayPtr = HandlersArray;
   auto* CurIdx = new llvm::LoadInst(
@@ -6665,9 +6673,13 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   CreateCallPrintf(BBBody,
     "[PP-EXT] InitPPHandlersArray CurIdx %lld\n",
     CurIdx);
+  auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+  auto* LoadInitArr = new llvm::LoadInst(
+                            FnPtrType,
+                            ArrayPtr, "", BBBody);
   ArrayRef<llvm::Value*> Idxs({CurIdx});
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
-    FnTy, ArrayPtr, Idxs, "", BBBody);
+    FnPtrType, LoadInitArr, Idxs, "", BBBody);
   CreateCallPrintf(BBBody,
     "[PP-EXT] InitPPHandlersArray Elem ptr: %p\n",
     Elem);
@@ -6804,32 +6816,33 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
 
       auto FName = F->getName();
       auto FnTy = F->getFunctionType();
-      auto ArrayTy = llvm::ArrayType::get(FnTy->getPointerTo(), 1);
-      auto ArrayZeroTy = llvm::ArrayType::get(FnTy->getPointerTo(), 0);
       auto initArrName = std::string("__pp_mminitarr") + FName.str();
       auto* InitArr = getModule().getGlobalVariable(initArrName);
+      auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
       if (!InitArr) {
         InitArr = new llvm::GlobalVariable(getModule(),
-          ArrayTy,
+          FnPtrType,
           false,
           llvm::GlobalValue::LinkageTypes::ExternalLinkage,
           nullptr, initArrName);
         InitArr->setAlignment(llvm::MaybeAlign(8));
         InitArr->setDSOLocal(true);
         InitArr->setInitializer(
-                    llvm::Constant::getNullValue(ArrayTy));
+                    llvm::Constant::getNullValue(FnPtrType));
         InitArr->dump();
       }
 
       ArrayRef<llvm::Value*> TypeTagsIdxs({
-        ZeroVal64,
         TypeTagIdxExt});
       CreateCallPrintf(BB,
         "[PP-EXT] MM InitArr ptr %p\n",
         InitArr);
+      auto* LoadInitArr = new llvm::LoadInst(
+        FnPtrType,
+        InitArr, "", BB);
       auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
-        ArrayZeroTy,
-        InitArr, TypeTagsIdxs, "", BB);
+        FnPtrType,
+        LoadInitArr, TypeTagsIdxs, "", BB);
       CreateCallPrintf(BB,
         "[PP-EXT] MM InitArr elem %p\n",
         Elem);
@@ -7344,7 +7357,7 @@ llvm::CallInst*
 CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
                                 StringRef FormatStr,
                                 llvm::Value* Arg,
-                                bool InsertInTheBeginning)
+                                CodeGenModule::InsertPrintfPos Pos)
 {
   StringRef MangledName = "printf";
   llvm::Function *F = getModule().getFunction(MangledName);
@@ -7405,9 +7418,14 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
   if (Arg) IRCallArgs[1] = Arg;
 
   llvm::CallInst* CI = nullptr;
-  if (InsertInTheBeginning) {
+  if (Pos == InsertPrintfPos::BeforeFirstInstr) {
     assert(not BB->getInstList().empty());
     auto* I = &*BB->getInstList().begin();
+    CI = llvm::CallInst::Create(F->getFunctionType(),
+      F, IRCallArgs, "call_printf", I);
+  }
+  else if (Pos == InsertPrintfPos::BeforeRet) {
+    auto* I = &BB->getInstList().back();
     CI = llvm::CallInst::Create(F->getFunctionType(),
       F, IRCallArgs, "call_printf", I);
   }

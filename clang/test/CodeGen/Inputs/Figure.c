@@ -23,3 +23,14 @@ void printRectangle()
     printf("Rectangle tags check: [%d]\n",
         (int)(fr.__pp_specialization_type == __pp_tag___pp_struct_Figure__Rectangle));
 }
+
+void PrintFigure<struct Figure* f>()
+{
+    printf("PrintFigure Default body\n");
+}
+
+void PrintFigure<struct Figure<struct Rectangle> *p>() {
+    struct Figure<struct Rectangle> r = *p;
+    printf(">>> Rectangle: color = %d, w = %d, h = %d\n",
+            r.color, r<w>, r<h>);
+}

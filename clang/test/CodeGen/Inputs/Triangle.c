@@ -13,3 +13,9 @@ void printTriangle()
     printf("Triangle tags check: [%d]\n",
         (int)(ft.__pp_specialization_type == __pp_tag___pp_struct_Figure__Triangle));
 }
+
+void PrintFigure<struct Figure<struct Triangle> *p>() {
+    struct Figure<struct Triangle> t = *p;
+    printf(">>> Triangle: color = %d, a = %d, b = %d, c = %d\n",
+            t.color, t<a>, t<b>, t<c>);
+}
