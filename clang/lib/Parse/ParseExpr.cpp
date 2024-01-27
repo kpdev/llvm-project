@@ -1713,7 +1713,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     // Each iteration relies on preferred type for the whole expression.
     PreferredType = SavedType;
     switch (Tok.getKind()) {
-    case tok::less:
+    case tok::at:
       if (!LHS.isInvalid() && IsGeneralization(LHS.get(), IsNextVariantField)) {
         IsNextVariantField = false;
         IsInVarianField = true;
@@ -1742,22 +1742,11 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           Tok.setIdentifierInfo(nullptr);
           Tok.setKind(tok::period);
           break;
-        case tok::greater:
-          ConsumeToken();
-          break;
         default:
           llvm_unreachable("Wrong token in <...> was met. Expected only identifier or '>'");
         }
 
         break; // handle next token
-      }
-      return LHS;
-    case tok::greater:
-      if (IsInVarianField) {
-        IsInVarianField = false;
-        IsNextVariantField = NextToken().is(tok::less);
-        ConsumeToken();
-        break;
       }
       return LHS;
     case tok::code_completion:
@@ -2022,19 +2011,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       {
         Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
         if (IsGeneralization(OrigLHS, IsNextVariantField)) {
+          // PP-EXT TODO: Handle IsNextVariantField
           IsNextVariantField = false;
-          // Check PP-EXT
-          // auto type = X->getType().getAsString();
-          // auto name = X->getNameInfo().getAsString();
-          // auto just_type = X->getType().getCanonicalType().getTypePtr()->
-          // getAsRecordDecl()->getName().str();
-          // printf(">>> T:%s, N:%s, JT:%s\n",
-          //   type.c_str(),       // struct __pp_struct_...
-          //   name.c_str(),       // b
-          //   just_type.c_str()); //
-          //   // T:struct __pp_struct_Generalization__Base1,
-          //   // N:gb,
-          //   // JT:__pp_struct_Generalization__Base1
+
           auto OldTok = Tok;
           Tok.startToken();
           Tok.clearFlag(Token::NeedsCleaning);

@@ -6774,10 +6774,8 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
       new llvm::StoreInst(GenRecParamPtr, GenRecPtr, BB);
 
       llvm::APInt api0(32, 0);
-      llvm::APInt api0_64(64, 0);
       llvm::APInt apiIndx(32, CurIdxInt);
       auto* ZeroVal = llvm::ConstantInt::get(getLLVMContext(), api0);
-      auto* ZeroVal64 = llvm::ConstantInt::get(getLLVMContext(), api0_64);
       auto* CurIdx = llvm::ConstantInt::get(getLLVMContext(), apiIndx);
       CreateCallPrintf(BB,
         "[PP-EXT] MM Index of typetag %d\n", CurIdx);
