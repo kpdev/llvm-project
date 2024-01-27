@@ -16,7 +16,7 @@ struct Figure + <struct Rhombus; >;
 void PrintFigure<struct Figure<struct Rhombus> *p>() {
     struct Figure<struct Rhombus> r = *p;
     printf(">>> Rhombus: color = %d, a = %d, b = %d\n",
-            r.color, r@a, r@b);
+            r.color, r.@a, r.@b);
 }
 
 int main()
@@ -44,7 +44,7 @@ int main()
 
     struct Figure<struct Circle> fc;
     fc.color = 111;
-    fc@r = 100;
+    fc.@r = 100;
 
     // CHECK-RT: PrintFigure Default body
     PrintFigure<&fc>();
@@ -52,24 +52,24 @@ int main()
     // CHECK-RT: >>> Triangle: color = 555, a = 10, b = 20, c = 30
     struct Figure<struct Triangle> ft;
     ft.color = 555;
-    ft@a = 10;
-    ft@b = 20;
-    ft@c = 30;
+    ft.@a = 10;
+    ft.@b = 20;
+    ft.@c = 30;
     PrintFigure<&ft>();
 
 
     // CHECK-RT: >>> Rectangle: color = 333, w = 22, h = 11
     struct Figure<struct Rectangle> fr;
     fr.color = 333;
-    fr@w = 22;
-    fr@h = 11;
+    fr.@w = 22;
+    fr.@h = 11;
     PrintFigure<&fr>();
 
     // CHECK-RT: >>> Rhombus: color = 999, a = 10000, b = 20000
     struct Figure<struct Rhombus> frh;
     frh.color = 999;
-    frh@a = 10000;
-    frh@b = 20000;
+    frh.@a = 10000;
+    frh.@b = 20000;
     PrintFigure<&frh>();
 
     return 0;

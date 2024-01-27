@@ -2015,14 +2015,19 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           IsNextVariantField = false;
 
           auto OldTok = Tok;
+          const char* pp_field_name = "__pp_head";
+          if (NextToken().is(tok::at)) {
+            ConsumeToken();
+            pp_field_name = "__pp_tail";
+          }
           Tok.startToken();
           Tok.clearFlag(Token::NeedsCleaning);
           Tok.setIdentifierInfo(nullptr);
-          const char* pp_head_name = "__pp_head";
-          Tok.setLength(strlen(pp_head_name));
+
+          Tok.setLength(strlen(pp_field_name));
           Tok.setLocation(SourceLocation());
           Tok.setKind(tok::raw_identifier);
-          Tok.setRawIdentifierData(pp_head_name);
+          Tok.setRawIdentifierData(pp_field_name);
 
           auto* NameId = PP.LookUpIdentifierInfo(Tok);
           UnqualifiedId Name;
@@ -2032,6 +2037,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
                                     tok::identifier, SS, SourceLocation(), Name, nullptr);
           Tok = OldTok;
+          assert(Tok.is(tok::period)
+            || Tok.is(tok::arrow));
           break;
         }
       }
