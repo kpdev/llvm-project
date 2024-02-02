@@ -3773,12 +3773,29 @@ void FunctionDecl::setParams(ASTContext &C,
   }
 }
 
+int FunctionDecl::getNumOfSpecializationsPPMM(StringRef Name)
+{
+  assert(Name.startswith("__pp_mm_")
+    && "Expected pp mono/multimethod");
+  auto PrefixSize = sizeof("__pp_mm_") - 1;
+  auto PosAfterNum = Name.find_first_of("_", PrefixSize);
+  auto NumStr = Name.substr(PrefixSize,
+                            PosAfterNum - PrefixSize);
+  llvm::APInt Num;
+  NumStr.getAsInteger(10, Num);
+  auto NumInt = Num.getSExtValue();
+  return NumInt;
+}
+
 std::vector<FunctionDecl::PPMMParam>
 FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
   std::vector<FunctionDecl::PPMMParam> Result;
   int ParamIdx = 0;
+  auto NumInt = getNumOfSpecializationsPPMM(getName());
+
   for (auto p = param_begin();
-        p != param_end(); ++p, ++ParamIdx) {
+        (p != param_end()) && (NumInt-- > 0);
+        ++p, ++ParamIdx) {
     auto Param = *p;
     Param->dump();
     auto PT = dyn_cast_or_null<PointerType>(

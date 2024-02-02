@@ -257,8 +257,11 @@ public:
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPTypedefs;
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPCtors;
   std::vector<clang::Parser::DeclGroupPtrTy> m_PPGlobalVars;
+  // PP-EXT TODO: Combine these two fields
   bool IsInPPMultimethod = false;
-
+  StringRef PPMultimethodNameStr;
+  Declarator* PPMMDecl;
+  int NumberOfPPSpecilizations = 0;
   void FinalizePPArgsParsing();
 
   /// ConsumeToken - Consume the current 'peek token' and lex the next one.

@@ -19,6 +19,24 @@ void PrintFigure<struct Figure<struct Rhombus> *p>() {
             r.color, r.@a, r.@b);
 }
 
+void PrintFigureWithArg<struct Figure* f>(int i)
+{
+    printf(">>> PrintFigureWithArg Default Color = %d, Param = %d\n",
+        f->color,
+        i);
+}
+
+void PrintFigureWithArg<struct Figure<struct Rhombus> *p>(int i)
+{
+    struct Figure<struct Rhombus> r = *p;
+    printf(">>> PrintFigureWithArg Rhombus Color = %d, \
+            a = %d, b = %d, Param = %d\n",
+        r.color,
+        r.@a,
+        r.@b,
+        i);
+}
+
 int main()
 {
     // CHECK-RT: FigCircle: 42 4294967295
@@ -71,6 +89,12 @@ int main()
     frh.@a = 10000;
     frh.@b = 20000;
     PrintFigure<&frh>();
+
+    // CHECK-RT: >>> PrintFigureWithArg Default Color = 333, Param = 111
+    PrintFigureWithArg<&fr>(111);
+
+    // CHECK-RT: >>> PrintFigureWithArg Rhombus Color = 999, a = 10000, b = 20000, Param = 42
+    PrintFigureWithArg<&frh>(42);
 
     return 0;
 }

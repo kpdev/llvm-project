@@ -1021,10 +1021,21 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       Actions.DecomposeUnqualifiedId(Name, TALI, DNI, SomeInfo);
       LookupResult R(Actions, DNI, Sema::LookupAnyName);
       if (R.getResultKind() == LookupResult::NotFound) {
-        StringRef NameStr = II.getName();
-        SmallVector<char> TmpOut;
-        StringRef Mangled = Twine("__pp_mm_" + NameStr).toStringRef(TmpOut);
+        auto AheadTok = PP.LookAhead(0);
+        int count = 1;
+        for (int i = 0; AheadTok.isNot(tok::greater); ++i) {
+          if (AheadTok.is(tok::comma)) {
+            ++count;
+          }
+          AheadTok = PP.LookAhead(i);
+        }
+        std::string S("__pp_mm_");
+        S += std::to_string(count);
+        S.push_back('_');
+        S += II.getName().str();
+        StringRef Mangled(S);
         auto& IDTbl = PP.getIdentifierTable();
+
         if (IDTbl.find(Mangled) != IDTbl.end()) {
           IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
           Tok.setIdentifierInfo(IIMangled);

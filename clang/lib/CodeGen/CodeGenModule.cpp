@@ -6742,7 +6742,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
     auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
 
-    if (Gens.size() == 1 && F->arg_size() == 1) {
+    if (Gens.size() == 1) {
       llvm::AttributeList PAL;
       {
         // Add attributes to parameters
@@ -6851,7 +6851,13 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         "[PP-EXT] MM InitArr LoadElem (to be executed): %p\n",
         LoadElem);
 
-      ArrayRef<llvm::Value *> Args({GenRecParamPtr});
+      SmallVector<llvm::Value*> VecArgs;
+      VecArgs.push_back(GenRecParamPtr);
+      for (auto i = Gens.size();
+            i < F->arg_size(); ++i) {
+        VecArgs.push_back(F->getArg(i));
+      }
+      ArrayRef<llvm::Value *> Args (VecArgs);
       auto *CI = llvm::CallInst::Create(FnTy,
                   LoadElem, Args, "", BB);
       CI->setAttributes(PAL);
