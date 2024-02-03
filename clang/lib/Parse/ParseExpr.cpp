@@ -2045,11 +2045,19 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           Name.setIdentifier(NameId, SourceLocation());
           CXXScopeSpec SS;
           PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
-          LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
-                                    tok::identifier, SS, SourceLocation(), Name, nullptr);
+          LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(),
+                                    SourceLocation(),
+                                    OldTok.is(tok::period) ?
+                                      tok::identifier :
+                                      tok::arrow,
+                                    SS, SourceLocation(), Name, nullptr);
+
           Tok = OldTok;
           assert(Tok.is(tok::period)
             || Tok.is(tok::arrow));
+          if (NextToken().is(tok::semi)) {
+            ConsumeToken();
+          }
           break;
         }
       }
