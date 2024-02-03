@@ -8,26 +8,30 @@
 
 //------------------------------------------------------------------------------
 // Обработчик специализации ввода прямоугольника
-void InShape<shape<rectangle> *s>(FILE* ofst) {
-  rectangle* r = &(s->@)
+void InShape<struct shape<struct rectangle> *s>(FILE* ofst) {
+  struct rectangle rec = s->@;
+  rectangle* r = &rec;
   InRectangle(r);
 }
 
 //------------------------------------------------------------------------------
 // Обработчик специализации вывода прямоугольника
-void OutShape<shape<rectangle> *s>(FILE* ofst) {
-  rectangle* r = &(s->@)
+void OutShape<struct shape<struct rectangle> *s>(FILE* ofst) {
+  struct rectangle rec = s->@;
+  rectangle* r = &rec;
   OutRectangle(r);
 }
 
 //------------------------------------------------------------------------------
 // Обработчик специализации ввода треугольника
-void InShape<shape<triangle> *s>(FILE* ofst) {
-  InTriangle(&(s->@));
+void InShape<struct shape<struct triangle> *s>(FILE* ofst) {
+  struct triangle tri = s->@;
+  InTriangle(&tri);
 }
 
 //------------------------------------------------------------------------------
 // Обработчик специализации вывода треугольника
-void OutShape<shape<triangle> *s>(FILE* ofst) {
-  OutTriangle(&(s->@));
+void OutShape<struct shape<struct triangle> *s>(FILE* ofst) {
+  struct triangle tri = s->@;
+  OutTriangle(&tri);
 }
