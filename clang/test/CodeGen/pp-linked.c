@@ -99,8 +99,14 @@ int main()
     // Test access to tail part
     struct Figure<struct Circle> f_test;
     struct Circle cc1 = f_test.@;
+    f_test.@ = cc1;
+    struct Circle* ptr_cc1 = &(f_test.@);
+    ptr_cc1->r = 66;
+
     struct Figure<struct Circle>* f_ptr = &f_test;
     struct Circle cc2 = f_ptr->@;
+    struct Circle* ptr_cc2 = &(f_ptr->@);
+    ptr_cc2->r = 55;
 
     return 0;
 }

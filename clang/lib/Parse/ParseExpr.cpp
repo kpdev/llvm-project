@@ -2061,7 +2061,11 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           Tok = OldTok;
           assert(Tok.is(tok::period)
             || Tok.is(tok::arrow));
-          if (NextToken().is(tok::semi)) {
+          if (NextToken().is(tok::semi)  ||
+              NextToken().is(tok::equal) ||
+              NextToken().is(tok::r_paren)) {
+            // Return whole variant part
+            //              var.@ or var->@
             ConsumeToken();
           }
           break;
