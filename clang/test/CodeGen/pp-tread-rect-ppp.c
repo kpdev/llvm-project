@@ -1,5 +1,8 @@
 // clang -pthread thread-rect-ppp.c
-// RUN: %clang -c %s -o %S/a.o
+// RUN: %clang -pthread %s -o %S/a.out
+// RUN: %S/a.out | FileCheck %s -check-prefix=CHECK-RT
+// RUN: rm %S/a.out
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -64,7 +67,7 @@ int WaitThread(ThreadData* td) {
 
 // Вывод результата вычислений периметра конкретно прямоугольника
 void PrintRectPerimeter(RectPreimeter* rp, const char* str) {
-    printf("Perimeter of %s = %f", str, rp->p);
+    printf("Perimeter of %s = %f\n", str, rp->p);
 }
 
 // Специализация для потока
@@ -92,21 +95,21 @@ int main () {
     struct ThreadData<struct RectPreimeter> thread1;
     thread1.threadId = 0;
     thread1.@r.x = 3;
-    thread1.@r.x = 5;
+    thread1.@r.y = 5;
     thread1.@p = 0.0;
 
     // struct ThreadData<struct RectPreimeter> thread2 = {0}<{7,4,0.0}>;
     struct ThreadData<struct RectPreimeter> thread2;
     thread2.threadId = 0;
     thread2.@r.x = 7;
-    thread2.@r.x = 4;
+    thread2.@r.y = 4;
     thread2.@p = 0.0;
 
     // struct ThreadData<struct RectPreimeter> thread3 = {0}<{6,8,0.0}>;
     struct ThreadData<struct RectPreimeter> thread3;
     thread3.threadId = 0;
     thread3.@r.x = 6;
-    thread3.@r.x = 8;
+    thread3.@r.y = 8;
     thread3.@p = 0.0;
 
     // Далее запуск трех потоков
@@ -123,6 +126,10 @@ int main () {
     PrintRectPerimeter(&(thread1.@), "Thread1");
     PrintRectPerimeter(&(thread2.@), "Thread2");
     PrintRectPerimeter(&(thread3.@), "Thread3");
+
+// CHECK-RT: Perimeter of Thread1 = 16.000000
+// CHECK-RT: Perimeter of Thread2 = 22.000000
+// CHECK-RT: Perimeter of Thread3 = 28.000000
 
     return 0;
 }
