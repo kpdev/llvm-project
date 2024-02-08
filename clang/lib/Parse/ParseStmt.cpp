@@ -1207,85 +1207,87 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       // Check if it is pp variant
       if (isa<DeclStmt>(R.get())) {
         DeclStmt* DS = cast_or_null<DeclStmt>(R.get());
-        if (VarDecl* VD = cast_or_null<VarDecl>(DS->getSingleDecl())) {
-          if (RecordDecl* RD = VD->getType().getCanonicalType().getTypePtr()->
-                          getAsRecordDecl()) {
-            auto TName = RD->getName();
-            auto Tmp = VD->getNameAsString();
-            bool isVariant = TName.startswith("__pp_struct");
+        if (DS->isSingleDecl()) {
+          if (VarDecl* VD = cast_or_null<VarDecl>(DS->getSingleDecl())) {
+            if (RecordDecl* RD = VD->getType().getCanonicalType().getTypePtr()->
+                            getAsRecordDecl()) {
+              auto TName = RD->getName();
+              auto Tmp = VD->getNameAsString();
+              bool isVariant = TName.startswith("__pp_struct");
 
-            if (isVariant) {
-              // Initialize tag
-              CXXScopeSpec SS;
-              UnqualifiedId FieldName;
-              {
-                // setup field name
-                IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
-                FieldName.setIdentifier(Id, SourceLocation());
-              }
+              if (isVariant) {
+                // Initialize tag
+                CXXScopeSpec SS;
+                UnqualifiedId FieldName;
+                {
+                  // setup field name
+                  IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
+                  FieldName.setIdentifier(Id, SourceLocation());
+                }
 
-              ExprResult ERes = Actions.ActOnNameClassifiedAsNonType(
-                getCurScope(),
-                SS,
-                VD,
-                SourceLocation(),
-                NextToken()
-              );
-
-              auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
-                ERes.get(), SourceLocation(),
-                clang::tok::period,
-                SS,
-                SourceLocation(),
-                FieldName,
-                nullptr);
-
-              IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_specialization_type");
-              FieldName.setIdentifier(Id, SourceLocation());
-              TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
-                TagField.get(), SourceLocation(),
-                clang::tok::period,
-                SS,
-                SourceLocation(),
-                FieldName,
-                nullptr);
-
-              DeclRefExpr* RHSRes;
-              { // RHS
-                std::string TagName = std::string("__pp_tag_") + TName.str();
-                IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
-                UnqualifiedId VarName;
-                VarName.setIdentifier(II, SourceLocation());
-                DeclarationNameInfo DNI;
-                DNI.setName(VarName.Identifier);
-                LookupResult R(Actions, DNI,
-                  Sema::LookupOrdinaryName);
-                getActions().LookupName(R, getCurScope(), true);
-                auto* D = cast<ValueDecl>(R.getFoundDecl());
-                RHSRes = DeclRefExpr::Create(getActions().Context,
-                  NestedNameSpecifierLoc(), SourceLocation(),
-                  D,
-                  false,
-                  R.getLookupNameInfo(),
-                  D->getType(),
-                  clang::VK_LValue,
-                  D);
-                getActions().MarkDeclRefReferenced(RHSRes);
-              } // RHS
-
-              ExprResult AssignmentOpExpr =
-                Actions.ActOnBinOp(
+                ExprResult ERes = Actions.ActOnNameClassifiedAsNonType(
                   getCurScope(),
+                  SS,
+                  VD,
                   SourceLocation(),
-                  clang::tok::equal,
-                  TagField.get(),
-                  RHSRes
+                  NextToken()
                 );
 
-              Stmts.push_back(AssignmentOpExpr.get());
-            }
-          }
+                auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+                  ERes.get(), SourceLocation(),
+                  clang::tok::period,
+                  SS,
+                  SourceLocation(),
+                  FieldName,
+                  nullptr);
 
+                IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_specialization_type");
+                FieldName.setIdentifier(Id, SourceLocation());
+                TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+                  TagField.get(), SourceLocation(),
+                  clang::tok::period,
+                  SS,
+                  SourceLocation(),
+                  FieldName,
+                  nullptr);
+
+                DeclRefExpr* RHSRes;
+                { // RHS
+                  std::string TagName = std::string("__pp_tag_") + TName.str();
+                  IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
+                  UnqualifiedId VarName;
+                  VarName.setIdentifier(II, SourceLocation());
+                  DeclarationNameInfo DNI;
+                  DNI.setName(VarName.Identifier);
+                  LookupResult R(Actions, DNI,
+                    Sema::LookupOrdinaryName);
+                  getActions().LookupName(R, getCurScope(), true);
+                  auto* D = cast<ValueDecl>(R.getFoundDecl());
+                  RHSRes = DeclRefExpr::Create(getActions().Context,
+                    NestedNameSpecifierLoc(), SourceLocation(),
+                    D,
+                    false,
+                    R.getLookupNameInfo(),
+                    D->getType(),
+                    clang::VK_LValue,
+                    D);
+                  getActions().MarkDeclRefReferenced(RHSRes);
+                } // RHS
+
+                ExprResult AssignmentOpExpr =
+                  Actions.ActOnBinOp(
+                    getCurScope(),
+                    SourceLocation(),
+                    clang::tok::equal,
+                    TagField.get(),
+                    RHSRes
+                  );
+
+                Stmts.push_back(AssignmentOpExpr.get());
+              }
+            }
+
+          }
         }
       }// Check if it is pp varian
     }
