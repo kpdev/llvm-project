@@ -13,19 +13,11 @@
 // аналогичная объектно-ориентированной обертке
 //==============================================================================
 
-// Прямоугольник
-typedef struct Rectangle{int x, y;} Rectangle;
-
-// Основа специализации. Прямоугольник, передаваемый потоку
-// и формируемое значение результата (периметр)
-typedef struct RectPreimeter {Rectangle r; double p;} RectPreimeter;
-
-
 // Обобщенная структура, используемая для обертки данных,
 // передаваемых в поточную функцию, и для возврата результата
 // Конкретные данные формируются в специализации для каждого
 // отдельного потока
-typedef struct ThreadData {pthread_t threadId;}< struct RectPreimeter; > ThreadData;
+typedef struct ThreadData {pthread_t threadId;}<> ThreadData;
 
 // Обобщенная функция, задающая формат для передачи аргументов
 // и подменяемая на соответствующий обработчик специализации.
@@ -58,12 +50,12 @@ int WaitThread(ThreadData* td) {
 // В примере только прямоугольник.
 //==============================================================================
 
-// // Прямоугольник
-// typedef struct Rectangle{int x, y;} Rectangle;
+// Прямоугольник
+typedef struct Rectangle{int x, y;} Rectangle;
 
-// // Основа специализации. Прямоугольник, передаваемый потоку
-// // и формируемое значение результата (периметр)
-// typedef struct RectPreimeter {Rectangle r; double p;} RectPreimeter;
+// Основа специализации. Прямоугольник, передаваемый потоку
+// и формируемое значение результата (периметр)
+typedef struct RectPreimeter {Rectangle r; double p;} RectPreimeter;
 
 // Вывод результата вычислений периметра конкретно прямоугольника
 void PrintRectPerimeter(RectPreimeter* rp, const char* str) {
@@ -71,7 +63,7 @@ void PrintRectPerimeter(RectPreimeter* rp, const char* str) {
 }
 
 // Специализация для потока
-// ThreadData + <RectPreimeter;>;
+struct ThreadData + <struct RectPreimeter;>;
 
 // Обработчик специализации, запускаемый в потоке
 // вычисляет периметр прямоугольника.
