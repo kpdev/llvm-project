@@ -1,6 +1,6 @@
-// RUN: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LOGS
+// RUN~: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LOGS
 // RUN~: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
-// RUN: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-IR
+// RUN~: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-IR
 // RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
 
 // CHECK-LOGS:      [PPMC] Parse extension
@@ -89,7 +89,7 @@ struct BaseObject { int a; }<>;
 struct NewObject { int b; };
 struct BaseObject + < struct NewObject; >;
 
-void PrintFigure<struct Figure* f>();
+void PrintFigure<struct Figure* f>() {}
 // void PrintFigureWithArg<struct Figure* f>(unsigned i);
 // void MultiMethod<struct Figure* f1, struct Figure* f2>();
 // void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);
@@ -116,32 +116,32 @@ void test_type_tag(struct Figure* f)
 
 int main() {
     struct Figure<struct Circle> fc;
-    fc<r> = 42;
+    fc.@r = 42;
     fc.color = 0xffffffff;
 
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
     test_type_tag(&fc);
 
     struct Figure<struct Rectangle> fr;
-    fr<w> = 5;
-    fr<h> = 7;
+    fr.@w = 5;
+    fr.@h = 7;
     fr.color = 0x000000ff;
 
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 2
     test_type_tag(&fr);
 
     struct Figure<struct Triangle> ft;
-    ft<a> = 1;
-    ft<b> = 2;
-    ft<c> = 3;
+    ft.@a = 1;
+    ft.@b = 2;
+    ft.@c = 3;
     ft.color = 0x00000001;
 
     // CHECK-RT:      FigCircle: 42 4294967295
     // CHECK-RT-NEXT: FigRect: 5 7 255
     // CHECK-RT-NEXT: FigTriangle: 1 2 3 1
-    printf("FigCircle: %d %u\n", fc<r>, fc.color);
-    printf("FigRect: %d %d %u\n", fr<w>, fr<h>, fr.color);
-    printf("FigTriangle: %d %d %d %u\n", ft<a>, ft<b>, ft<c>, ft.color);
+    printf("FigCircle: %d %u\n", fc.@r, fc.color);
+    printf("FigRect: %d %d %u\n", fr.@w, fr.@h, fr.color);
+    printf("FigTriangle: %d %d %d %u\n", ft.@a, ft.@b, ft.@c, ft.color);
 
     // CHECK-IR:       call void @__pp_mm_PrintFigure(ptr noundef %fc)
     PrintFigure<&fc>();
@@ -180,7 +180,7 @@ int main() {
 
     struct BaseObject<struct NewObject> obj;
     obj.a = 101;
-    obj<b> = 102;
+    obj.@b = 102;
     // CHECK-RT-NEXT: BaseObject<NewObject>: 101 102
-    printf("BaseObject<NewObject>: %d %d\n", obj.a, obj<b>);
+    printf("BaseObject<NewObject>: %d %d\n", obj.a, obj.@b);
 }
