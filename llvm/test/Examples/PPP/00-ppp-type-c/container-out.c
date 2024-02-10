@@ -9,14 +9,14 @@
 //------------------------------------------------------------------------------
 // Сигнатуры требуемых функций можно тоже подключить через
 // заголовочный файл. Но, для простоты, можно и так описать.
-void OutShape<struct shape* s>(FILE* ofst);
+void FigureOutput<struct Figure* s>(FILE* ofst);
 
 //------------------------------------------------------------------------------
 // Вывод содержимого контейнера в указанный поток
-void OutContainer(container *c, FILE* ofst) {
+void ContainerOut(Container *c, FILE* ofst) {
   fprintf(ofst, "Container contains %d elements.\n", c->len);
   for(int i = 0; i < c->len; i++) {
     fprintf(ofst, "%d: " , i);
-    OutShape<c->cont[i]>(ofst);
+    FigureOutput<c->cont[i]>(ofst);
   }
 }

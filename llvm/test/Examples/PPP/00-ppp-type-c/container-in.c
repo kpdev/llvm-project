@@ -9,13 +9,13 @@
 //------------------------------------------------------------------------------
 // Сигнатуры требуемых функций можно тоже подключить через
 // заголовочный файл. Но, для простоты, можно и так описать.
-// struct shape *InShape(FILE* ifdt);
-struct shape* CreateAndInShape(FILE* ifst);
+struct Figure *FigureCreateAndIn(FILE* ifdt);
+
 //------------------------------------------------------------------------------
 // Ввод содержимого контейнера из указанного потока
-void InContainer(container* c, FILE* ifst) {
+void ContainerIn(Container* c, FILE* ifst) {
   while(!feof(ifst))  {
-    if((c->cont[c->len] = CreateAndInShape(ifst)) != 0) {
+    if((c->cont[c->len] = FigureCreateAndIn(ifst)) != 0) {
       c->len++;
     }
   }

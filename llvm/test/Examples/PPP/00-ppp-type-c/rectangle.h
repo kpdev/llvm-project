@@ -7,8 +7,8 @@
 
 //------------------------------------------------------------------------------
 // прямоугольник
-typedef struct rectangle {
+typedef struct Rectangle {
   int x, y; // ширина, высота
-} rectangle;
+} Rectangle;
 
 #endif // __rectangle__

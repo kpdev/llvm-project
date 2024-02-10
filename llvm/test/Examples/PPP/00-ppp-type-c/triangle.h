@@ -7,9 +7,9 @@
 
 //------------------------------------------------------------------------------
 // треугольник
-typedef struct triangle {
+typedef struct Triangle {
   int a, b, c; // стороны треугольника
-} triangle;
+} Triangle;
 
 #endif // __triangle__
 

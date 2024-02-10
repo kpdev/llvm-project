@@ -5,17 +5,16 @@
 
 #include <stdlib.h>
 #include "container.h"
-#include "shape.h"
 
 //------------------------------------------------------------------------------
 // Инициализация контейнера
-void InitContainer(container *c) {
+void InitContainer(Container *c) {
   c->len = 0;
 }
 
 //------------------------------------------------------------------------------
 // Очистка контейнера от элементов (освобождение памяти)
-void ClearContainer(container *c) {
+void ClearContainer(Container *c) {
   for(int i = 0; i < c->len; i++) {
     free(c->cont[i]);
   }

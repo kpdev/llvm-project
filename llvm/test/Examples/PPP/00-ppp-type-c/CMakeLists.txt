@@ -12,23 +12,30 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BUILD_DIR}/../bin")
 # Установка переменной со списком исходников
 set(SOURCE_FILES
     # headers
+    figure.h
     rectangle.h
+    figure-rectangle.h
     triangle.h
-    shape.h
+    figure-triangle.h
     container.h
 
     #sources
-    main.c
+    figure-in.c
+    figures-input.c
+    figure-out.c
+    figure-rectangle-in.c
+    figure-rectangle-out.c
+    figure-triangle-in.c
+    figure-triangle-out.c
     rectangle-in.c
     rectangle-out.c
+    rect-trian-in-out.c
     triangle-in.c
     triangle-out.c
-    shape-in.c
-    in-out-rect-trian.c
     container-constr.c
     container-in.c
     container-out.c
+    main.c
 )
 
 add_executable(evo-demo ${SOURCE_FILES})
-
