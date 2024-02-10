@@ -976,7 +976,20 @@ Corrected:
 
     // Perform typo correction to determine if there is another name that is
     // close to this name.
-    if (!SecondTry && CCC) {
+    // PP-EXT TODO: Need to handle this case correctly
+    //              if we have code like
+    //              ```
+    //              struct Figure {} <>;
+    //              void FigureIn<struct Figure* f>() {}
+    //              void foo() {
+    //                struct Figure *sp;
+    //                FigureIn<sp>();
+    //              }
+    //              ```
+    //              then if remove `&& !NextToken.is(tok::less)`
+    //              then parser will throw an error with proposal
+    //              to replace FigureIn with Figure
+    if (!SecondTry && CCC && !NextToken.is(tok::less)) {
       SecondTry = true;
       if (TypoCorrection Corrected =
               CorrectTypo(Result.getLookupNameInfo(), Result.getLookupKind(), S,
