@@ -1,0 +1,3 @@
+/home/al/Projects/git-books/ppp/programs/01-newtype/pp/00-pp-union-c/build/CMakeFiles/evo-demo.dir
+/home/al/Projects/git-books/ppp/programs/01-newtype/pp/00-pp-union-c/build/CMakeFiles/edit_cache.dir
+/home/al/Projects/git-books/ppp/programs/01-newtype/pp/00-pp-union-c/build/CMakeFiles/rebuild_cache.dir

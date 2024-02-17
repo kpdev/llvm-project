@@ -1,0 +1,12 @@
+Filled container.
+Container contains 8 elements.
+0: It is Rectangle: x = 3, y = 4
+1: It is Triangle: a = 1, b = 1, c = 1
+2: It is Rectangle: x = 30, y = 40
+3: It is Triangle: a = 2, b = 2, c = 1
+4: It is Rectangle: x = 13, y = 14
+5: It is Triangle: a = 10, b = 10, c = 10
+6: It is Rectangle: x = 330, y = 49
+7: It is Triangle: a = 3, b = 4, c = 5
+Empty container.
+Container contains 0 elements.

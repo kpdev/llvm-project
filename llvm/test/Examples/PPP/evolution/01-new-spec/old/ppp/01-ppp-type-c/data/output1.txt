@@ -1,0 +1,22 @@
+Filled container.
+Container contains 18 elements.
+0: It is Rectangle: x = 11, y = 22
+1: It is Triangle: a = 33, b = 44, c = 55
+2: It is Circle: r = 10
+3: It is Rectangle: x = 45, y = 26
+4: It is Triangle: a = 66, b = 66, c = 66
+5: It is Circle: r = 5
+6: It is Rectangle: x = 111, y = 22
+7: It is Triangle: a = 303, b = 404, c = 505
+8: It is Rectangle: x = 145, y = 126
+9: It is Circle: r = 40
+10: It is Triangle: a = 166, b = 166, c = 166
+11: It is Circle: r = 14
+12: It is Rectangle: x = 113, y = 223
+13: It is Triangle: a = 33, b = 44, c = 25
+14: It is Circle: r = 20
+15: It is Rectangle: x = 15, y = 26
+16: It is Triangle: a = 666, b = 666, c = 666
+17: It is Triangle: a = 0, b = 0, c = 0
+Empty container.
+Container contains 0 elements.
