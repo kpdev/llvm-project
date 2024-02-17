@@ -11,12 +11,12 @@
 #include "figure-rectangle.h"
 #include "figure-triangle.h"
 
-#define create_spec(VarName, ...)                \
-  {                                              \
-    __VA_ARGS__ tmp;                             \
-    VarName = malloc(sizeof(__VA_ARGS__));       \
-    memcpy(VarName, &tmp, sizeof(__VA_ARGS__));  \
-  }
+// #define create_spec(VarName, ...)                \
+//   {                                              \
+//     __VA_ARGS__ tmp;                             \
+//     VarName = malloc(sizeof(__VA_ARGS__));       \
+//     memcpy(VarName, &tmp, sizeof(__VA_ARGS__));  \
+//   }
 
 //------------------------------------------------------------------------------
 // Ввод параметров одноф из фигур из файла
@@ -28,12 +28,14 @@ struct Figure* FigureCreateAndIn(FILE* ifst) {
   case 1:
     // sp = malloc(sizeof(Figure<Rectangle>));
     // Далее нужно сформировать признак. Наверное спец. функция...
-    create_spec(sp, struct Figure<struct Rectangle>); // Создание и инициализация
+    // create_spec(sp, struct Figure<struct Rectangle>); // Создание и инициализация
+    sp = create_spec<struct Figure<struct Rectangles>>();
     break;
   case 2:
     // sp = malloc(sizeof(Figure<Triangle>));
     // Далее нужно сформировать признак. Наверное спец. функция...
-    create_spec(sp, struct Figure<struct Triangle>); // Создание и инициализация
+    // create_spec(sp, struct Figure<struct Triangle>); // Создание и инициализация
+    sp = create_spec<struct Figure<struct Triangle>>();
     break;
   default:
     printf("INIT ERROR [IDX: %d]\n", k);
