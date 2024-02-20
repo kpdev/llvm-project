@@ -1021,30 +1021,58 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       Actions.DecomposeUnqualifiedId(Name, TALI, DNI, SomeInfo);
       LookupResult R(Actions, DNI, Sema::LookupAnyName);
       if (R.getResultKind() == LookupResult::NotFound) {
-        auto AheadTok = PP.LookAhead(0);
-        int count = 1;
-        for (int i = 0; AheadTok.isNot(tok::greater); ++i) {
-          if (AheadTok.is(tok::comma)) {
-            ++count;
-          } else if (AheadTok.is(tok::semi)) {
-            count = -1;
-            break;
-          }
-          AheadTok = PP.LookAhead(i);
-        }
-
-        if (count > 0) {
-          std::string S("__pp_mm_");
-          S += std::to_string(count);
-          S.push_back('_');
-          S += II.getName().str();
+        if (Name.Identifier->getName().equals("create_spec")) {
+          ConsumeToken();
+          assert(Tok.is(tok::kw_struct));
+          ConsumeToken();
+          assert(Tok.is(tok::identifier));
+          auto Base = Tok.getIdentifierInfo()->getName().str();
+          ConsumeToken();
+          assert(Tok.is(tok::less));
+          ConsumeToken();
+          assert(Tok.is(tok::kw_struct));
+          ConsumeToken();
+          assert(Tok.is(tok::identifier));
+          auto Variant = Tok.getIdentifierInfo()->getName().str();
+          auto S = Name.Identifier->getName().str()
+            + std::string("__pp_struct_")
+            + Base + "__"
+            + Variant;
           StringRef Mangled(S);
-          auto& IDTbl = PP.getIdentifierTable();
+          ConsumeToken();
+          assert(Tok.is(tok::greater));
+          ConsumeToken();
+          assert(Tok.is(tok::greater));
+          ConsumeToken();
+          IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          Name.setIdentifier(IIMangled, ILoc);
+        }
+        else {
+          auto AheadTok = PP.LookAhead(0);
+          int count = 1;
+          for (int i = 0; AheadTok.isNot(tok::greater); ++i) {
+            if (AheadTok.is(tok::comma)) {
+              ++count;
+            } else if (AheadTok.is(tok::semi)) {
+              count = -1;
+              break;
+            }
+            AheadTok = PP.LookAhead(i);
+          }
 
-          if (IDTbl.find(Mangled) != IDTbl.end()) {
-            IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
-            Tok.setIdentifierInfo(IIMangled);
-            Name.setIdentifier(IIMangled, ILoc);
+          if (count > 0) {
+            std::string S("__pp_mm_");
+            S += std::to_string(count);
+            S.push_back('_');
+            S += II.getName().str();
+            StringRef Mangled(S);
+            auto& IDTbl = PP.getIdentifierTable();
+
+            if (IDTbl.find(Mangled) != IDTbl.end()) {
+              IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+              Tok.setIdentifierInfo(IIMangled);
+              Name.setIdentifier(IIMangled, ILoc);
+            }
           }
         }
       }

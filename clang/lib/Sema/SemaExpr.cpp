@@ -2765,6 +2765,34 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                  (Id.getKind() == UnqualifiedIdKind::IK_ImplicitSelfParam)
                      ? LookupObjCImplicitSelfParam
                      : LookupOrdinaryName);
+  if (R.getResultKind() ==
+      clang::LookupResult::NotFound &&
+      Name.getAsIdentifierInfo()->getName().startswith("create_spec")) {
+    auto ResTy = Context.VoidPtrTy;
+    ArrayRef<QualType> ArrTys;
+    auto FPI = FunctionProtoType::ExtProtoInfo();
+    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+
+    DeclContext *Parent = Context.getTranslationUnitDecl();
+    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
+                                            Name, QTy,
+                                            /*TInfo=*/nullptr, SC_Extern,
+                                            getCurFPFeatures().isFPConstrained(),
+                                            false, QTy->isFunctionProtoType());
+    SmallVector<ParmVarDecl *, 16> Params;
+    NewD->setParams(Params);
+    // TODO: Remove it
+    auto X = DeclRefExpr::Create(Context,
+        NestedNameSpecifierLoc(), SourceLocation(),
+        NewD,
+        false,
+        R.getLookupNameInfo(),
+        NewD->getType(),
+        clang::VK_LValue,
+        NewD);
+    R.addDecl(X->getDecl());
+  }
+
   if (TemplateKWLoc.isValid() || TemplateArgs) {
     // Lookup the template name again to correctly establish the context in
     // which it was found. This is really unfortunate as we already did the

@@ -4813,6 +4813,8 @@ bool CodeGenModule::shouldDropDLLAttribute(const Decl *D,
           !shouldMapVisibilityToDLLExport(cast<NamedDecl>(MRD)));
 }
 
+static std::vector<llvm::Function*> PPCreateSpecsToDefine;
+
 /// GetOrCreateLLVMFunction - If the specified mangled name is not in the
 /// module, create and return an llvm Function with the specified type. If there
 /// is something in the module with the specified name, return it potentially
@@ -5006,6 +5008,10 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
         }
       }
     }
+  }
+
+  if (F->getName().startswith("create_spec")) {
+    PPCreateSpecsToDefine.push_back(F);
   }
 
   // Make sure the result is of the requested type.
@@ -6427,7 +6433,134 @@ void CodeGenModule::AddPPSpecialization(
 void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
+  for (auto* FSpec : PPCreateSpecsToDefine) {
+    if(FSpec->getBasicBlockList().empty()) {
+      auto TypeNameExtracted =
+        FSpec->getName().substr(sizeof("create_spec") - 1);
+      printf("Need to generate body for %s [%s]\n",
+        FSpec->getName().data(),
+        TypeNameExtracted.data());
+      auto& Ts = Context.getTypes();
+      int64_t BytesToAlloc = 0;
+      for (auto* Ty : Ts) {
+        if (Ty->isRecordType() &&
+            Ty->getAsRecordDecl()
+              ->getName().equals(TypeNameExtracted)) {
+          auto* RecordTy = Ty->getAsRecordDecl();
+          BytesToAlloc = Context.getTypeSizeInChars(Ty).getQuantity();
+          printf("Found Record = [%s][%d][%d]\n",
+            RecordTy->getName().data(),
+            (int)Context.getTypeSize(Ty),
+            (int)Context.getTypeSizeInChars(Ty).getQuantity());
+            RecordTy->dump();
+            auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
+          {
+            StringRef MangledName = "malloc";
+            llvm::Function *F = getModule().getFunction(MangledName);
+            if (!F) {
+              auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+              auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
+              auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
+                                static_cast<unsigned>(64));
+              SmallVector<llvm::Type*, 8> ArgTypes(1);
+              ArgTypes[0] = Arg1Type;
+              auto* FTy = llvm::FunctionType::get(MallocResultType,
+                                        ArgTypes, false);
+              F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+                                MangledName, &getModule());
+            }
+
+            llvm::AttrBuilder FuncAttrs(getLLVMContext());
+            llvm::AttrBuilder RetAttrs(getLLVMContext());
+            Optional<unsigned> NumElemsParam;
+            FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
+            getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
+            std::vector<std::string> Features;
+            Features = getTarget().getTargetOpts().Features;
+            FuncAttrs.addAttribute("target-cpu", "x86-64");
+            FuncAttrs.addAttribute("tune-cpu", "generic");
+            llvm::sort(Features);
+            FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
+            llvm::AttrBuilder Attrs(getLLVMContext());
+            Attrs.addAttribute(llvm::Attribute::NoUndef);
+            Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+            SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+            ArgAttrs[0] = ArgAttrs[0].addAttributes(
+                        getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+            llvm::AttributeList PAL;
+            PAL = llvm::AttributeList::get(
+                  getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
+                  llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
+            F->setAttributes(PAL);
+            F->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
+            F->setDSOLocal(false);
+
+            SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
+            SmallVector<llvm::Value *, 16> IRCallArgs(1);
+            auto ASTLongLongTy = getContext().LongLongTy;
+            auto ASTIntTy = getContext().IntTy;
+            auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+            auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+            auto* SizeAlloca = new llvm::AllocaInst(LongLongTy, 0, "Size", BB);
+            llvm::APInt ApintAlloc(64, BytesToAlloc);
+            auto* NumberAllocBytes =
+              llvm::ConstantInt::get(getLLVMContext(), ApintAlloc);
+            new llvm::StoreInst(NumberAllocBytes, SizeAlloca, BB);
+            auto* LoadTmp =
+              new llvm::LoadInst(LongLongTy, SizeAlloca, "", BB);
+            IRCallArgs[0] = LoadTmp;
+
+            auto Qty = Ty->getCanonicalTypeInternal();
+            auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+
+            auto* MallocRes = llvm::CallInst::Create(F->getFunctionType(),
+              F, IRCallArgs, "call_malloc", BB);
+            MallocRes->setAttributes(PAL);
+            llvm::APInt Apint0(32, 0);
+            auto* Number0 =
+              llvm::ConstantInt::get(
+                getLLVMContext(), Apint0);
+            ArrayRef<llvm::Value*> Idxs({Number0, Number0});
+            auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+              GenRecTy, MallocRes, Idxs, "", BB);
+            auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
+            int FieldIdx = 0;
+            for (auto* Field : HeadRecordTy->fields()) {
+              if (Field->getName().equals("__pp_specialization_type")) {
+                break;
+              }
+              ++FieldIdx;
+            }
+            llvm::APInt ApintIdx(32, FieldIdx);
+            auto* NumberIdx =
+              llvm::ConstantInt::get(
+                getLLVMContext(), ApintIdx);
+            ArrayRef<llvm::Value*> Idxs2({Number0, NumberIdx});
+            auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
+            auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
+
+            auto* TagElem = llvm::GetElementPtrInst::CreateInBounds(
+              HeadRecTy, HeadElem, Idxs2, "", BB);
+
+            auto genName = std::string("__pp_tag_") +
+              TypeNameExtracted.str();
+            auto *GV = getModule().getGlobalVariable(genName);
+
+            auto* LoadGlobalTag =
+              new llvm::LoadInst(IntTy, GV, "", BB);
+            new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+
+            llvm::ReturnInst::Create(getLLVMContext(),
+              MallocRes, BB);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   auto FName = F->getName();
+
   if (not FName.startswith("__pp_mm")) {
     if (FName.equals("main")) {
       auto& BB = F->getEntryBlock();

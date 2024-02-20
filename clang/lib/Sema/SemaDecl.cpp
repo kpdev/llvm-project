@@ -895,6 +895,25 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
   LookupParsedName(Result, S, &SS, /*ObjectType=*/QualType(),
                    /*AllowBuiltinCreation=*/!CurMethod);
 
+  if (Result.getResultKind() ==
+      clang::LookupResult::NotFound &&
+      Name->getName().startswith("create_spec")) {
+    auto ResTy = Context.VoidPtrTy;
+    ArrayRef<QualType> ArrTys;
+    auto FPI = FunctionProtoType::ExtProtoInfo();
+    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+
+    DeclContext *Parent = Context.getTranslationUnitDecl();
+    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
+                                            Name, QTy,
+                                            /*TInfo=*/nullptr, SC_Extern,
+                                            getCurFPFeatures().isFPConstrained(),
+                                            false, QTy->isFunctionProtoType());
+    SmallVector<ParmVarDecl *, 16> Params;
+    NewD->setParams(Params);
+    Result.addDecl(NewD);
+  }
+
   if (SS.isInvalid())
     return NameClassification::Error();
 

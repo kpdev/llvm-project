@@ -157,6 +157,36 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
+    if (Tok.getIdentifierInfo()
+            ->getName().equals("create_spec")) {
+      auto IdentTok = Tok;
+      ConsumeToken();
+      assert(Tok.is(tok::less));
+      ConsumeToken();
+      assert(Tok.is(tok::kw_struct));
+      ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      auto Base = Tok.getIdentifierInfo()->getName().str();
+      ConsumeToken();
+      assert(Tok.is(tok::less));
+      ConsumeToken();
+      assert(Tok.is(tok::kw_struct));
+      ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      auto Variant = Tok.getIdentifierInfo()->getName().str();
+      auto S = IdentTok.getIdentifierInfo()->getName().str()
+        + std::string("__pp_struct_")
+        + Base + "__"
+        + Variant;
+      StringRef Mangled(S);
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+      Tok = IdentTok;
+      Tok.setIdentifierInfo(IIMangled);
+    }
     Token Next = NextToken();
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement
       // Both C++11 and GNU attributes preceding the label appertain to the

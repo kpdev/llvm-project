@@ -96,6 +96,10 @@ int main()
     // CHECK-RT: >>> PrintFigureWithArg Rhombus Color = 999, a = 10000, b = 20000, Param = 42
     PrintFigureWithArg<&frh>(42);
 
+    // CHECK-RT: >>> PrintFigureWithArg Rhombus
+    struct Figure* Ptr = create_spec<struct Figure<struct Rhombus> >();
+    PrintFigureWithArg<Ptr>(42);
+
     // Test access to tail part
     struct Figure<struct Circle> f_test;
     struct Circle cc1 = f_test.@;
