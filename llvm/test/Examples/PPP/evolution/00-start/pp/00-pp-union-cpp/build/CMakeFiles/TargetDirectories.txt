@@ -1,3 +1,0 @@
-/home/al/Projects/git-books/ppp/programs/evolution/00-start/pp/00-pp-union-cpp/build/CMakeFiles/evo-demo.dir
-/home/al/Projects/git-books/ppp/programs/evolution/00-start/pp/00-pp-union-cpp/build/CMakeFiles/edit_cache.dir
-/home/al/Projects/git-books/ppp/programs/evolution/00-start/pp/00-pp-union-cpp/build/CMakeFiles/rebuild_cache.dir
