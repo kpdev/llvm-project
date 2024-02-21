@@ -6600,8 +6600,10 @@ void CodeGenModule::HandlePPExtensionMethods(
 
   auto* DefaultHandler = ExtractDefaultPPMMImplementation(F, FD);
 
-  auto* Ty = F->getFunctionType();
-  auto* NewF = llvm::Function::Create(Ty,
+  llvm::ArrayRef<llvm::Type*> Params;
+  auto AllocaFTy = llvm::FunctionType::get(
+      VoidTy, Params, false);
+  auto* NewF = llvm::Function::Create(AllocaFTy,
     llvm::GlobalValue::LinkageTypes::ExternalLinkage,
     std::string("__pp_alloc") + FName.str(),
     &getModule());
@@ -6994,6 +6996,12 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
       auto *CI = llvm::CallInst::Create(FnTy,
                   LoadElem, Args, "", BB);
       CI->setAttributes(PAL);
+      if (FnTy->getReturnType()->isVoidTy()) {
+        llvm::ReturnInst::Create(getLLVMContext(), BB);
+      }
+      else {
+        llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
+      }
     }
     // TODO: Implement
     // else if (Gens.size() == 2) {
@@ -7002,8 +7010,6 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     // else {
     //   llvm_unreachable("[PP-EXT] Not yet implemented");
     // }
-
-    llvm::ReturnInst::Create(getLLVMContext(), BB);
 
     if (NewFn->getBasicBlockList().empty()) {
       auto* NewBB = llvm::BasicBlock::Create(
