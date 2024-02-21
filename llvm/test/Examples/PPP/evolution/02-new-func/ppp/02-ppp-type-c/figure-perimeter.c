@@ -8,4 +8,4 @@
 
 //------------------------------------------------------------------------------
 // Вычисление периметра для текущей фигуры
-double FigurePerimeter<Figure *f>() = 0;
+double FigurePerimeter<struct Figure *f>() { return 0.0; }//= 0;

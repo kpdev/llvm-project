@@ -11,10 +11,10 @@
 // Прототип функции ввода прямоугольника
 void RectangleIn(Rectangle *r, FILE* ifst);
 // Прототип обобщеннай функции ввода фигуры
-void FigureIn<Figure *f>(FILE* ifst);
+void FigureIn<struct Figure *f>(FILE* ifst);
 
 //------------------------------------------------------------------------------
 // Ввод прямоугольника как фигуры
-void FigureIn<Figure<Rectangle> *f>(FILE* ifst) {
+void FigureIn<struct Figure<struct Rectangle> *f>(FILE* ifst) {
   RectangleIn(&(f->@), ifst);
 }

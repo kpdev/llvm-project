@@ -15,10 +15,10 @@ void TriangleIn(Triangle *t, FILE* ifst);
 // Прототип функции ввода треугольника
 void TriangleIn(Triangle *t, FILE* ifst);
 // Прототип обобщеннай функции ввода фигуры
-void FigureIn<Figure *f>(FILE* ifst);
+void FigureIn<struct Figure *f>(FILE* ifst);
 
 //------------------------------------------------------------------------------
 // Ввод треугольника как фигуры
-void FigureIn<Figure<Triangle> *f>(FILE* ifst) {
+void FigureIn<struct Figure<struct Triangle> *f>(FILE* ifst) {
   TriangleIn(&(f->@), ifst);
 }

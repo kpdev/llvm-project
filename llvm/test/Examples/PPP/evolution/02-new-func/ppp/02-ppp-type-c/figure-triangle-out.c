@@ -11,10 +11,10 @@
 // Прототип функции вывода треугольника
 void TriangleOut(Triangle *t, FILE* ofst);
 // Прототип обобщеннай функции вывода фигуры
-void FigureOut<Figure *f>(FILE* ofst);
+void FigureOut<struct Figure *f>(FILE* ofst);
 
 //------------------------------------------------------------------------------
 // Ввод треугольника как фигуры
-void FigureOut<Figure<Triangle> *f>(FILE* ofst) {
+void FigureOut<struct Figure<struct Triangle> *f>(FILE* ofst) {
   TriangleOut(&(f->@), ofst);
 }

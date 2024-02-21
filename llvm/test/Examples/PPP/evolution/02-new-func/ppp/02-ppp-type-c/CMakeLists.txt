@@ -20,13 +20,15 @@ set(SOURCE_FILES
     figure-in.c
     figures-input.c
     figure-out.c
-    figure-perimenter.c
+    figure-perimeter.c
     figure-rectangle-in.c
     figure-rectangle-out.c
-    figure-rectangle-perimenter.c
+    rectangle-perimeter.c
+    figure-rectangle-perimeter.c
     figure-triangle-in.c
     figure-triangle-out.c
-    figure-triangle-perimenter.c
+    triangle-perimeter.c
+    figure-triangle-perimeter.c
     rectangle-in.c
     rectangle-out.c
     triangle-in.c

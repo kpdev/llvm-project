@@ -11,10 +11,10 @@
 // Прототип функции вывода прямоугольника
 void RectangleOut(Rectangle *r, FILE* ofst);
 // Прототип обобщеннай функции вывода фигуры
-void FigureOut<Figure *f>(FILE* ofst);
+void FigureOut<struct Figure *f>(FILE* ofst);
 
 //------------------------------------------------------------------------------
 // Ввод прямоугольника как фигуры
-void FigureOut<Figure<Rectangle> *f>(FILE* ofst) {
+void FigureOut<struct Figure<struct Rectangle> *f>(FILE* ofst) {
   RectangleOut(&(f->@), ofst);
 }

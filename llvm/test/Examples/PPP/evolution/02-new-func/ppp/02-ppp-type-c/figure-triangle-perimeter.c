@@ -10,10 +10,10 @@
 // Прототип функции вычисления периметра треугольника
 double TrianglePerimeter(Triangle *t);
 // Прототип обобщенной функции вычисления периметра
-double FigurePerimeter<Figure *f>();
+double FigurePerimeter<struct Figure *f>();
 
 //------------------------------------------------------------------------------
 // Периметр прямоугольника как фигуры
-void FigurePerimeter<Figure<Triangle> *f>() {
-  TrianglePerimeter(f->@);
+void FigurePerimeter<struct Figure<struct Triangle> *f>() {
+  TrianglePerimeter(&f->@);
 }
