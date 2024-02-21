@@ -10,12 +10,12 @@
 // Прототип функции вывода круга
 void CircleOut(Circle *c, FILE* ofst);
 // Прототип обобщеннай функции вывода фигуры
-void FigureOut<Figure *f>(FILE* ofst);
+void FigureOut<struct Figure *f>(FILE* ofst);
 
 //------------------------------------------------------------------------------
 // Вывод круга как фигуры
-void FigureOut<Figure<Circle> *f>(FILE* ofst) {
-  Circle* c = &(f->@)
-  CircleOut(c);
+void FigureOut<struct Figure<struct Circle> *f>(FILE* ofst) {
+  Circle* c = &(f->@);
+  CircleOut(c, ofst);
 }
 

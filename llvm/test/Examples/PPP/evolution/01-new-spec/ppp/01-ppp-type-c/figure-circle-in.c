@@ -11,11 +11,11 @@
 // Прототип функции ввода круга
 void FigureIn(Circle *c, FILE* ifst);
 // Прототип обобщеннай функции вывода фигуры
-void FigureIn<Figure *f>(FILE* ifst);
+void FigureIn<struct Figure *f>(FILE* ifst);
 
 //------------------------------------------------------------------------------
 // Ввод прямоугольника как фигуры
-void FigureIn<Figure<Circle> *f>(FILE* ofst) {
+void FigureIn<struct Figure<struct Circle> *f>(FILE* ofst) {
   Circle* c = &(f->@);
-  CircleIn(c, ifst);
+  CircleIn(c, ofst);
 }
