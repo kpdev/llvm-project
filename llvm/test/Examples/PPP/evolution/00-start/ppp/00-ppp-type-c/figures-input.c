@@ -6,28 +6,31 @@
 
 #include <stdio.h>
 #include "figure.h"
-#include "rectangle.h"
-#include "triangle.h"
+#include "figure-rectangle.h"
+#include "figure-triangle.h"
+
+void FigureIn<struct Figure *f>(FILE* file);
 
 //------------------------------------------------------------------------------
 // Ввод параметров одноф из фигур из файла
-Figure* FigureCreateAndIn(FILE* ifst) {
-  Figure *sp;
+struct Figure* FigureCreateAndIn(FILE* ifst) {
+  struct Figure *sp;
   int k;
   fscanf(ifst, "%d", &(k));
   switch(k) {
   case 1:
     // sp = malloc(sizeof(Figure<Rectangle>));
     // Далее нужно сформировать признак. Наверное спец. функция...
-    sp = create_spec(Figure<Rectangle>); // Создание и инициализация
+    sp = create_spec<struct Figure<struct Rectangle> >(); // Создание и инициализация
     break;
   case 2:
     // sp = malloc(sizeof(Figure<Triangle>));
     // Далее нужно сформировать признак. Наверное спец. функция...
-    sp = create_spec(Figure<Triangle>); // Создание и инициализация
+    sp = create_spec<struct Figure<struct Triangle> >(); // Создание и инициализация
     break;
   default:
     return 0;
   }
   FigureIn<sp>(ifst);
+  return sp;
 }
