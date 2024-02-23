@@ -3751,6 +3751,19 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw_decltype:
     case tok::identifier:
     ParseIdentifier: {
+      if (Tok.is(tok::identifier) &&
+          PP.LookAhead(0).is(tok::plus) &&
+          PP.LookAhead(1).is(tok::less)) {
+        // PP-EXT: Parse extension like: Figure + < Circle; >
+        // PP-EXT TODO: Check if Tok is typedef to generalization
+        //              e.g. check existance of __pp_spec_type field
+        auto Kind = tok::kw_struct;
+        ParsedAttributes Attributes(AttrFactory);
+        ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
+                            EnteringContext, DSContext, Attributes);
+        continue;
+      }
+
       // This identifier can only be a typedef name if we haven't already seen
       // a type-specifier.  Without this check we misparse:
       //  typedef int X; struct Y { short X; };  as 'short int'.

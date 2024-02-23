@@ -1768,9 +1768,12 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     if (Tok.is(tok::plus)) {
       ConsumeToken();
       assert(Tok.is(tok::less));
-      ConsumeToken();
-      assert(Tok.is(tok::kw_struct));
       auto CurLoc = ConsumeToken();
+      if (Tok.is(tok::kw_struct)) {
+        // PP-EXT TODO: If kw_struct is not used,
+        //              then check if identifier is typedef
+        CurLoc = ConsumeToken();
+      }
       assert(Tok.is(tok::identifier));
       printf("!!! %s\n", Tok.getIdentifierInfo()->getNameStart());
       // Add struct

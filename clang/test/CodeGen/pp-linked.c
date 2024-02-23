@@ -10,8 +10,9 @@
 #include "Inputs/pp-linked-triangle.h"
 #include <stdio.h>
 
-struct Rhombus { int a, b; };
-struct Figure + <struct Rhombus; >;
+typedef struct Rhombus { int a, b; } Rhombus;
+// Check version without struct key word
+Figure + < Rhombus; >;
 
 void PrintFigure<struct Figure<struct Rhombus> *p>() {
     struct Figure<struct Rhombus> r = *p;
