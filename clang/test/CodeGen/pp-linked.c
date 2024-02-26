@@ -14,7 +14,7 @@ typedef struct Rhombus { int a, b; } Rhombus;
 // Check version without struct key word
 Figure + < Rhombus; >;
 
-void PrintFigure<struct Figure<struct Rhombus> *p>() {
+void PrintFigure<Figure<Rhombus> *p>() {
     struct Figure<struct Rhombus> r = *p;
     printf(">>> Rhombus: color = %d, a = %d, b = %d\n",
             r.color, r.@a, r.@b);

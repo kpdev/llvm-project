@@ -3421,7 +3421,9 @@ void Parser::ParseDeclarationSpecifiers(
         (TemplateInfo.Kind == ParsedTemplateKind::ExplicitInstantiation ||
          TemplateInfo.Kind == ParsedTemplateKind::ExplicitSpecialization);
 
-    switch (Tok.getKind()) {
+    bool PPEXTUsesTypedef = IsInPPMultimethod && Tok.is(tok::identifier);
+    auto TokKind = PPEXTUsesTypedef ? tok::kw_struct : Tok.getKind();
+    switch (TokKind) {
     default:
       if (Tok.isRegularKeywordAttribute())
         goto Attribute;
@@ -4464,7 +4466,12 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw___interface:
     case tok::kw_union: {
       tok::TokenKind Kind = Tok.getKind();
-      ConsumeToken();
+      if (PPEXTUsesTypedef) {
+        Kind = tok::kw_struct;
+      }
+      else {
+        ConsumeToken();
+      }
 
       // These are attributes following class specifiers.
       // To produce better diagnostic, we parse them when
@@ -8147,7 +8154,7 @@ bool Parser::ParseRefQualifier(bool &RefQualifierIsLValueRef,
 
 bool Parser::isFunctionDeclaratorIdentifierList() {
   return !getLangOpts().requiresStrictPrototypes()
-         && Tok.is(tok::identifier)
+         && Tok.is(tok::identifier) && !IsInPPMultimethod
          && !TryAltiVecVectorToken()
          // K&R identifier lists can't have typedefs as identifiers, per C99
          // 6.7.5.3p11.

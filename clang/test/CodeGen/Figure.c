@@ -78,18 +78,18 @@
 
 #include <stdio.h>
 
-struct Circle { int r; };
-struct Rectangle { int w, h; };
+typedef struct Circle { int r; } Circle;
+typedef struct Rectangle { int w, h; } Rectangle;
 struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
 
-struct Triangle { int a, b, c; };
-struct Figure + < struct Triangle; >;
+typedef struct Triangle { int a, b, c; } Triangle;
+Figure + < Triangle; >;
 
-struct BaseObject { int a; }<>;
-struct NewObject { int b; };
-struct BaseObject + < struct NewObject; >;
+typedef struct BaseObject { int a; }<> BaseObject;
+typedef struct NewObject { int b; } NewObject;
+BaseObject + < NewObject; >;
 
-void PrintFigure<struct Figure* f>() {}
+void PrintFigure<Figure* f>() {}
 // void PrintFigureWithArg<struct Figure* f>(unsigned i);
 // void MultiMethod<struct Figure* f1, struct Figure* f2>();
 // void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);

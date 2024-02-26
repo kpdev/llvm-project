@@ -1884,8 +1884,12 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::less)) {
       ConsumeToken();
-      assert(Tok.is(tok::kw_struct));
-      ConsumeToken();
+      if (Tok.is(tok::kw_struct)) {
+        // PP-EXT TODO: If kw_struct is not used,
+        //              then identifier should be typedef
+        //              need to check it
+        ConsumeToken();
+      }
       assert(Tok.is(tok::identifier));
 
       if (Tok.is(tok::identifier)) {
