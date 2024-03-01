@@ -15,7 +15,7 @@ typedef struct Rhombus { int a, b; } Rhombus;
 Figure + < Rhombus; >;
 
 void PrintFigure<Figure<Rhombus> *p>() {
-    struct Figure<struct Rhombus> r = *p;
+    struct Figure<Rhombus> r = *p;
     printf(">>> Rhombus: color = %d, a = %d, b = %d\n",
             r.color, r.@a, r.@b);
 }

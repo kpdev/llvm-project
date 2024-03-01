@@ -14,12 +14,15 @@ set(SOURCE_FILES
     figure-rectangle.h
     triangle.h
     figure-triangle.h
+    figure-decorator.h
     container.h
 
     #sources
     figure-in.c
     figures-input.c
     figure-out.c
+    figure-decorator-in.c
+    figure-decorator-out.c
     figure-rectangle-in.c
     figure-rectangle-out.c
     figure-triangle-in.c

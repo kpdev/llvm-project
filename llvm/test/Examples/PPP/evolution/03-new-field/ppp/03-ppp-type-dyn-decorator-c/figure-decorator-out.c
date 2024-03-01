@@ -15,7 +15,7 @@ void FigureOut<Figure * f>(FILE* ofst);
 void FigureOut<Figure<Decorator> * d>(FILE* ofst)
 {
     // В начале выводится содержимое фигуры
-    FigureOut<d->@f>(ofst);
+    FigureOut<(d->@).f>(ofst);
     // Затем содержимое декоратора
-    fprintf(ofst, "    Color is %#0.6X\n", d->@color);
+    fprintf(ofst, "    Color is %#0.6X\n", (d->@).color);
 }
