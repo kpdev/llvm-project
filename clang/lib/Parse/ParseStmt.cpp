@@ -1283,7 +1283,7 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 
                 DeclRefExpr* RHSRes;
                 { // RHS
-                  std::string TagName = std::string("__pp_tag_") + TName.str();
+                  std::string TagName = PPExtConstructTagName(TName);
                   IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
                   UnqualifiedId VarName;
                   VarName.setIdentifier(II, SourceLocation());

@@ -1544,6 +1544,33 @@ private:
   /// MultiMethod<...here...>();
   bool IsInPPMM = false;
 
+  std::string PPExtConstructGenName(
+    StringRef BaseName,
+    StringRef SpecName
+  );
+
+  std::string PPExtConstructGenName(
+    std::vector<StringRef> Names,
+    ParsedAttributes& PAttrs
+  );
+
+  Decl* PPExtCreateGeneralization(
+    StringRef Name,
+    RecordDecl* Head,
+    RecordDecl* Tail,
+    SourceLocation Loc,
+    ParsedAttributes& PAttrs
+  );
+
+  RecordDecl* PPExtGetTypeByName(StringRef Name);
+
+  IdentifierInfo* PPExtGetIdForExistingOrNewlyCreatedGen(
+    std::vector<StringRef> Names,
+    ParsedAttributes& PAttrs
+  );
+
+  std::string PPExtConstructTagName(StringRef GenName);
+
   using FieldDescription = std::tuple<const char*, DeclSpec::TST, bool>;
   using FieldList = SmallVector<FieldDescription, 8>;
   using SpecsVec = SmallVector<std::tuple<std::string, IdentifierInfo*, FieldList>, 8>;

@@ -1544,6 +1544,156 @@ bool Parser::isValidAfterTypeSpecifier(bool CouldBeBitfield) {
   return false;
 }
 
+
+std::string Parser::PPExtConstructGenName(
+  StringRef BaseName,
+  StringRef SpecName
+)
+{
+  return std::string("__pp_struct_")
+          + BaseName.str()
+          + std::string("__")
+          + SpecName.str();
+}
+
+std::string Parser::PPExtConstructGenName(
+  std::vector<StringRef> Names,
+  ParsedAttributes& PAttrs
+)
+{
+  if (Names.size() < 2) {
+    assert(false
+      && "Wrong number of specialization names");
+    return "<invalid_pp_gen_name>";
+  }
+  auto Sz = static_cast<int>(Names.size());
+  auto SpecName = Names[Sz - 1];
+  auto BaseName = Names[Sz - 2];
+  auto GenName = PPExtConstructGenName(BaseName, SpecName);
+  auto SpecType = PPExtGetTypeByName(SpecName);
+  auto BaseType = PPExtGetTypeByName(BaseName);
+  assert(SpecType && BaseType);
+  auto GenType = PPExtGetTypeByName(GenName);
+  if (!GenType) {
+    auto* PPDec = PPExtCreateGeneralization(GenName,
+      BaseType, SpecType, Tok.getLocation(), PAttrs);
+    assert(PPDec);
+  }
+  for (auto It = Sz - 3;
+       It >= 0; --It) {
+    auto BaseName = Names[It];
+    SpecType = PPExtGetTypeByName(GenName);
+    BaseType = PPExtGetTypeByName(BaseName);
+    assert(SpecType && BaseType);
+    GenName = PPExtConstructGenName(BaseName, GenName);
+    auto GenType = PPExtGetTypeByName(GenName);
+    if (!GenType) {
+      auto* PPDec = PPExtCreateGeneralization(GenName,
+        BaseType, SpecType, Tok.getLocation(), PAttrs);
+      assert(PPDec);
+    }
+  }
+  return GenName;
+}
+
+
+Decl* Parser::PPExtCreateGeneralization(
+  StringRef Name,
+  RecordDecl* Head,
+  RecordDecl* Tail,
+  SourceLocation Loc,
+  ParsedAttributes& PAttrs
+) {
+
+    Sema::SkipBodyInfo TestSkipBody;
+    CXXScopeSpec TestSS;
+    MultiTemplateParamsArg TestTParams;
+    bool TestOwned = true;
+    bool TestIsDependent = false;
+
+    ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+    ParsedAttributes Attrs(AttrFactory);
+    auto BaseNameIdentifier = &PP.getIdentifierTable().get(Name);
+
+    ParsingDeclSpec PDS(*this);
+
+    auto ResultDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
+      Loc, TestSS, BaseNameIdentifier, Loc, Attrs, clang::AS_none, Loc,
+      TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+      false, false, &TestSkipBody);
+    Actions.ActOnTagStartDefinition(getCurScope(), ResultDecl);
+
+    SmallVector<Decl *, 32> FieldDecls;
+    FieldGenerator("__pp_head", DeclSpec::TST_struct, Head, false,
+                    Attrs, ResultDecl, FieldDecls);
+    FieldGenerator("__pp_tail", DeclSpec::TST_struct, Tail, false,
+                    Attrs, ResultDecl, FieldDecls);
+    SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(ResultDecl)->fields());
+    Actions.ActOnFields(getCurScope(), Loc, ResultDecl, TestFieldDecls,
+                  SourceLocation(), SourceLocation(), PAttrs);
+
+    StructScope.Exit();
+    Actions.ActOnTagFinishDefinition(getCurScope(), ResultDecl, SourceRange());
+    unsigned DiagID;
+    const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+    const char *PrevSpec = nullptr;
+    PDS.SetTypeSpecType(
+      DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
+      DiagID, ResultDecl, true, Policy);
+    ResultDecl->dump();
+
+    return ResultDecl;
+}
+
+RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
+{
+  auto& TypesArr = getActions().getASTContext().getTypes();
+  clang::RecordDecl* ResDecl = nullptr;
+  for (auto* Ty: TypesArr) {
+    if (Ty->isRecordType() &&
+        Ty->getAsRecordDecl()
+          ->getName().equals(Name)) {
+      ResDecl = Ty->getAsRecordDecl();
+      break;
+    }
+  }
+  return ResDecl;
+}
+
+
+IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
+  std::vector<StringRef> Names,
+  ParsedAttributes& PAttrs
+)
+{
+  auto MangledName =
+    PPExtConstructGenName(Names, PAttrs);
+
+  auto& Tbl = PP.getIdentifierTable();
+  assert(Tbl.find(MangledName) != Tbl.end());
+  return &PP.getIdentifierTable().get(MangledName);
+}
+
+
+std::string Parser::PPExtConstructTagName(StringRef GenName)
+{
+  char PPStructPrefix[] = "__pp_struct_";
+  auto Sz = sizeof(PPStructPrefix);
+  auto NextPos = GenName.find(PPStructPrefix, Sz);
+  StringRef SpecName("");
+  if (NextPos != StringRef::npos) {
+    auto EndOfTypePos = GenName.find("__", NextPos + Sz);
+    assert(EndOfTypePos != StringRef::npos);
+    auto StartPos = NextPos + Sz - 1;
+    SpecName = GenName.substr(StartPos,
+                              EndOfTypePos - StartPos);
+    auto BaseName = GenName.substr(0, NextPos);
+    GenName = BaseName;
+  }
+  return std::string("__pp_tag_")
+          + GenName.str() + SpecName.str();
+}
+
 void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
                                  SourceLocation StartLoc, DeclSpec &DS,
                                  ParsedTemplateInfo &TemplateInfo,
@@ -1780,6 +1930,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       {
         // TODO: Use functions for this functionality
         //       together with ParseDecl.cpp:5038
+        printf("\n[!!!] TODO: Refactoring: reuse PPCreateGen\n");
         Sema::SkipBodyInfo TestSkipBody;
         CXXScopeSpec TestSS;
         MultiTemplateParamsArg TestTParams;
@@ -1884,6 +2035,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::less)) {
       ConsumeToken();
+      std::vector<StringRef> Names;
+      Names.push_back(Name->getName());
       if (Tok.is(tok::kw_struct)) {
         // PP-EXT TODO: If kw_struct is not used,
         //              then identifier should be typedef
@@ -1893,16 +2046,39 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       assert(Tok.is(tok::identifier));
 
       if (Tok.is(tok::identifier)) {
-        auto IdName = Tok.getIdentifierInfo()->getName().str();
-        auto MangledName = std::string("__pp_struct_")
-                            + Name->getName().str() + "__"
-                            + IdName;
-        Name = &PP.getIdentifierTable().get(MangledName);
+        Names.push_back(Tok.getIdentifierInfo()->getName());
       }
 
       ConsumeToken();
+      assert(Tok.is(tok::greater)
+        || Tok.is(tok::less));
+
+      if (Tok.is(tok::less)) {
+        ConsumeToken();
+        // TODO PP-EXT: Add handling of kw_struct here
+        assert(Tok.is(tok::identifier));
+        Names.push_back(Tok.getIdentifierInfo()->getName());
+        ConsumeToken();
+      }
+
+      assert(Tok.is(tok::greater)
+        || Tok.is(tok::less));
+
+      if (Tok.is(tok::less)) {
+        ConsumeToken();
+        assert(Tok.is(tok::identifier));
+        Names.push_back(Tok.getIdentifierInfo()->getName());
+        ConsumeToken();
+        assert(Tok.is(tok::greater));
+        ConsumeToken();
+        assert(Tok.is(tok::greater));
+        ConsumeToken();
+      }
+
       assert(Tok.is(tok::greater));
       ConsumeToken();
+
+      Name = PPExtGetIdForExistingOrNewlyCreatedGen(Names, attrs);
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);

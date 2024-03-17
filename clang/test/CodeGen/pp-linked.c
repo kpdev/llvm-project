@@ -38,8 +38,19 @@ void PrintFigureWithArg<struct Figure<struct Rhombus> *p>(int i)
         i);
 }
 
+
+struct Simple {} < >;
+
+struct Decorator {
+} < struct Simple; >;
+
+struct Simple + < struct Decorator;> ;
+struct Simple + < struct Circle;> ;
+
 int main()
 {
+    struct Simple< Decorator < Simple < Circle > > > sd;
+
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]
     printCircle();
