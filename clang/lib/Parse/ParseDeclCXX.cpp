@@ -2077,7 +2077,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 
       assert(Tok.is(tok::greater));
       ConsumeToken();
-
+      if (Tok.is(tok::greater)) {
+        ConsumeToken();
+      }
       Name = PPExtGetIdForExistingOrNewlyCreatedGen(Names, attrs);
     }
   } else if (Tok.is(tok::annot_template_id)) {

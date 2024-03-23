@@ -1708,19 +1708,18 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   auto SavedType = PreferredType;
   bool IsNextVariantField = false;
   auto IsGeneralization = [](Expr* E, bool IsNextVariant) {
+    assert(E);
     if (!isa<DeclRefExpr>(E) && !isa<ValueStmt>(E))
       return false;
 
-    if (isa<DeclRefExpr>(E)) {
-      if (auto X = cast_or_null<DeclRefExpr>(E)) {
-        if (auto TypeID = X->getType()
-                      .getCanonicalType()
-                      .getBaseTypeIdentifier()) {
+    if (isa<MemberExpr>(E) || isa<DeclRefExpr>(E)) {
+        if (auto TypeID = E->getType()
+                          .getCanonicalType()
+                          .getBaseTypeIdentifier()) {
           auto TypeName = TypeID->getName();
           return TypeName.startswith("__pp_struct");
         }
         return false;
-      }
     }
 
     if (isa<ValueStmt>(E)) {
@@ -2086,12 +2085,23 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                       tok::arrow,
                                     SS, SourceLocation(), Name, nullptr);
 
-          Tok = OldTok;
+          auto& NTok = NextToken();
+          if (NTok.is(tok::period)
+              || NTok.is(tok::arrow)) {
+            ConsumeToken();
+          } else {
+            assert(NTok.is(tok::identifier) ||
+                   NTok.is(tok::semi) ||
+                   NTok.is(tok::equal) ||
+                   NTok.is(tok::r_paren));
+            Tok = OldTok;
+          }
+
           assert(Tok.is(tok::period)
             || Tok.is(tok::arrow));
-          if (NextToken().is(tok::semi)  ||
-              NextToken().is(tok::equal) ||
-              NextToken().is(tok::r_paren)) {
+          if (NTok.is(tok::semi)  ||
+              NTok.is(tok::equal) ||
+              NTok.is(tok::r_paren)) {
             // Return whole variant part
             //              var.@ or var->@
             ConsumeToken();

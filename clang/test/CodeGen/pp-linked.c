@@ -50,6 +50,7 @@ struct Simple + < struct Circle;> ;
 int main()
 {
     struct Simple< Decorator < Simple < Circle > > > sd;
+    sd.@.@.@r = 0;
 
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]
