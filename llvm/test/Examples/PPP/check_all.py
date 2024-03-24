@@ -39,6 +39,10 @@ command_list = [
     cd_to_evol_str
         + "03-new-field/ppp/03-ppp-type-dyn-decorator-c"
         + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "03-new-field/ppp/03-ppp-type-gen-decorator-c"
+    #     + run_tools_str
 ]
 
 for cmd in command_list:
