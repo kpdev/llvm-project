@@ -1662,10 +1662,60 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
 
 
 IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
-  std::vector<StringRef> Names,
+  StringRef BaseName,
   ParsedAttributes& PAttrs
 )
 {
+  assert(Tok.is(tok::less));
+  ConsumeToken();
+  std::vector<StringRef> Names;
+  if (!BaseName.empty())
+    Names.push_back(BaseName);
+
+  if (Tok.is(tok::kw_struct)) {
+    // PP-EXT TODO: If kw_struct is not used,
+    //              then identifier should be typedef
+    //              need to check it
+    ConsumeToken();
+  }
+  assert(Tok.is(tok::identifier));
+
+  if (Tok.is(tok::identifier)) {
+    Names.push_back(Tok.getIdentifierInfo()->getName());
+  }
+
+  ConsumeToken();
+  assert(Tok.is(tok::greater)
+    || Tok.is(tok::less));
+
+  if (Tok.is(tok::less)) {
+    ConsumeToken();
+    // TODO PP-EXT: Add handling of kw_struct here
+    assert(Tok.is(tok::identifier));
+    Names.push_back(Tok.getIdentifierInfo()->getName());
+    ConsumeToken();
+  }
+
+  assert(Tok.is(tok::greater)
+    || Tok.is(tok::less));
+
+  if (Tok.is(tok::less)) {
+    ConsumeToken();
+    assert(Tok.is(tok::identifier));
+    Names.push_back(Tok.getIdentifierInfo()->getName());
+    ConsumeToken();
+    assert(Tok.is(tok::greater));
+    ConsumeToken();
+    assert(Tok.is(tok::greater));
+    ConsumeToken();
+  }
+
+  assert(Tok.is(tok::greater));
+  ConsumeToken();
+  if (Tok.is(tok::greater)) {
+    ConsumeToken();
+  }
+
   auto MangledName =
     PPExtConstructGenName(Names, PAttrs);
 
@@ -2034,53 +2084,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       RecoverFromUndeclaredTemplateName(
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::less)) {
-      ConsumeToken();
-      std::vector<StringRef> Names;
-      Names.push_back(Name->getName());
-      if (Tok.is(tok::kw_struct)) {
-        // PP-EXT TODO: If kw_struct is not used,
-        //              then identifier should be typedef
-        //              need to check it
-        ConsumeToken();
-      }
-      assert(Tok.is(tok::identifier));
-
-      if (Tok.is(tok::identifier)) {
-        Names.push_back(Tok.getIdentifierInfo()->getName());
-      }
-
-      ConsumeToken();
-      assert(Tok.is(tok::greater)
-        || Tok.is(tok::less));
-
-      if (Tok.is(tok::less)) {
-        ConsumeToken();
-        // TODO PP-EXT: Add handling of kw_struct here
-        assert(Tok.is(tok::identifier));
-        Names.push_back(Tok.getIdentifierInfo()->getName());
-        ConsumeToken();
-      }
-
-      assert(Tok.is(tok::greater)
-        || Tok.is(tok::less));
-
-      if (Tok.is(tok::less)) {
-        ConsumeToken();
-        assert(Tok.is(tok::identifier));
-        Names.push_back(Tok.getIdentifierInfo()->getName());
-        ConsumeToken();
-        assert(Tok.is(tok::greater));
-        ConsumeToken();
-        assert(Tok.is(tok::greater));
-        ConsumeToken();
-      }
-
-      assert(Tok.is(tok::greater));
-      ConsumeToken();
-      if (Tok.is(tok::greater)) {
-        ConsumeToken();
-      }
-      Name = PPExtGetIdForExistingOrNewlyCreatedGen(Names, attrs);
+      Name = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
+                                                    attrs);
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);
