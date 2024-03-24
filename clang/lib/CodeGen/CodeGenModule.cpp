@@ -6546,9 +6546,14 @@ void CodeGenModule::HandlePPExtensionMethods(
               TypeNameExtracted.str();
             auto *GV = getModule().getGlobalVariable(genName);
 
-            auto* LoadGlobalTag =
-              new llvm::LoadInst(IntTy, GV, "", BB);
-            new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+            if (GV != nullptr) {
+              // TODO PP-EXT
+              // Handle case with GV == NULL
+              // correctly
+              auto* LoadGlobalTag =
+                new llvm::LoadInst(IntTy, GV, "", BB);
+              new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+            }
 
             llvm::ReturnInst::Create(getLLVMContext(),
               MallocRes, BB);

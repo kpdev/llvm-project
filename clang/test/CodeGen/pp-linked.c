@@ -51,6 +51,7 @@ int main()
 {
     struct Simple< Decorator < Simple < Circle > > > sd;
     sd.@.@.@r = 0;
+    struct Simple* s_ptr = create_spec< Simple< Decorator < Simple < Circle > > > >();
 
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]

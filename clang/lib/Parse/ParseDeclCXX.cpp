@@ -1690,7 +1690,10 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
 
   if (Tok.is(tok::less)) {
     ConsumeToken();
-    // TODO PP-EXT: Add handling of kw_struct here
+    // TODO PP-EXT: Check typedef
+    if (Tok.is(tok::kw_struct)) {
+      ConsumeToken();
+    }
     assert(Tok.is(tok::identifier));
     Names.push_back(Tok.getIdentifierInfo()->getName());
     ConsumeToken();
@@ -1704,6 +1707,14 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
     assert(Tok.is(tok::identifier));
     Names.push_back(Tok.getIdentifierInfo()->getName());
     ConsumeToken();
+    if (Tok.is(tok::less)) {
+      ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      Names.push_back(Tok.getIdentifierInfo()->getName());
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      ConsumeToken();
+    }
     assert(Tok.is(tok::greater));
     ConsumeToken();
     assert(Tok.is(tok::greater));

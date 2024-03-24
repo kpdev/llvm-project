@@ -1022,28 +1022,11 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       LookupResult R(Actions, DNI, Sema::LookupAnyName);
       if (R.getResultKind() == LookupResult::NotFound) {
         if (Name.Identifier->getName().equals("create_spec")) {
-          ConsumeToken();
-          assert(Tok.is(tok::kw_struct));
-          ConsumeToken();
-          assert(Tok.is(tok::identifier));
-          auto Base = Tok.getIdentifierInfo()->getName().str();
-          ConsumeToken();
-          assert(Tok.is(tok::less));
-          ConsumeToken();
-          assert(Tok.is(tok::kw_struct));
-          ConsumeToken();
-          assert(Tok.is(tok::identifier));
-          auto Variant = Tok.getIdentifierInfo()->getName().str();
+          ParsedAttributes attrs(AttrFactory);
+          auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs);
           auto S = Name.Identifier->getName().str()
-            + std::string("__pp_struct_")
-            + Base + "__"
-            + Variant;
+                    + Id->getName().str();
           StringRef Mangled(S);
-          ConsumeToken();
-          assert(Tok.is(tok::greater));
-          ConsumeToken();
-          assert(Tok.is(tok::greater));
-          ConsumeToken();
           IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
           Name.setIdentifier(IIMangled, ILoc);
         }
