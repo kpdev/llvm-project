@@ -184,3 +184,34 @@ int main() {
     // CHECK-RT-NEXT: BaseObject<NewObject>: 101 102
     printf("BaseObject<NewObject>: %d %d\n", obj.a, obj.@b);
 }
+
+// This code just checking comilation
+// of fields access through
+// implicit __head and __tail
+
+struct NewCircle { int c; };
+struct NewFigure { int f; } < struct NewCircle; >;
+
+__attribute__((weak))
+void not_called_bar(int*);
+
+__attribute__((weak))
+void not_called_bar2(int);
+
+int not_called_foo() {
+    struct NewFigure<NewCircle>* fc;
+    struct NewFigure<NewCircle> fcstack;
+    fcstack.@c = 41;
+    fcstack.f = 71;
+    fc->@c = 42;
+    fc->f = 72;
+    not_called_bar(&(fc->@c));
+    not_called_bar(&(fcstack.@c));
+    not_called_bar(&(fc->f));
+    not_called_bar(&(fcstack.f));
+    not_called_bar2(fc->@c);
+    not_called_bar2(fcstack.@c);
+    not_called_bar2(fc->f);
+    not_called_bar2(fcstack.f);
+    return fc->@c + fcstack.@c + fc->f + fcstack.f;
+}

@@ -2077,7 +2077,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                    NTok.is(tok::semi) ||
                    NTok.is(tok::equal) ||
                    NTok.is(tok::r_paren));
-            Tok = OldTok;
+            Tok.setKind(tok::period);
           }
 
           assert(Tok.is(tok::period)
