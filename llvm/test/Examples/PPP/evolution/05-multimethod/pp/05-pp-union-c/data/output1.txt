@@ -1,0 +1,78 @@
+Filled container.
+Container contains 8 elements.
+0: It is Rectangle: x = 3, y = 4
+1: It is Triangle: a = 1, b = 1, c = 1
+2: It is Rectangle: x = 30, y = 40
+3: It is Triangle: a = 2, b = 2, c = 1
+4: It is Rectangle: x = 13, y = 14
+5: It is Triangle: a = 10, b = 10, c = 10
+6: It is Rectangle: x = 330, y = 49
+7: It is Triangle: a = 3, b = 4, c = 5
+Multimethod out.
+Container contains 8 elements.
+[0,0]: Rectangle - Rectangle Combination
+[0,1]: Rectangle - Triangle Combination
+[0,2]: Rectangle - Rectangle Combination
+[0,3]: Rectangle - Triangle Combination
+[0,4]: Rectangle - Rectangle Combination
+[0,5]: Rectangle - Triangle Combination
+[0,6]: Rectangle - Rectangle Combination
+[0,7]: Rectangle - Triangle Combination
+[1,0]: Triangle - Rectangle Combination
+[1,1]: Triangle - Triangle Combination
+[1,2]: Triangle - Rectangle Combination
+[1,3]: Triangle - Triangle Combination
+[1,4]: Triangle - Rectangle Combination
+[1,5]: Triangle - Triangle Combination
+[1,6]: Triangle - Rectangle Combination
+[1,7]: Triangle - Triangle Combination
+[2,0]: Rectangle - Rectangle Combination
+[2,1]: Rectangle - Triangle Combination
+[2,2]: Rectangle - Rectangle Combination
+[2,3]: Rectangle - Triangle Combination
+[2,4]: Rectangle - Rectangle Combination
+[2,5]: Rectangle - Triangle Combination
+[2,6]: Rectangle - Rectangle Combination
+[2,7]: Rectangle - Triangle Combination
+[3,0]: Triangle - Rectangle Combination
+[3,1]: Triangle - Triangle Combination
+[3,2]: Triangle - Rectangle Combination
+[3,3]: Triangle - Triangle Combination
+[3,4]: Triangle - Rectangle Combination
+[3,5]: Triangle - Triangle Combination
+[3,6]: Triangle - Rectangle Combination
+[3,7]: Triangle - Triangle Combination
+[4,0]: Rectangle - Rectangle Combination
+[4,1]: Rectangle - Triangle Combination
+[4,2]: Rectangle - Rectangle Combination
+[4,3]: Rectangle - Triangle Combination
+[4,4]: Rectangle - Rectangle Combination
+[4,5]: Rectangle - Triangle Combination
+[4,6]: Rectangle - Rectangle Combination
+[4,7]: Rectangle - Triangle Combination
+[5,0]: Triangle - Rectangle Combination
+[5,1]: Triangle - Triangle Combination
+[5,2]: Triangle - Rectangle Combination
+[5,3]: Triangle - Triangle Combination
+[5,4]: Triangle - Rectangle Combination
+[5,5]: Triangle - Triangle Combination
+[5,6]: Triangle - Rectangle Combination
+[5,7]: Triangle - Triangle Combination
+[6,0]: Rectangle - Rectangle Combination
+[6,1]: Rectangle - Triangle Combination
+[6,2]: Rectangle - Rectangle Combination
+[6,3]: Rectangle - Triangle Combination
+[6,4]: Rectangle - Rectangle Combination
+[6,5]: Rectangle - Triangle Combination
+[6,6]: Rectangle - Rectangle Combination
+[6,7]: Rectangle - Triangle Combination
+[7,0]: Triangle - Rectangle Combination
+[7,1]: Triangle - Triangle Combination
+[7,2]: Triangle - Rectangle Combination
+[7,3]: Triangle - Triangle Combination
+[7,4]: Triangle - Rectangle Combination
+[7,5]: Triangle - Triangle Combination
+[7,6]: Triangle - Rectangle Combination
+[7,7]: Triangle - Triangle Combination
+Empty container.
+Container contains 0 elements.
