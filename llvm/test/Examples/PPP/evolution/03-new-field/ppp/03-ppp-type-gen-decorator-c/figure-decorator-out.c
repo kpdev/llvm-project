@@ -10,12 +10,17 @@
 // Прототип обобщеннай функции вывода фигуры
 void FigureOut<Figure * f>(FILE* ofst);
 
+void DecoratorOut<Decorator * d>(FILE* ofst) {}
+
+void DecoratorOut<Decorator<Figure> * d>(FILE* ofst) {
+    // В начале выводится содержимое фигуры
+    FigureOut<&(d->@)>(ofst);
+    // Затем содержимое декоратора
+    // fprintf(ofst, "    Color is %#0.6X\n", d->color);
+}
 //------------------------------------------------------------------------------
 // Ввод фигуры совместно с содержимым декоратора
 void FigureOut<Figure<Decorator> * d>(FILE* ofst)
 {
-    // В начале выводится содержимое фигуры
-    FigureOut<&(d->@f)>(ofst);
-    // Затем содержимое декоратора
-    fprintf(ofst, "    Color is %#0.6X\n", d->@color);
+    DecoratorOut<&(d->@)>(ofst);
 }

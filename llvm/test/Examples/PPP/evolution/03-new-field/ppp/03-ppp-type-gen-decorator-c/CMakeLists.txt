@@ -15,6 +15,7 @@ set(SOURCE_FILES
     triangle.h
     figure-triangle.h
     container.h
+    figure-decorator.h
 
     #sources
     figure-in.c
@@ -25,6 +26,7 @@ set(SOURCE_FILES
     figure-triangle-in.c
     figure-triangle-out.c
     figure-decorator-in.c
+    figure-decorator-out.c
     rectangle-in.c
     rectangle-out.c
     triangle-in.c
