@@ -24,6 +24,7 @@ set(SOURCE_FILES
     figure-rectangle-out.c
     figure-triangle-in.c
     figure-triangle-out.c
+    figure-decorator-in.c
     rectangle-in.c
     rectangle-out.c
     triangle-in.c

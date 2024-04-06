@@ -12,12 +12,19 @@ void RectangleIn(Decorator* r, FILE* ifst);
 // Прототип обобщеннай функции ввода фигуры
 void FigureIn<Figure * f>(FILE* file);
 
+void DecoratorIn<Decorator * d>(FILE* file) {}
+
+void DecoratorIn<Decorator<Figure> * d>(FILE* ifst) {
+    FigureIn<&(d->@)>(ifst);
+    // TODO: Fix it
+    // fscanf(ifst, "%x", &(d->color));
+    unsigned color;
+    fscanf(ifst, "%x", &color);
+}
+
 //------------------------------------------------------------------------------
 // Ввод фигуры совместно с содержимым декоратора
 void FigureIn<Figure<Decorator> * d>(FILE* ifst)
 {
-    // В начале вводятся параметры подключенной фигуры
-    FigureIn<&(d->@f)>(ifst);
-    // Затем вводится содержимое декоратора (цвет)
-    fscanf(ifst, "%x", &(d->@color));
+    DecoratorIn<&(d->@)>(ifst);
 }

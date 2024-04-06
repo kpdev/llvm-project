@@ -23,12 +23,12 @@ Figure* FigureCreateAndIn(FILE* ifst)
     case 1:
         // sp = malloc(sizeof(Figure<Rectangle>));
         // Далее нужно сформировать признак. Наверное спец. функция...
-        sp = create_spec<Figure<Decorator<Rectangle> > >();
+        sp = create_spec<Figure<Decorator<Figure<Rectangle> > > >();
         break;
     case 2:
         // sp = malloc(sizeof(Figure<Triangle>));
         // Далее нужно сформировать признак. Наверное спец. функция...
-        sp = create_spec<Figure < Decorator < Triangle > > >();
+        sp = create_spec<Figure<Decorator<Figure<Triangle> > > >();
         break;
     default:
         return 0;
