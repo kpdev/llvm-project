@@ -16,10 +16,7 @@ void DecoratorIn<Decorator * d>(FILE* file) {}
 
 void DecoratorIn<Decorator<Figure> * d>(FILE* ifst) {
     FigureIn<&(d->@)>(ifst);
-    // TODO: Fix it
-    // fscanf(ifst, "%x", &(d->color));
-    unsigned color;
-    fscanf(ifst, "%x", &color);
+    fscanf(ifst, "%x", &(d->color));
 }
 
 //------------------------------------------------------------------------------
