@@ -15,6 +15,7 @@ void ContainerClear(Container* c);
 
 void ContainerIn(Container* c, FILE* ifst) ;
 void ContainerOut(Container* c, FILE* ofst) ;
+void ContainerRectangleOnlyOut(Container *c, FILE* ofst);
 
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
@@ -34,6 +35,8 @@ int main(int argc, char* argv[]) {
 
   fprintf(ofst, "Filled container.\n");
   ContainerOut(&c, ofst);
+  fprintf(ofst, "Only rectangles in container.\n");
+  ContainerRectangleOnlyOut(&c, ofst);
 
   ContainerClear(&c);
   fprintf(ofst, "Empty container.\n");
@@ -42,4 +45,18 @@ int main(int argc, char* argv[]) {
 
   printf("Stop\n");
   return 0;
+}
+
+// Инициализация контейнера
+void ContainerInit(Container *c) {
+  c->len = 0;
+}
+
+//------------------------------------------------------------------------------
+// Очистка контейнера от элементов (освобождение памяти)
+void ContainerClear(Container *c) {
+  for(int i = 0; i < c->len; i++) {
+    free(c->cont[i]);
+  }
+  ContainerInit(c);
 }

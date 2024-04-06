@@ -3,11 +3,12 @@
 // специлизации, обеспечивающих вывод только прямоугольников
 //==============================================================================
 
+#include <stdio.h>
 #include "figure-rectangle.h"
 
 //------------------------------------------------------------------------------
 // Прототип функции вывода прямоугольника
-void RectangleOut(Rectangle *r, FILE* ifst);
+void RectangleOut(Rectangle *r, FILE* ofst);
 
 
 //------------------------------------------------------------------------------
@@ -15,14 +16,14 @@ void RectangleOut(Rectangle *r, FILE* ifst);
 // если текущая фигура не является прямоугольником.
 // Возврат булевского значения может при необходимости использоваться
 // для дополнительных манипуляций в вызывающей функции.
-bool FigureRectangleOnlyOut<Figure * f>() {
-  return false;
+int FigureRectangleOnlyOut<Figure * f>(FILE* ofst) {
+  return 0;
 }
 
 //------------------------------------------------------------------------------
 // Обобщенная функция осуществляющая вывод прямоугольника
-bool isFigureRectangleOnly<Figure<Rectangle> * f>() {
+int FigureRectangleOnlyOut<Figure<Rectangle> * f>(FILE* ofst) {
   RectangleOut(&(f->@), ofst);
-  return true;
+  return 1;
 }
 

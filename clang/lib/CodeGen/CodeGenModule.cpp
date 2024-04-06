@@ -6373,8 +6373,8 @@ void CodeGenModule::AddPPSpecialization(
                     - sizeof("__pp_spec")
                     + 1).str();
   StringRef Nm(initArrName);
-  llvm::ValueToValueMapTy VMap;
-  llvm::Function *FRecorder = llvm::CloneFunction(F, VMap);
+
+  llvm::Function *FRecorder = PPExtCreateMMRecorder(F);
   FRecorder->setName(std::string("__pp_record") + F->getName().str());
   FRecorder->deleteBody();
   auto* BB = llvm::BasicBlock::Create(
@@ -6428,6 +6428,25 @@ void CodeGenModule::AddPPSpecialization(
 
   llvm::ReturnInst::Create(getLLVMContext(), BB);
   AddGlobalCtor(FRecorder, 103);
+}
+
+llvm::Function*
+CodeGenModule::PPExtCreateMMRecorder(llvm::Function* BaseF)
+{
+  std::vector<llvm::Type *> ArgTypes;
+
+  assert(!BaseF->getFunctionType()->isVarArg() &&
+    "VarArgs wiil be handle later");
+  llvm::FunctionType *FTy =
+      llvm::FunctionType::get(llvm::Type::getVoidTy(getLLVMContext()),
+                              ArgTypes,
+                              BaseF->getFunctionType()->isVarArg());
+  auto* Res =
+      llvm::Function::Create(FTy, BaseF->getLinkage(),
+                             BaseF->getAddressSpace(),
+                             BaseF->getName(),
+                             BaseF->getParent());
+  return Res;
 }
 
 void CodeGenModule::HandlePPExtensionMethods(
