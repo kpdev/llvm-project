@@ -4811,6 +4811,7 @@ static std::string GetVariantName(Parser& P, const std::string& CurTokName, cons
   case tok::semi:
   case tok::greater:
   case tok::colon:
+  case tok::comma:
     return CurTokName;
     break;
   case tok::less:
@@ -5058,18 +5059,36 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
     printf("  Token -> Kind: [%s]", Tok.getName());
     if (Tok.is(clang::tok::identifier)) {
       auto TokName = Tok.getIdentifierInfo()->getName().str();
-      auto Name = GetVariantName(*this,
-                                 GetMangledName(GenName, TokName),
-                                 NextToken());// Tok.getIdentifierInfo()->getName().str();
-      printf(", Name:[%s]", TokName.c_str());
-      if (NextToken().is(tok::colon)) {
+      SmallVector<std::string> Names;
+      do {
+        auto Name = GetVariantName(*this,
+                                  GetMangledName(GenName, TokName),
+                                  NextToken());
+        Names.push_back(Name);
+        if (NextToken().isNot(tok::comma)) {
+          break;
+        }
         ConsumeToken();
         ConsumeToken();
         assert(Tok.is(tok::identifier));
         TokName = Tok.getIdentifierInfo()->getName().str();
+      } while(true);
+
+      printf(", Name:[%s]", TokName.c_str());
+      if (NextToken().is(tok::colon)) {
+        ConsumeToken();
+        ConsumeToken();
+        assert(Tok.is(tok::identifier)
+               || Tok.is(tok::kw_void));
+
+        TokName = (Tok.is(tok::kw_void) ? std::string("void") :
+                   Tok.getIdentifierInfo()->getName().str());
       }
-      auto D = DeclGenerator(TokName, Name);
-      Result.push_back(D);
+
+      for (auto& Name : Names) {
+        auto D = DeclGenerator(TokName, Name);
+        Result.push_back(D);
+      }
     }
     printf("\n");
     ConsumeAnyToken();
@@ -5638,26 +5657,36 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto TestLocation = TagDecl->getLocation();
       ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
       ParsedAttributes TestAttrs(AttrFactory);
-      auto VariantNameIdentifier = &PP.getIdentifierTable().get(S.VariantName);
+      const bool IsVariantVoid = (S.VariantName == "void");
+      auto VariantNameIdentifier = (IsVariantVoid ?
+        nullptr : &PP.getIdentifierTable().get(S.VariantName));
       printf("[] Test name: %s, Variant Name: %s\n", S.FullNameIInfo->getNameStart(), S.VariantName.c_str());
 
       ppMNames.addVariantName(S.FullNameIInfo->getName().str());
       ParsingDeclSpec PDS(*this);
-      auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
-        TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-        TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-        false, false, &TestSkipBody);
+      assert((!IsVariantVoid && VariantNameIdentifier) ||
+            (IsVariantVoid && !VariantNameIdentifier));
+      auto VariantDecl = IsVariantVoid ?
+                          nullptr :
+                          Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+                            TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+                            TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+                            false, false, &TestSkipBody);
       auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
         TestLocation, TestSS, S.FullNameIInfo, TestLocation, TestAttrs, clang::AS_none, TestLocation,
         TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
         false, false, &TestSkipBody);
       Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
-      auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
       FieldGenerator("__pp_head", DeclSpec::TST_struct, TagDecl, false,
                       TestAttrs, TestDecl, FieldDecls);
-      FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false,
-                      TestAttrs, TestDecl, FieldDecls);
+      if (!IsVariantVoid) {
+        assert(VariantDecl);
+        auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
+        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false,
+                        TestAttrs, TestDecl, FieldDecls);
+      }
+
       SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
       Actions.ActOnFields(getCurScope(), RecordLoc, TestDecl, TestFieldDecls,
                     SourceLocation(), SourceLocation(), attrs);
