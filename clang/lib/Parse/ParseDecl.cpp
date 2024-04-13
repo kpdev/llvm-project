@@ -4810,6 +4810,7 @@ static std::string GetVariantName(Parser& P, const std::string& CurTokName, cons
   {
   case tok::semi:
   case tok::greater:
+  case tok::colon:
     return CurTokName;
     break;
   case tok::less:
@@ -5056,11 +5057,17 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
   while (Tok.isNot(clang::tok::greater)) {
     printf("  Token -> Kind: [%s]", Tok.getName());
     if (Tok.is(clang::tok::identifier)) {
-      const auto TokName = Tok.getIdentifierInfo()->getName().str();
+      auto TokName = Tok.getIdentifierInfo()->getName().str();
       auto Name = GetVariantName(*this,
                                  GetMangledName(GenName, TokName),
                                  NextToken());// Tok.getIdentifierInfo()->getName().str();
       printf(", Name:[%s]", TokName.c_str());
+      if (NextToken().is(tok::colon)) {
+        ConsumeToken();
+        ConsumeToken();
+        assert(Tok.is(tok::identifier));
+        TokName = Tok.getIdentifierInfo()->getName().str();
+      }
       auto D = DeclGenerator(TokName, Name);
       Result.push_back(D);
     }

@@ -24,6 +24,10 @@ command_list = [
         "clang/test/CodeGen/pp-linked.c "
         "-v"
     ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-tagged-generalization.c "
+        "-v"
+    ,
     cd_to_evol_str
         + "00-start/ppp/00-ppp-type-c"
         + run_tools_str

@@ -1570,11 +1570,13 @@ std::string Parser::PPExtConstructGenName(
   auto SpecName = Names[Sz - 1];
   auto BaseName = Names[Sz - 2];
   auto GenName = PPExtConstructGenName(BaseName, SpecName);
+  auto GenType = PPExtGetTypeByName(GenName);
   auto SpecType = PPExtGetTypeByName(SpecName);
   auto BaseType = PPExtGetTypeByName(BaseName);
-  assert(SpecType && BaseType);
-  auto GenType = PPExtGetTypeByName(GenName);
+  assert(BaseType);
+
   if (!GenType) {
+    assert(SpecType);
     auto* PPDec = PPExtCreateGeneralization(GenName,
       BaseType, SpecType, Tok.getLocation(), PAttrs);
     assert(PPDec);
