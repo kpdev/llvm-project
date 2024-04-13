@@ -5042,12 +5042,10 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
   }
 
   auto DeclGenerator = [&](std::string BaseName, std::string VarName) {
-    auto IdentifierName = &PP.getIdentifierTable().get(VarName);
-
-    // TODO: Fill Fields
-    FieldList Fields;
-
-    return std::tuple<std::string, IdentifierInfo*, FieldList>{BaseName, IdentifierName, Fields};
+    Parser::SpecsDescr Res;
+    Res.VariantName = BaseName;
+    Res.FullNameIInfo = &PP.getIdentifierTable().get(VarName);
+    return Res;
   };
 
   printf("\n[PPMC] Parse extension\n");
@@ -5619,12 +5617,12 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
     // TODO: Merge with next loop
     for (auto S : *PPExtSpecs) {
-      auto TestName = std::get<1>(S);
-      std::string VarName = std::string("__pp_tag_") + TestName->getName().str();
+      std::string VarName = std::string("__pp_tag_")
+        + S.FullNameIInfo->getName().str();
       m_PPGlobalVars.push_back(VarGenerate(VarName));
     }
 
-    for (auto SpecializationTuple : *PPExtSpecs) {
+    for (auto S : *PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
       MultiTemplateParamsArg TestTParams;
@@ -5633,19 +5631,17 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto TestLocation = TagDecl->getLocation();
       ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
       ParsedAttributes TestAttrs(AttrFactory);
-      auto VariantName = std::get<0>(SpecializationTuple);
-      auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
-      auto TestName = std::get<1>(SpecializationTuple);
-      printf("[] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
+      auto VariantNameIdentifier = &PP.getIdentifierTable().get(S.VariantName);
+      printf("[] Test name: %s, Variant Name: %s\n", S.FullNameIInfo->getNameStart(), S.VariantName.c_str());
 
-      ppMNames.addVariantName(TestName->getName().str());
+      ppMNames.addVariantName(S.FullNameIInfo->getName().str());
       ParsingDeclSpec PDS(*this);
       auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
         TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
         TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
         false, false, &TestSkipBody);
       auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
-        TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+        TestLocation, TestSS, S.FullNameIInfo, TestLocation, TestAttrs, clang::AS_none, TestLocation,
         TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
         false, false, &TestSkipBody);
       Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
