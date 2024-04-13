@@ -4,12 +4,22 @@
 #include <stdio.h>
 
 struct Circle { int c; };
-struct Figure { int f; } < t0 : Circle; >;
+struct Rect { int h, w; };
+struct Trian { int a, b, c; };
+struct Figure { int f; } < t0 : Circle;
+                           t1 : Rect;
+                           t2 : Trian >;
+
 void PrintFigure<Figure* f>() {
     printf("PrintFigure<Figure* f> [Default]\n");
 }
+
 void PrintFigure<Figure<t0>* f>() {
     printf("PrintFigure<Figure<t0>* f> [Specialized]\n");
+}
+
+void PrintFigure<Figure<t1>* f>() {
+    printf("PrintFigure<Figure<t1>* f> [Specialized]\n");
 }
 
 void foo()
@@ -20,10 +30,18 @@ void foo()
     struct Figure<t0> ttt;
 }
 
-// CHECK-RT: PrintFigure<Figure<t0>* f> [Specialized]
-
 int main() {
-    struct Figure<t0> ttt;
-    PrintFigure<&ttt>();
+    struct Figure<t0> t0_obj;
+    struct Figure<t1> t1_obj;
+    struct Figure<t2> t2_obj;
+
+// CHECK-RT: PrintFigure<Figure<t0>* f> [Specialized]
+    PrintFigure<&t0_obj>();
+
+// CHECK-RT: PrintFigure<Figure<t1>* f> [Specialized]
+    PrintFigure<&t1_obj>();
+
+// CHECK-RT: PrintFigure<Figure* f> [Default]
+    PrintFigure<&t2_obj>();
     return 0;
 }
