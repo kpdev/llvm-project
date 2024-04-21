@@ -1988,7 +1988,16 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         CurLoc = ConsumeToken();
       }
       assert(Tok.is(tok::identifier));
-      printf("!!! %s\n", Tok.getIdentifierInfo()->getNameStart());
+      StringRef TagName;
+      if (NextToken().is(tok::colon)) {
+        TagName = Tok.getIdentifierInfo()->getName();
+        ConsumeToken();
+        ConsumeToken();
+        assert(Tok.is(tok::identifier));
+      }
+      printf("!!! [%s] %s\n",
+        TagName.data(),
+        Tok.getIdentifierInfo()->getNameStart());
       // Add struct
       {
         // TODO: Use functions for this functionality
@@ -2004,7 +2013,11 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         ParsedAttributes TestAttrs(AttrFactory);
         auto VariantName = Tok.getIdentifierInfo()->getName().str();
         auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
-        auto TestNameStr = std::string("__pp_struct_") + Name->getName().str() + "__" + VariantName;
+        auto TestNameStr = std::string("__pp_struct_") + Name->getName().str()
+                            + "__"
+                            + (TagName.empty() ?
+                                VariantName :
+                                TagName.str());
         auto TestName = &PP.getIdentifierTable().get(TestNameStr);
 
         SmallVector<StringRef, 8> Parts;
