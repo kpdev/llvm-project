@@ -15,5 +15,5 @@ double FigurePerimeter<Figure *f>();
 //------------------------------------------------------------------------------
 // Периметр прямоугольника как фигуры
 void FigurePerimeter<Figure<rect> *f>() {
-  RectanglePerimeter(f->@);
+  RectanglePerimeter(&f->@);
 }

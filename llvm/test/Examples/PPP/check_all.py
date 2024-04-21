@@ -49,6 +49,10 @@ command_list = [
         + run_tools_str
     ,
     cd_to_evol_str
+        + "02-new-func/ppp/02-ppp-tag-c"
+        + run_tools_str
+    ,
+    cd_to_evol_str
         + "03-new-field/ppp/03-ppp-type-dyn-decorator-c"
         + run_tools_str
     ,
