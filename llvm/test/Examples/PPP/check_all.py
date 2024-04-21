@@ -75,14 +75,21 @@ command_list = [
     cd_to_evol_str
         + "04-rectangles-only-out/ppp/04-ppp-type-is-rect-only-out-c"
         + run_tools_str
+    ,
+    cd_to_evol_str
+        + "04-rectangles-only-out/ppp/04-ppp-tag-is-rect-only-out-c"
+        + run_tools_str
 ]
 
+idx = 1
 for cmd in command_list:
     print("\n===========")
-    print("*** [TEST] Run command: ", cmd, " ***")
+    str_test = "[TEST][" + str(idx) + "]"
+    idx = idx + 1
+    print("***", str_test, "Run command: ", cmd, " ***")
     retval = os.system(cmd)
     if retval != 0:
-        print("*** [TEST] Error with: ", cmd)
+        print("***", str_test, "Error with: ", cmd)
         break
     else:
-        print("*** [TEST] OK ***")
+        print("***", str_test, "OK ***")

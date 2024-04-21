@@ -7,12 +7,12 @@
 
 //------------------------------------------------------------------------------
 // Обобщенная функция определяющая, является ли фигура прямоугольником
-bool isFigureRectangle<Figure * f>() {
-  return false;
+int isFigureRectangle<Figure * f>() {
+  return 0;
 }
 
 //------------------------------------------------------------------------------
 // Обобщенная функция определяющая, является ли фигура прямоугольником
-bool isFigureRectangle<Figure<rect> * f>() {
-  return true;
+int isFigureRectangle<Figure<rect> * f>() {
+  return 1;
 }
