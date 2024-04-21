@@ -8,6 +8,8 @@
 #include "container.h"
 #include "is-figure-rectangle.h"
 
+void FigureOut<Figure *sh>(FILE* file);
+
 //------------------------------------------------------------------------------
 // Вывод прямоугольников из контейнера в указанный поток
 void ContainerRectangleOnlyOut(Container *c, FILE* ofst) {

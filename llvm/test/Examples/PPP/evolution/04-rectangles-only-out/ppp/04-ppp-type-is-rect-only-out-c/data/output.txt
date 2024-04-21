@@ -1,0 +1,8 @@
+Filled container.
+It is Rectangle: x = 3, y = 4
+It is Rectangle: x = 30, y = 40
+It is Rectangle: x = 13, y = 14
+It is Rectangle: x = 330, y = 49
+Container contains 4 rectangles.
+Empty container.
+Container contains 0 elements.

@@ -10,6 +10,6 @@
 
 //------------------------------------------------------------------------------
 // Прототип функции определяющей, является ли фигура прямоугольником
-bool isFigureRectangle<Figure * f>();
+int isFigureRectangle<Figure * f>();
 
 #endif // __is_figure_rectangle__
