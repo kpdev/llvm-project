@@ -17,5 +17,5 @@ void FigureIn<Figure *f>(FILE* ifst);
 // Ввод прямоугольника как фигуры
 void FigureIn<Figure<circ> *f>(FILE* ofst) {
   Circle* c = &(f->@);
-  CircleIn(c, ifst);
+  CircleIn(c, ofst);
 }

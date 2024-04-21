@@ -41,6 +41,10 @@ command_list = [
         + run_tools_str
     ,
     cd_to_evol_str
+        + "01-new-spec/ppp/01-ppp-tag-c"
+        + run_tools_str
+    ,
+    cd_to_evol_str
         + "02-new-func/ppp/02-ppp-type-c"
         + run_tools_str
     ,
