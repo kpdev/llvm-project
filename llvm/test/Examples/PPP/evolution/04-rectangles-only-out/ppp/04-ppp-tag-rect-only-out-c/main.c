@@ -33,7 +33,8 @@ int main(int argc, char* argv[]) {
   fclose(ifst);
 
   fprintf(ofst, "Filled container.\n");
-  ContainerOut(&c, ofst);
+  // ContainerOut(&c, ofst);
+  ContainerRectangleOnlyOut(&c, ofst);
 
   ContainerClear(&c);
   fprintf(ofst, "Empty container.\n");
@@ -42,4 +43,18 @@ int main(int argc, char* argv[]) {
 
   printf("Stop\n");
   return 0;
+}
+
+// Инициализация контейнера
+void ContainerInit(Container *c) {
+  c->len = 0;
+}
+
+//------------------------------------------------------------------------------
+// Очистка контейнера от элементов (освобождение памяти)
+void ContainerClear(Container *c) {
+  for(int i = 0; i < c->len; i++) {
+    free(c->cont[i]);
+  }
+  ContainerInit(c);
 }
