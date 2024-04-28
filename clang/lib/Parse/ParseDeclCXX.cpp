@@ -1567,12 +1567,31 @@ std::string Parser::PPExtConstructGenName(
     return "<invalid_pp_gen_name>";
   }
   auto Sz = static_cast<int>(Names.size());
-  auto SpecName = Names[Sz - 1];
   auto BaseName = Names[Sz - 2];
+  auto BaseType = PPExtGetTypeByName(BaseName);
+  if (BaseType == nullptr) {
+    // Maybe it is a tag, check it
+    assert(Sz > 2);
+    auto PrevName = Names[Sz - 3];
+    auto NameToCheck =
+      PPExtConstructGenName(PrevName, BaseName);
+    auto TypeToCheck = PPExtGetTypeByName(NameToCheck);
+    for (auto f: TypeToCheck->fields()) {
+      if (f->getName().equals("__pp_tail")) {
+        auto S = f->getType().getAsString();
+        StringRef SR(S);
+        SR = SR.split(" ").second;
+        BaseType = PPExtGetTypeByName(SR);
+        assert(BaseType);
+        BaseName = BaseType->getName();
+      }
+    }
+  }
+  auto SpecName = Names[Sz - 1];
   auto GenName = PPExtConstructGenName(BaseName, SpecName);
+  StringRef DgbNm(GenName);
   auto GenType = PPExtGetTypeByName(GenName);
   auto SpecType = PPExtGetTypeByName(SpecName);
-  auto BaseType = PPExtGetTypeByName(BaseName);
   assert(BaseType);
 
   if (!GenType) {
