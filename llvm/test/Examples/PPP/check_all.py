@@ -13,7 +13,8 @@ cd_to_evol_str = "cd ./llvm/test/Examples/PPP/evolution/"
 run_tools_str = "/build && cmake "\
 "-DCMAKE_C_COMPILER=" + path_to_clang + " "\
 "--fresh -S ../ -B . "\
-"&& make && ../bin/evo-demo ../data/input.txt ../data/output.txt"
+"&& make && ../bin/evo-demo ../data/input.txt ../data/output.txt "\
+"&& rm -rf ../build/* && rm -rf ../bin/*"
 
 command_list = [
     "./build/bin/llvm-lit "
