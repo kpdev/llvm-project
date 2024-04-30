@@ -6449,25 +6449,25 @@ CodeGenModule::PPExtCreateMMRecorder(llvm::Function* BaseF)
   return Res;
 }
 
+clang::Type*
+CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
+  clang::Type* Result = nullptr;
+  auto& Ts = Context.getTypes();
+  for (auto Ty : Ts) {
+    if (Ty->isRecordType() &&
+        Ty->getAsRecordDecl()
+          ->getName().equals(TypeNameExtracted)) {
+      Result = Ty;
+      break;
+    }
+  }
+  return Result;
+}
+
+
 void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
-  auto CtxPtr = &Context;
-  auto GetTypeByName = [CtxPtr]
-    (StringRef TypeNameExtracted) {
-    clang::Type* Result = nullptr;
-    auto& Ts = CtxPtr->getTypes();
-    for (auto Ty : Ts) {
-      if (Ty->isRecordType() &&
-          Ty->getAsRecordDecl()
-            ->getName().equals(TypeNameExtracted)) {
-        Result = Ty;
-        break;
-      }
-    }
-    return Result;
-  };
-
   for (auto* FSpec : PPCreateSpecsToDefine) {
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted =
@@ -6477,7 +6477,7 @@ void CodeGenModule::HandlePPExtensionMethods(
         TypeNameExtracted.data());
       int64_t BytesToAlloc = 0;
 
-      auto* Ty = GetTypeByName(TypeNameExtracted);
+      auto* Ty = PPExtGetTypeByName(TypeNameExtracted);
       assert(Ty);
 
       auto* RecordTy = Ty->getAsRecordDecl();
@@ -6604,9 +6604,7 @@ void CodeGenModule::HandlePPExtensionMethods(
               SpecName = GenName.substr(StartPos,
                                         EndOfTypePos - StartPos);
               auto BaseName = GenName.substr(0, fourUnderscorePos);
-              genName = std::string("__pp_tag_") +
-                BaseName.str() + std::string("__") +
-                SpecName.str();
+              genName = std::string("__pp_tag_") + BaseName.str();
               StringRef GN(genName);
               printf("%s\n", GN.data());
               PtrToObjForGEP = llvm::GetElementPtrInst::CreateInBounds(
@@ -6618,18 +6616,13 @@ void CodeGenModule::HandlePPExtensionMethods(
           auto *GV = getModule().getGlobalVariable(genName);
 
           assert(GV);
-          if (GV != nullptr) {
-            // TODO PP-EXT
-            // Handle case with GV == NULL
-            // correctly
-            auto* LoadGlobalTag =
-              new llvm::LoadInst(IntTy, GV, "global_spec_tag", BB);
-            new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
-          }
+          auto* LoadGlobalTag =
+            new llvm::LoadInst(IntTy, GV, "global_spec_tag", BB);
+          new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
           auto Pos = TypeNameExtracted.find("____");
           if (Pos != StringRef::npos) {
             TypeNameExtracted = TypeNameExtracted.substr(Pos + 2);
-            Ty = GetTypeByName(TypeNameExtracted);
+            Ty = PPExtGetTypeByName(TypeNameExtracted);
           } else {
             Ty = nullptr;
           }

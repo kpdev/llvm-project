@@ -1547,10 +1547,11 @@ bool Parser::isValidAfterTypeSpecifier(bool CouldBeBitfield) {
 
 std::string Parser::PPExtConstructGenName(
   StringRef BaseName,
-  StringRef SpecName
+  StringRef SpecName,
+  bool AddPrefix
 )
 {
-  return std::string("__pp_struct_")
+  return (AddPrefix ? std::string("__pp_struct_") : std::string(""))
           + BaseName.str()
           + std::string("__")
           + SpecName.str();
@@ -1566,59 +1567,83 @@ std::string Parser::PPExtConstructGenName(
       && "Wrong number of specialization names");
     return "<invalid_pp_gen_name>";
   }
-  auto Sz = static_cast<int>(Names.size());
-  auto BaseName = Names[Sz - 2];
-  auto BaseType = PPExtGetTypeByName(BaseName);
-  if (BaseType == nullptr) {
-    // Maybe it is a tag, check it
-    assert(Sz > 2);
-    auto PrevName = Names[Sz - 3];
-    auto NameToCheck =
-      PPExtConstructGenName(PrevName, BaseName);
+
+  auto GetTypeNameIfTag = [&](std::string PrevName,
+                              std::string NameToCheck) {
     auto TypeToCheck = PPExtGetTypeByName(NameToCheck);
-    for (auto f: TypeToCheck->fields()) {
-      if (f->getName().equals("__pp_tail")) {
-        auto S = f->getType().getAsString();
-        StringRef SR(S);
-        SR = SR.split(" ").second;
-        BaseType = PPExtGetTypeByName(SR);
-        assert(BaseType);
-        BaseName = BaseType->getName();
+    if (!TypeToCheck) {
+      // Create gen name. It should exist
+      auto GenName =
+        PPExtConstructGenName(PrevName, NameToCheck);
+      auto GenType = PPExtGetTypeByName(GenName);
+      assert(GenType);
+      for (auto f: GenType->fields()) {
+        if (f->getName().equals("__pp_tail")) {
+          auto S = f->getType().getAsString();
+          StringRef SR(S);
+          SR = SR.split(" ").second;
+          NameToCheck = SR.str();
+          TypeToCheck = PPExtGetTypeByName(SR);
+          assert(TypeToCheck);
+          break;
+        }
       }
     }
-  }
-  auto SpecName = Names[Sz - 1];
-  auto GenName = PPExtConstructGenName(BaseName, SpecName);
-  StringRef DgbNm(GenName);
-  auto GenType = PPExtGetTypeByName(GenName);
-  auto SpecType = PPExtGetTypeByName(SpecName);
-  assert(BaseType);
+    return std::make_pair(NameToCheck, TypeToCheck);
+  };
 
-  if (!GenType) {
-    assert(SpecType);
-    auto* PPDec = PPExtCreateGeneralization(GenName,
-      BaseType, SpecType, Tok.getLocation(), PAttrs);
-    assert(PPDec);
+  auto LastIdx = static_cast<int>(Names.size()) - 1;
+  auto CurBaseName = Names[LastIdx - 1].str();
+  if (LastIdx > 1) {
+    // Return type name if
+    //        CurBaseName is a tag
+    auto P = GetTypeNameIfTag(Names[LastIdx - 2].str(),
+                              CurBaseName);
+    CurBaseName = P.first;
   }
-  for (auto It = Sz - 3;
-       It >= 0; --It) {
-    auto BaseName = Names[It];
-    SpecType = PPExtGetTypeByName(GenName);
-    BaseType = PPExtGetTypeByName(BaseName);
-    assert(SpecType && BaseType);
-    GenName = PPExtConstructGenName(BaseName, GenName);
-    auto GenType = PPExtGetTypeByName(GenName);
-    if (!GenType) {
-      auto* PPDec = PPExtCreateGeneralization(GenName,
-        BaseType, SpecType, Tok.getLocation(), PAttrs);
-      assert(PPDec);
+  std::string ResName = PPExtConstructGenName(
+                              CurBaseName,
+                              Names[LastIdx]);
+  auto* ResType = PPExtGetTypeByName(ResName);
+  assert(ResType);
+
+  for (int i  = LastIdx - 2; i >= 0; --i) {
+    auto CurBaseHeadName = Names[i];
+    CurBaseName = PPExtConstructGenName(CurBaseHeadName,
+                                        Names[i + 1]);
+    auto CurBaseType = PPExtGetTypeByName(CurBaseName);
+    if (i != 0) {
+      // Return type name ifs
+      //        CurBaseName is a tag
+      auto P = GetTypeNameIfTag(Names[i - 1].str(),
+                                CurBaseName);
+      CurBaseName = P.first;
+      CurBaseType = P.second;
     }
+    assert(CurBaseType);
+    // Construct new type (or get existing one
+    //           if it is already constructed)
+    auto CurGenName = PPExtConstructGenName(
+                        CurBaseName, ResName, false);
+    auto CurGenType = PPExtGetTypeByName(CurGenName);
+    if (!CurGenType) {
+      auto CurBaseHeadType = PPExtGetTypeByName(CurBaseHeadName);
+      assert(CurBaseHeadType);
+      CurGenType = PPExtCreateGeneralization(
+                          CurGenName, CurBaseHeadType, ResType,
+                          Tok.getLocation(), PAttrs);
+      assert(CurGenType);
+    }
+    ResType = CurGenType;
+    ResName = CurGenName;
   }
-  return GenName;
+
+  assert(ResType);
+  return ResName;
 }
 
 
-Decl* Parser::PPExtCreateGeneralization(
+RecordDecl* Parser::PPExtCreateGeneralization(
   StringRef Name,
   RecordDecl* Head,
   RecordDecl* Tail,
@@ -1662,8 +1687,9 @@ Decl* Parser::PPExtCreateGeneralization(
       DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
       DiagID, ResultDecl, true, Policy);
     ResultDecl->dump();
-
-    return ResultDecl;
+    auto* ResultRecordDecl = cast<RecordDecl>(ResultDecl);
+    assert(ResultRecordDecl);
+    return ResultRecordDecl;
 }
 
 RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
@@ -1762,18 +1788,9 @@ std::string Parser::PPExtConstructTagName(StringRef GenName)
   char PPStructPrefix[] = "__pp_struct_";
   auto Sz = sizeof(PPStructPrefix);
   auto NextPos = GenName.find(PPStructPrefix, Sz);
-  StringRef SpecName("");
-  if (NextPos != StringRef::npos) {
-    auto EndOfTypePos = GenName.find("__", NextPos + Sz);
-    assert(EndOfTypePos != StringRef::npos);
-    auto StartPos = NextPos + Sz - 1;
-    SpecName = GenName.substr(StartPos,
-                              EndOfTypePos - StartPos);
-    auto BaseName = GenName.substr(0, NextPos);
-    GenName = BaseName;
-  }
+  // 'NextPos-2' because there are 4 underscores
   return std::string("__pp_tag_")
-          + GenName.str() + SpecName.str();
+          + GenName.substr(0, NextPos - 2).str();
 }
 
 void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
