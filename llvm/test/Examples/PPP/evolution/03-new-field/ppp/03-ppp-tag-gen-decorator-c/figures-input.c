@@ -5,10 +5,12 @@
 // Реализация использует динамически подключаемый декоратор
 //==============================================================================
 
-#include "decorator.h"
-#include "rectangle.h"
-#include "triangle.h"
 #include <stdio.h>
+#include "figure-decorator.h"
+#include "figure-rectangle.h"
+#include "figure-triangle.h"
+
+void FigureIn<Figure *f>(FILE* file);
 
 //------------------------------------------------------------------------------
 // Ввод параметров одной из фигур из файла, включая ее цвет
@@ -20,15 +22,16 @@ Figure* FigureCreateAndIn(FILE* ifst)
     switch (k) {
     case 1:
         // Далее нужно сформировать признак. Наверное спец. функция...
-        sp = create_spec(Figure<decor<rect>>);
+        sp = create_spec<Figure<decor<Figure<rect> > > >();
         break;
     case 2:
         // sp = malloc(sizeof(Figure<Triangle>));
         // Далее нужно сформировать признак. Наверное спец. функция...
-        sp = create_spec(Figure <decor<trian>>);
+        sp = create_spec<Figure <decor< Figure<trian> > > >();
         break;
     default:
         return 0;
     }
     FigureIn<sp>(ifst); // ввод декорированной фигуры
+    return sp;
 }

@@ -70,6 +70,10 @@ command_list = [
         + run_tools_str
     ,
     cd_to_evol_str
+        + "03-new-field/ppp/03-ppp-tag-gen-decorator-c"
+        + run_tools_str
+    ,
+    cd_to_evol_str
         + "04-rectangles-only-out/ppp/04-ppp-type-rect-only-out-c"
         + run_tools_str
     ,

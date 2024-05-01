@@ -17,7 +17,8 @@ void FigureIn<Figure * f>(FILE* file);
 void FigureIn<Figure<decor> * d>(FILE* ifst)
 {
     // В начале вводятся параметры подключенной фигуры
-    FigureIn<&(d->@.@)>(ifst);
+    struct Decorator<Figure>* dfp = &d->@;
+    FigureIn<&(dfp->@)>(ifst);
     // Затем вводится содержимое декоратора (цвет)
     fscanf(ifst, "%x", &(d->@color));
 }

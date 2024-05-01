@@ -1609,25 +1609,24 @@ std::string Parser::PPExtConstructGenName(
 
   for (int i  = LastIdx - 2; i >= 0; --i) {
     auto CurBaseHeadName = Names[i];
-    CurBaseName = PPExtConstructGenName(CurBaseHeadName,
-                                        Names[i + 1]);
-    auto CurBaseType = PPExtGetTypeByName(CurBaseName);
+    auto CurBaseHeadType = PPExtGetTypeByName(CurBaseHeadName);
     if (i != 0) {
       // Return type name ifs
       //        CurBaseName is a tag
       auto P = GetTypeNameIfTag(Names[i - 1].str(),
-                                CurBaseName);
-      CurBaseName = P.first;
-      CurBaseType = P.second;
+                                CurBaseHeadName.str());
+      CurBaseHeadName = P.first;
+      CurBaseHeadType = P.second;
     }
-    assert(CurBaseType);
+    assert(CurBaseHeadType);
+    CurBaseName = PPExtConstructGenName(CurBaseHeadName,
+                                        Names[i + 1]);
     // Construct new type (or get existing one
     //           if it is already constructed)
     auto CurGenName = PPExtConstructGenName(
                         CurBaseName, ResName, false);
     auto CurGenType = PPExtGetTypeByName(CurGenName);
     if (!CurGenType) {
-      auto CurBaseHeadType = PPExtGetTypeByName(CurBaseHeadName);
       assert(CurBaseHeadType);
       CurGenType = PPExtCreateGeneralization(
                           CurGenName, CurBaseHeadType, ResType,
