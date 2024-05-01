@@ -1873,12 +1873,15 @@ private:
   // PP-Extension
   clang::Type* PPExtGetTypeByName(StringRef TypeNameExtracted);
   void HandlePPExtensionMethods(llvm::Function* F, GlobalDecl GD);
-  void AddPPSpecialization(
-    llvm::Function* F,
-    const std::vector<FunctionDecl::PPMMParam>& Gens);
+
+  using MMParams = std::vector<FunctionDecl::PPMMParam>;
+  void AddPPSpecialization(llvm::Function* F,
+                           const MMParams& Gens);
   llvm::Function* PPExtCreateMMRecorder(llvm::Function* BaseF);
   llvm::Function* ExtractDefaultPPMMImplementation(llvm::Function* F,
                                                    const clang::FunctionDecl* FD);
+  llvm::Value* PPExtGetIndexForMM(llvm::Function* F,
+                                  const MMParams& Gens);
   llvm::BasicBlock*
   InitPPHandlersArray(llvm::BasicBlock* BB,
                       llvm::Value* AllocatedBytes,
