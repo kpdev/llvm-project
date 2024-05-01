@@ -92,6 +92,10 @@ command_list = [
     cd_to_evol_str
         + "04-rectangles-only-out/ppp/04-ppp-tag-is-rect-only-out-c"
         + run_tools_str
+    ,
+    cd_to_evol_str
+        + "05-multimethod/ppp/05-ppp-type-c"
+        + run_tools_str
 ]
 
 idx = 1
