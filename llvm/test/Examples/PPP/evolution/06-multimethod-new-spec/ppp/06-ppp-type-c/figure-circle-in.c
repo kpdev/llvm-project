@@ -13,9 +13,11 @@ void FigureIn(Circle *c, FILE* ifst);
 // Прототип обобщеннай функции вывода фигуры
 void FigureIn<Figure *f>(FILE* ifst);
 
+void CircleIn(Circle *c, FILE* ifst);
+
 //------------------------------------------------------------------------------
 // Ввод прямоугольника как фигуры
 void FigureIn<Figure<Circle> *f>(FILE* ofst) {
   Circle* c = &(f->@);
-  CircleIn(c, ifst);
+  CircleIn(c, ofst);
 }

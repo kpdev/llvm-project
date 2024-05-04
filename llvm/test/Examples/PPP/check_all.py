@@ -96,6 +96,10 @@ command_list = [
     cd_to_evol_str
         + "05-multimethod/ppp/05-ppp-type-c"
         + run_tools_str
+    ,
+    cd_to_evol_str
+        + "06-multimethod-new-spec/ppp/06-ppp-type-c"
+        + run_tools_str
 ]
 
 idx = 1

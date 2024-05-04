@@ -15,7 +15,7 @@ void FigureOut<Figure *f>(FILE* ofst);
 //------------------------------------------------------------------------------
 // Вывод круга как фигуры
 void FigureOut<Figure<Circle> *f>(FILE* ofst) {
-  Circle* c = &(f->@)
-  CircleOut(c);
+  Circle* c = &(f->@);
+  CircleOut(c, ofst);
 }
 
