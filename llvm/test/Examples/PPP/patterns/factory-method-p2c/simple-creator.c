@@ -4,19 +4,20 @@
 //------------------------------------------------------------------------------
 
 #include "simple-creator.h"
+#include "figure.h"
 
 //------------------------------------------------------------------------------
 // Обобщенная функция создателя является чистой
-Figure* CreateFigure<Creator *f>() {} //= 0;
+Figure* CreateFigure<SimpleCreator *f>() {} //= 0;
 
 //------------------------------------------------------------------------------
 // Создатель прямоугольников-специализаций
-Figure* CreateFigure<Creator<rect>  *f>() {
+Figure* CreateFigure<SimpleCreator<rect>  *f>() {
   return create_spec<struct Figure<struct SimpleRectangle> >();
 }
 
 //------------------------------------------------------------------------------
 // Создатель треугольников-специализаций
-Figure* CreateFigure<Creator<trian> *f>() {
+Figure* CreateFigure<SimpleCreator<trian> *f>() {
   return create_spec<struct Figure<struct SimpleTriangle> >();
 }

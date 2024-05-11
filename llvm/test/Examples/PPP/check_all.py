@@ -9,12 +9,23 @@ if not os.path.isfile(path_to_clang):
     print("[ERROR] Clang not found: " + path_to_clang)
     exit()
 
+# TODO: Refactoring tests run
+
 cd_to_evol_str = "cd ./llvm/test/Examples/PPP/evolution/"
+cd_to_pattenrs_str = "cd ./llvm/test/Examples/PPP/patterns/"
+
 run_tools_str = "/build && cmake "\
 "-DCMAKE_C_COMPILER=" + path_to_clang + " "\
 "--fresh -S ../ -B . "\
 "&& make && ../bin/evo-demo ../data/input.txt ../data/output.txt "\
 "&& rm -rf ../build/* && rm -rf ../bin/*"
+
+run_tools_patterns_str = "/build && cmake "\
+"-DCMAKE_C_COMPILER=" + path_to_clang + " "\
+"--fresh -S ../ -B . "\
+"&& make && ../bin/factory-method ../data/input.txt ../data/output.txt "\
+"&& rm -rf ../build/* && rm -rf ../bin/*"
+
 
 command_list = [
     "./build/bin/llvm-lit "
@@ -112,6 +123,10 @@ command_list = [
     cd_to_evol_str
         + "06-multimethod-new-spec/ppp/06-ppp-tag-c"
         + run_tools_str
+    ,
+    cd_to_pattenrs_str
+        + "factory-method-p2c"
+        + run_tools_patterns_str
 ]
 
 idx = 1

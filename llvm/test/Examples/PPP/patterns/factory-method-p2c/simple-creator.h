@@ -11,12 +11,12 @@
 //------------------------------------------------------------------------------
 // Обобщенного создателя и обработчиков специализаций можно задать только
 // явным перечислением признаков специализаций без привязки к основам
-typedef struct Creator {} <rect, trian: void> Creator;
+typedef struct SimpleCreator {} <rect, trian: void> SimpleCreator;
 
 // Обобщенная функция создателя
-Figure* CreateFigure<Creator *f>();
+Figure* CreateFigure<SimpleCreator *f>();
 // Обработчики специализаций
-Figure* CreateFigure<Creator<rect>  *f>();
-Figure* CreateFigure<Creator<trian> *f>();
+Figure* CreateFigure<SimpleCreator<rect>  *f>();
+Figure* CreateFigure<SimpleCreator<trian> *f>();
 
 #endif // __simple_creator__

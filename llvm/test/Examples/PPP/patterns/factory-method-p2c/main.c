@@ -17,8 +17,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  FILE* ifst = argv[1];
-  FILE* ofst = argv[2];
+  FILE* ifst = fopen(argv[1], "r");
+  FILE* ofst = fopen(argv[2], "w");
 
   printf("Start\n");
 

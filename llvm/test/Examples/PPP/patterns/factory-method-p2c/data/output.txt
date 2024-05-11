@@ -1,0 +1,12 @@
+Filled container.
+Container contains 8 elements.
+0: It is Simple Rectangle: x = 3.000, y = 4.000
+1: It is Simple Triangle: a = 1.000, b = 1.000, c = 1.000
+2: It is Simple Rectangle: x = 30.000, y = 40.000
+3: It is Simple Triangle: a = 2.750, b = 2.430, c = 1.130
+4: It is Simple Rectangle: x = 13.000, y = 14.000
+5: It is Simple Triangle: a = 10.000, b = 10.000, c = 10.000
+6: It is Simple Rectangle: x = 330.000, y = 49.000
+7: It is Simple Triangle: a = 3.000, b = 4.000, c = 5.000
+Empty container.
+Container contains 0 elements.

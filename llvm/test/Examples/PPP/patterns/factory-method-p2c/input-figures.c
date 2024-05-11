@@ -18,7 +18,7 @@ void FigureCreateAndIn(FILE* ifst, FigureContainer* pfc) {
   struct SimpleCreator<trian> triangleCreator;
   struct Figure* pf;
   int k = 0;
-  while(!ifst.eof())
+  while(!feof(ifst))
   {
     fscanf(ifst, "%d", &(k));
     switch(k) {
