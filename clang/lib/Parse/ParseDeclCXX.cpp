@@ -1685,7 +1685,11 @@ RecordDecl* Parser::PPExtCreateGeneralization(
     PDS.SetTypeSpecType(
       DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
       DiagID, ResultDecl, true, Policy);
+
+#ifdef PPEXT_DUMP
     ResultDecl->dump();
+#endif
+
     auto* ResultRecordDecl = cast<RecordDecl>(ResultDecl);
     assert(ResultRecordDecl);
     return ResultRecordDecl;
@@ -2030,14 +2034,19 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         ConsumeToken();
         assert(Tok.is(tok::identifier));
       }
+#ifdef PPEXT_DUMP
       printf("!!! [%s] %s\n",
         TagName.data(),
         Tok.getIdentifierInfo()->getNameStart());
+#endif
+
       // Add struct
       {
         // TODO: Use functions for this functionality
         //       together with ParseDecl.cpp:5038
+#ifdef PPEXT_DUMP
         printf("\n[!!!] TODO: Refactoring: reuse PPCreateGen\n");
+#endif
         Sema::SkipBodyInfo TestSkipBody;
         CXXScopeSpec TestSS;
         MultiTemplateParamsArg TestTParams;
@@ -2064,12 +2073,13 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         ExactFileName.split(Parts, '.');
         auto OnlyFileName = Parts.front().str();
         const bool NeedCtorsDefinitions = true;
-          // (OnlyFileName == VariantName || OnlyFileName == Name->getName().str());
+#ifdef PPEXT_DUMP
         printf("!!! FullFilename:[%s], OnlyFileName:[%s], Name:[%s]\n",
           FullFileName.str().c_str(),
           OnlyFileName.c_str(),
           Name->getName().str().c_str());
         printf("[+] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
+#endif
         auto TestLocation = SourceLocation();
 
         PPMangledNames ppMNames;
@@ -2110,8 +2120,10 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         PDS.SetTypeSpecType(
           DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
           DiagID, TestDecl, true, Policy);
-        // DS = PDS.getRepAsDecl()->getDe
+
+#ifdef PPEXT_DUMP
         TestDecl->dump();
+#endif
 
         std::string GVarName = std::string("__pp_tag_") + TestNameStr;
         m_PPGlobalVars.push_back(VarGenerate(GVarName));

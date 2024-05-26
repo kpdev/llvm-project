@@ -6504,9 +6504,13 @@ void CodeGenModule::HandlePPExtensionMethods(
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted =
         FSpec->getName().substr(sizeof("create_spec") - 1);
+
+#ifdef PPEXT_DUMP
       printf("Need to generate body for %s [%s]\n",
         FSpec->getName().data(),
         TypeNameExtracted.data());
+#endif
+
       int64_t BytesToAlloc = 0;
 
       auto* Ty = PPExtGetTypeByName(TypeNameExtracted);
@@ -6515,11 +6519,15 @@ void CodeGenModule::HandlePPExtensionMethods(
       auto* RecordTy = Ty->getAsRecordDecl();
       assert(RecordTy);
       BytesToAlloc = Context.getTypeSizeInChars(Ty).getQuantity();
+
+#ifdef PPEXT_DUMP
       printf("Found Record = [%s][%d][%d]\n",
         RecordTy->getName().data(),
         (int)Context.getTypeSize(Ty),
         (int)Context.getTypeSizeInChars(Ty).getQuantity());
         RecordTy->dump();
+#endif
+
       auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
       {
         StringRef MangledName = "malloc";
@@ -6637,8 +6645,12 @@ void CodeGenModule::HandlePPExtensionMethods(
                                         EndOfTypePos - StartPos);
               auto BaseName = GenName.substr(0, fourUnderscorePos);
               genName = std::string("__pp_tag_") + BaseName.str();
+
+#ifdef PPEXT_DUMP
               StringRef GN(genName);
               printf("%s\n", GN.data());
+#endif
+
               PtrToObjForGEP = llvm::GetElementPtrInst::CreateInBounds(
                 GenRecTy, PtrToObjForGEP, IdxsTail, "pp_tail", BB);
             }
@@ -6698,12 +6710,20 @@ void CodeGenModule::HandlePPExtensionMethods(
   }
 
   if (IsSpecialization) {
+
+#ifdef PPEXT_DUMP
     printf("Found MM Specialization: %s\n", FName.str().c_str());
+#endif
+
     AddPPSpecialization(F, Generalizations);
     return;
   }
   else {
+
+#ifdef PPEXT_DUMP
     printf("Found MM Handler: %s\n", FName.substr(sizeof("__pp_mm")).str().c_str());
+#endif
+
   }
 
   auto* DefaultHandler = ExtractDefaultPPMMImplementation(F, FD);
@@ -6988,7 +7008,10 @@ CodeGenModule::PPExtGetIndexForMM(
 
     auto* TypeTagPtr = llvm::GetElementPtrInst::CreateInBounds(
       GenRecTy, GenRecParamPtr, Idxs, "", BB);
+
+#ifdef PPEXT_DUMP
     TypeTagPtr->dump();
+#endif
 
     auto* TypeTag = new llvm::LoadInst(IntTy, TypeTagPtr, "", BB);
 
@@ -7094,7 +7117,10 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         InitArr->setDSOLocal(true);
         InitArr->setInitializer(
                     llvm::Constant::getNullValue(FnPtrType));
+
+#ifdef PPEXT_DUMP
         InitArr->dump();
+#endif
       }
 
       ArrayRef<llvm::Value*> TypeTagsIdxs({
@@ -7632,6 +7658,11 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
                                 llvm::Value* Arg,
                                 CodeGenModule::InsertPrintfPos Pos)
 {
+
+#ifndef PPEXT_DUMP
+  return nullptr;
+#endif
+
   StringRef MangledName = "printf";
   llvm::Function *F = getModule().getFunction(MangledName);
   if (!F) {

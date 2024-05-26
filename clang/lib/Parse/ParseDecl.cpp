@@ -5023,7 +5023,11 @@ void Parser::AddStmts(StmtVector& Stmts,
 
           // Statements
           StmtResult InitStmt, ThenStmt, ElseStmt;
+
+#ifdef PPEXT_DUMP
           fprintf(stderr, "!!! IfStmts size %d\n", (int)IfStmts.size());
+#endif
+
           ThenStmt = Actions.ActOnCompoundStmt(Loc, Loc, IfStmts, false);
 
           StmtResult IfBody = Actions.ActOnIfStmt(Loc, clang::IfStatementKind::Ordinary,
@@ -5050,13 +5054,20 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
     return Res;
   };
 
+#ifdef PPEXT_DUMP
   printf("\n[PPMC] Parse extension\n");
+#endif
+
   ConsumeAnyToken();
   auto* RD = cast<RecordDecl>(TagDecl);
   const auto GenName = RD->getDeclName().getAsString();
   SpecsVec Result;
   while (Tok.isNot(clang::tok::greater)) {
+
+#ifdef PPEXT_DUMP
     printf("  Token -> Kind: [%s]", Tok.getName());
+#endif
+
     if (Tok.is(clang::tok::identifier)) {
       auto TokName = Tok.getIdentifierInfo()->getName().str();
       SmallVector<std::string> Names;
@@ -5074,7 +5085,10 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
         TokName = Tok.getIdentifierInfo()->getName().str();
       } while(true);
 
+#ifdef PPEXT_DUMP
       printf(", Name:[%s]", TokName.c_str());
+#endif
+
       if (NextToken().is(tok::colon)) {
         ConsumeToken();
         ConsumeToken();
@@ -5090,10 +5104,16 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
         Result.push_back(D);
       }
     }
+
+#ifdef PPEXT_DUMP
     printf("\n");
+#endif
+
     ConsumeAnyToken();
   }
+#ifdef PPEXT_DUMP
   printf("[PPMC] Finish parse extension\n\n");
+#endif
   ConsumeAnyToken();
 
   FieldGenerator("__pp_specialization_type",
@@ -5297,6 +5317,7 @@ void Parser::PPMangledNames::setMMName(std::string Name)
 
 __attribute__((noinline))
 void Parser::PPMangledNames::dump() {
+#ifdef PPEXT_DUMP
   fprintf(stderr, "=== ppmnames ===\n"
   "BaseStructName = %s\n"
   "BaseTagVariableName = %s\n"
@@ -5315,6 +5336,7 @@ void Parser::PPMangledNames::dump() {
     i++, V.VariantName.c_str(), V.VariantTagVariableName.c_str());
   }
   fprintf(stderr, "=== ppmnames end dump ===\n");
+#endif
 }
 
 void Parser::dumpPPNames(PPMangledNames& p) {
@@ -5481,8 +5503,11 @@ Sema::DeclGroupPtrTy Parser::TypedefGenerate(std::string TypeVarName,
     SourceLocation(), &DS), std::move(PPattr), TokLoc);
 
   auto* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
-  // TODO: Remove this dump. Temporarily used in test
+
+#ifdef PPEXT_DUMP
   ThisDecl->dump();
+#endif
+
   Actions.ActOnUninitializedDecl(ThisDecl);
   Actions.FinalizeDeclaration(ThisDecl);
   D.complete(ThisDecl);
@@ -5629,7 +5654,10 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 
   if (PPExtSpecs) {
+
+#ifdef PPEXT_DUMP
     TagDecl->dump();
+#endif
 
     PPMangledNames ppMNames;
 
@@ -5660,8 +5688,9 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       const bool IsVariantVoid = (S.VariantName == "void");
       auto VariantNameIdentifier = (IsVariantVoid ?
         nullptr : &PP.getIdentifierTable().get(S.VariantName));
+#ifdef PPEXT_DUMP
       printf("[] Test name: %s, Variant Name: %s\n", S.FullNameIInfo->getNameStart(), S.VariantName.c_str());
-
+#endif
       ppMNames.addVariantName(S.FullNameIInfo->getName().str());
       ParsingDeclSpec PDS(*this);
       assert((!IsVariantVoid && VariantNameIdentifier) ||
@@ -5699,7 +5728,10 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       PDS.SetTypeSpecType(
         DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
         DiagID, TestDecl, true, Policy);
+
+#ifdef PPEXT_DUMP
       TestDecl->dump();
+#endif
 
       auto& V = ppMNames.VariantStructNames.back();
       AddFunc(V.VariantInitFuncName,

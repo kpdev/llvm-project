@@ -3796,8 +3796,12 @@ FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
   for (auto p = param_begin();
         (p != param_end()) && (NumInt-- > 0);
         ++p, ++ParamIdx) {
+
+#ifdef PPEXT_DUMP
     auto Param = *p;
     Param->dump();
+#endif
+
     auto PT = dyn_cast_or_null<PointerType>(
                                   (*p)->getType().getTypePtr());
     if (PT) {
