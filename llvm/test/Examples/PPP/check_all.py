@@ -3,7 +3,9 @@
 import os
 
 cur_dir = os.getcwd()
-path_to_clang = cur_dir + "/build/bin/clang-15"
+bin_dir = "/build/bin/"
+path_to_clang = cur_dir + bin_dir + "clang-15"
+path_to_fcheck = cur_dir + bin_dir + "FileCheck"
 
 if not os.path.isfile(path_to_clang):
     print("[ERROR] Clang not found: " + path_to_clang)
@@ -13,6 +15,7 @@ if not os.path.isfile(path_to_clang):
 
 cd_to_evol_str = "cd ./llvm/test/Examples/PPP/evolution/"
 cd_to_pattenrs_str = "cd ./llvm/test/Examples/PPP/patterns/"
+cd_to_misc_str = "cd ./llvm/test/Examples/PPP/misc/"
 
 run_tools_str = "/build && cmake "\
 "-DCMAKE_C_COMPILER=" + path_to_clang + " "\
@@ -26,6 +29,12 @@ run_tools_patterns_str = "/build && cmake "\
 "&& make && ../bin/factory-method ../data/input.txt ../data/output.txt "\
 "&& rm -rf ../build/* && rm -rf ../bin/*"
 
+run_container_str = "/build && cmake "\
+"-DCMAKE_C_COMPILER=" + path_to_clang + " "\
+"--fresh -S ../ -B . "\
+"&& make && ../bin/container | "\
++ path_to_fcheck + " ../output_to_compare.txt "\
+"&& rm -rf ../build/* && rm -rf ../bin/*"
 
 command_list = [
     "./build/bin/llvm-lit "
@@ -127,6 +136,10 @@ command_list = [
     cd_to_pattenrs_str
         + "factory-method-p2c"
         + run_tools_patterns_str
+    ,
+    cd_to_misc_str
+        + "container-tag"
+        + run_container_str
 ]
 
 idx = 1

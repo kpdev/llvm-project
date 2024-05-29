@@ -1,7 +1,7 @@
 # set minimum cmake version
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 project(container)               # Название проекта
-SET(CMAKE_C_COMPILER ppclang)
+# SET(CMAKE_C_COMPILER ppclang)
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type is Debug" FORCE)
 
 set(BUILD_DIR "${CMAKE_BINARY_DIR}")

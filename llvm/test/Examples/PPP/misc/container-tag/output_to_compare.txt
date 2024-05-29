@@ -1,0 +1,59 @@
+// CHECK: Empty Array of Values
+// CHECK-EMPTY: 
+// CHECK-NEXT: Array of Values is:
+// CHECK-NEXT:    value = 20
+// CHECK-EMPTY:
+// CHECK-NEXT: Array of Values is:
+// CHECK-NEXT:    value = 20
+// CHECK-NEXT:    value = 30
+// CHECK-EMPTY:
+// CHECK-NEXT: Array of Values is:
+// CHECK-NEXT:    value = 20
+// CHECK-NEXT:    value = 30
+// CHECK-NEXT:    value = 40
+// CHECK-EMPTY:
+// CHECK-NEXT: Array of Values is:
+// CHECK-NEXT:    value = 20
+// CHECK-NEXT:    value = 30
+// CHECK-NEXT:    value = 40
+// CHECK-NEXT:    value = 10
+// CHECK-EMPTY:
+// CHECK-NEXT: First:value = 20
+// CHECK-EMPTY:
+// CHECK-NEXT: 0: value = 20
+// CHECK-NEXT: 1: value = 30
+// CHECK-NEXT: 2: value = 40
+// CHECK-NEXT: 3: value = 10
+// CHECK-EMPTY:
+// CHECK-NEXT: Empty Array of Values
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     List is empty.
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     value = 220
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     value = 220
+// CHECK-NEXT:     value = 330
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     value = 220
+// CHECK-NEXT:     value = 330
+// CHECK-NEXT:     value = 440
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     value = 220
+// CHECK-NEXT:     value = 330
+// CHECK-NEXT:     value = 440
+// CHECK-NEXT:     value = 110
+// CHECK-EMPTY:
+// CHECK-NEXT: First:value = 220
+// CHECK-EMPTY:
+// CHECK-NEXT: 0: value = 220
+// CHECK-NEXT: 1: value = 330
+// CHECK-NEXT: 2: value = 440
+// CHECK-NEXT: 3: value = 110
+// CHECK-EMPTY:
+// CHECK-NEXT: List content:
+// CHECK-NEXT:     List is empty.
