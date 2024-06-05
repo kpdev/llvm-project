@@ -51,7 +51,7 @@ int main()
 {
     struct Simple< Decorator < Simple < Circle > > > sd;
     sd.@.@.@r = 0;
-    struct Simple* s_ptr = create_spec< Simple< Decorator < Simple < Circle > > > >();
+    struct Simple* s_ptr = create_spec(Simple<Decorator<Simple<Circle > > >);
 
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]
@@ -111,7 +111,7 @@ int main()
     PrintFigureWithArg<&frh>(42);
 
     // CHECK-RT: >>> PrintFigureWithArg Rhombus
-    struct Figure* Ptr = create_spec<struct Figure<struct Rhombus> >();
+    struct Figure* Ptr = create_spec(Figure<Rhombus>);
     PrintFigureWithArg<Ptr>(42);
 
     // Test access to tail part

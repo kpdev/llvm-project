@@ -1716,8 +1716,9 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   ParsedAttributes& PAttrs
 )
 {
-  assert(Tok.is(tok::less));
-  ConsumeToken();
+  assert(Tok.is(tok::l_paren) ||
+         Tok.is(tok::less));
+  ConsumeAnyToken();
   std::vector<StringRef> Names;
   if (!BaseName.empty())
     Names.push_back(BaseName);
@@ -1768,11 +1769,21 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
     assert(Tok.is(tok::greater));
     ConsumeToken();
     assert(Tok.is(tok::greater));
+    if (NextToken().is(tok::r_paren)) {
+      Tok.setKind(tok::l_paren);
+    } else {
+      ConsumeToken();
+    }
+  }
+
+  assert(Tok.is(tok::greater) ||
+         Tok.is(tok::l_paren));
+  if (NextToken().is(tok::r_paren)) {
+    Tok.setKind(tok::l_paren);
+  } else {
     ConsumeToken();
   }
 
-  assert(Tok.is(tok::greater));
-  ConsumeToken();
   if (Tok.is(tok::greater)) {
     ConsumeToken();
   }
