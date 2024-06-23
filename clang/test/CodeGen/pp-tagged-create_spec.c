@@ -9,7 +9,7 @@ Figure + <decor : Decorator;>;
 
 int main() {
 
-    struct Figure<decor<Figure>* f = create_spec<Figure<decor<Figure> > >();
+    struct Figure<decor<Figure>* f = create_spec(Figure<decor<Figure> > );
     // CHECK-RT: Tags: 2 1
     printf("Tags: %d %d\n",
             f->__pp_specialization_type,

@@ -61,85 +61,89 @@ command_list = [
         "clang/test/CodeGen/pp-mm-tag.c "
         "-v"
     ,
-    cd_to_evol_str
-        + "00-start/ppp/00-ppp-type-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "00-start/ppp/00-ppp-tag-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "01-new-spec/ppp/01-ppp-type-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "01-new-spec/ppp/01-ppp-tag-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "02-new-func/ppp/02-ppp-type-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "02-new-func/ppp/02-ppp-tag-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "03-new-field/ppp/03-ppp-type-dyn-decorator-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "03-new-field/ppp/03-ppp-tag-dyn-decorator-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "03-new-field/ppp/03-ppp-type-gen-decorator-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "03-new-field/ppp/03-ppp-tag-gen-decorator-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "04-rectangles-only-out/ppp/04-ppp-type-rect-only-out-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "04-rectangles-only-out/ppp/04-ppp-tag-rect-only-out-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "04-rectangles-only-out/ppp/04-ppp-type-is-rect-only-out-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "04-rectangles-only-out/ppp/04-ppp-tag-is-rect-only-out-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "05-multimethod/ppp/05-ppp-type-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "05-multimethod/ppp/05-ppp-tag-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "06-multimethod-new-spec/ppp/06-ppp-type-c"
-        + run_tools_str
-    ,
-    cd_to_evol_str
-        + "06-multimethod-new-spec/ppp/06-ppp-tag-c"
-        + run_tools_str
-    ,
-    cd_to_pattenrs_str
-        + "factory-method-p2c"
-        + run_tools_patterns_str
-    ,
-    cd_to_misc_str
-        + "container-tag"
-        + run_container_str
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-spec-ptr.c "
+        "-v"
+    # ,
+    # cd_to_evol_str
+    #     + "00-start/ppp/00-ppp-type-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "00-start/ppp/00-ppp-tag-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "01-new-spec/ppp/01-ppp-type-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "01-new-spec/ppp/01-ppp-tag-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "02-new-func/ppp/02-ppp-type-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "02-new-func/ppp/02-ppp-tag-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "03-new-field/ppp/03-ppp-type-dyn-decorator-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "03-new-field/ppp/03-ppp-tag-dyn-decorator-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "03-new-field/ppp/03-ppp-type-gen-decorator-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "03-new-field/ppp/03-ppp-tag-gen-decorator-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "04-rectangles-only-out/ppp/04-ppp-type-rect-only-out-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "04-rectangles-only-out/ppp/04-ppp-tag-rect-only-out-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "04-rectangles-only-out/ppp/04-ppp-type-is-rect-only-out-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "04-rectangles-only-out/ppp/04-ppp-tag-is-rect-only-out-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "05-multimethod/ppp/05-ppp-type-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "05-multimethod/ppp/05-ppp-tag-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "06-multimethod-new-spec/ppp/06-ppp-type-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_evol_str
+    #     + "06-multimethod-new-spec/ppp/06-ppp-tag-c"
+    #     + run_tools_str
+    # ,
+    # cd_to_pattenrs_str
+    #     + "factory-method-p2c"
+    #     + run_tools_patterns_str
+    # ,
+    # cd_to_misc_str
+    #     + "container-tag"
+    #     + run_container_str
 ]
 
 idx = 1
