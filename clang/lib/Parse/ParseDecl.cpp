@@ -4799,19 +4799,30 @@ static std::string GetMangledName(const std::string& Base, const std::string& Va
           + Variant;
 }
 
-static std::string GetVariantName(Parser& P, const std::string& CurTokName, const Token& NextTok) {
+static std::string GetVariantName(Parser& P, std::string CurTokName, const Token& NextTok) {
   if (!P.getCurToken().is(tok::identifier)) {
     llvm_unreachable("pp-ext-expected-token-identifier");
     return "<pp-ext-expected-token-identifier>";
   }
 
+  bool IsPtr = false;
+  auto TokKind = NextTok.getKind();
+  if (NextTok.is(tok::star)) {
+    IsPtr = true;
+    P.ConsumeAnyToken();
+    TokKind = P.NextToken().getKind();
+  }
+
   std::string MangledName;
-  switch (NextTok.getKind())
+  switch (TokKind)
   {
   case tok::semi:
   case tok::greater:
   case tok::colon:
   case tok::comma:
+    if (IsPtr) {
+      CurTokName += "_pp_ptr";
+    }
     return CurTokName;
     break;
   case tok::less:
@@ -5712,7 +5723,8 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       if (!IsVariantVoid) {
         assert(VariantDecl);
         auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
-        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false,
+        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl,
+                        S.FullNameIInfo->getName().endswith("_pp_ptr"),
                         TestAttrs, TestDecl, FieldDecls);
       }
 

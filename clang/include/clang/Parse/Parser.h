@@ -1544,14 +1544,16 @@ private:
   /// MultiMethod<...here...>();
   bool IsInPPMM = false;
 
+  using NameAndPtr = std::pair<StringRef, bool>;
+
   std::string PPExtConstructGenName(
     StringRef BaseName,
-    StringRef SpecName,
+    NameAndPtr SpecName,
     bool AddPrefix = true
   );
 
   std::string PPExtConstructGenName(
-    std::vector<StringRef> Names,
+    std::vector<NameAndPtr> Names,
     ParsedAttributes& PAttrs
   );
 

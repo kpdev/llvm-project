@@ -1547,18 +1547,19 @@ bool Parser::isValidAfterTypeSpecifier(bool CouldBeBitfield) {
 
 std::string Parser::PPExtConstructGenName(
   StringRef BaseName,
-  StringRef SpecName,
+  NameAndPtr SpecName,
   bool AddPrefix
 )
 {
   return (AddPrefix ? std::string("__pp_struct_") : std::string(""))
           + BaseName.str()
           + std::string("__")
-          + SpecName.str();
+          + SpecName.first.str()
+          + (SpecName.second ? "_pp_ptr" : "");
 }
 
 std::string Parser::PPExtConstructGenName(
-  std::vector<StringRef> Names,
+  std::vector<NameAndPtr> Names,
   ParsedAttributes& PAttrs
 )
 {
@@ -1574,7 +1575,7 @@ std::string Parser::PPExtConstructGenName(
     if (!TypeToCheck) {
       // Create gen name. It should exist
       auto GenName =
-        PPExtConstructGenName(PrevName, NameToCheck);
+        PPExtConstructGenName(PrevName, {NameToCheck, false});
       auto GenType = PPExtGetTypeByName(GenName);
       assert(GenType);
       for (auto f: GenType->fields()) {
@@ -1593,11 +1594,11 @@ std::string Parser::PPExtConstructGenName(
   };
 
   auto LastIdx = static_cast<int>(Names.size()) - 1;
-  auto CurBaseName = Names[LastIdx - 1].str();
+  auto CurBaseName = Names[LastIdx - 1].first.str();
   if (LastIdx > 1) {
     // Return type name if
     //        CurBaseName is a tag
-    auto P = GetTypeNameIfTag(Names[LastIdx - 2].str(),
+    auto P = GetTypeNameIfTag(Names[LastIdx - 2].first.str(),
                               CurBaseName);
     CurBaseName = P.first;
   }
@@ -1608,12 +1609,12 @@ std::string Parser::PPExtConstructGenName(
   assert(ResType);
 
   for (int i  = LastIdx - 2; i >= 0; --i) {
-    auto CurBaseHeadName = Names[i];
+    auto CurBaseHeadName = Names[i].first;
     auto CurBaseHeadType = PPExtGetTypeByName(CurBaseHeadName);
     if (i != 0) {
       // Return type name ifs
       //        CurBaseName is a tag
-      auto P = GetTypeNameIfTag(Names[i - 1].str(),
+      auto P = GetTypeNameIfTag(Names[i - 1].first.str(),
                                 CurBaseHeadName.str());
       CurBaseHeadName = P.first;
       CurBaseHeadType = P.second;
@@ -1624,7 +1625,9 @@ std::string Parser::PPExtConstructGenName(
     // Construct new type (or get existing one
     //           if it is already constructed)
     auto CurGenName = PPExtConstructGenName(
-                        CurBaseName, ResName, false);
+                        CurBaseName,
+                        {ResName, false},
+                        false);
     auto CurGenType = PPExtGetTypeByName(CurGenName);
     if (!CurGenType) {
       assert(CurBaseHeadType);
@@ -1719,9 +1722,9 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   assert(Tok.is(tok::l_paren) ||
          Tok.is(tok::less));
   ConsumeAnyToken();
-  std::vector<StringRef> Names;
+  std::vector<NameAndPtr> Names;
   if (!BaseName.empty())
-    Names.push_back(BaseName);
+    Names.push_back({BaseName, false});
 
   if (Tok.is(tok::kw_struct)) {
     // PP-EXT TODO: If kw_struct is not used,
@@ -1732,10 +1735,16 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   assert(Tok.is(tok::identifier));
 
   if (Tok.is(tok::identifier)) {
-    Names.push_back(Tok.getIdentifierInfo()->getName());
+    Names.push_back({Tok.getIdentifierInfo()->getName(),
+                     NextToken().is(tok::star)});
   }
 
   ConsumeToken();
+
+  if (Tok.is(tok::star)) {
+    ConsumeToken();
+  }
+
   assert(Tok.is(tok::greater)
     || Tok.is(tok::less));
 
@@ -1746,7 +1755,7 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
       ConsumeToken();
     }
     assert(Tok.is(tok::identifier));
-    Names.push_back(Tok.getIdentifierInfo()->getName());
+    Names.push_back({Tok.getIdentifierInfo()->getName(), false});
     ConsumeToken();
   }
 
@@ -1756,12 +1765,12 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   if (Tok.is(tok::less)) {
     ConsumeToken();
     assert(Tok.is(tok::identifier));
-    Names.push_back(Tok.getIdentifierInfo()->getName());
+    Names.push_back({Tok.getIdentifierInfo()->getName(), false});
     ConsumeToken();
     if (Tok.is(tok::less)) {
       ConsumeToken();
       assert(Tok.is(tok::identifier));
-      Names.push_back(Tok.getIdentifierInfo()->getName());
+      Names.push_back({Tok.getIdentifierInfo()->getName(), false});
       ConsumeToken();
       assert(Tok.is(tok::greater));
       ConsumeToken();
