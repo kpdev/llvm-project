@@ -5396,6 +5396,8 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
         llvm::PointerType::get(getLLVMContext(), TargetAS));
   }
 
+  PPExtGenerateInitForGlobVarIfNeeded(GV);
+
   return GV;
 }
 
@@ -6494,6 +6496,111 @@ CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
     }
   }
   return Result;
+}
+
+void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
+      llvm::GlobalVariable* GV) {
+
+  StringRef Name("");
+  auto *VTy = GV->getValueType();
+  if (VTy->isStructTy()) {
+    auto VTyName = VTy->getStructName();
+    Name = VTyName.split(".").second;
+  }
+
+  if (!Name.startswith("__pp_struct")) {
+    return;
+  }
+
+  std::string MangledName = "__pp_gvinit__" + GV->getName().str();
+  llvm::Function *F = getModule().getFunction(MangledName);
+  if (!F) {
+    auto* ResType = llvm::Type::getVoidTy(getLLVMContext());
+    SmallVector<llvm::Type*, 8> ArgTypes;
+    auto* FTy = llvm::FunctionType::get(ResType,
+                              ArgTypes, false);
+    F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+                      MangledName, &getModule());
+    auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", F);
+    auto* GVTag = getModule().getGlobalVariable(
+      std::string("__pp_tag_") + Name.str());
+
+    // PPEXT TODO: Setup attributes
+    // Attrs
+    // llvm::AttrBuilder FuncAttrs(getLLVMContext());
+    // llvm::AttrBuilder RetAttrs(getLLVMContext());
+    // Optional<unsigned> NumElemsParam;
+    // FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
+    // getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
+    // std::vector<std::string> Features;
+    // Features = getTarget().getTargetOpts().Features;
+    // FuncAttrs.addAttribute("target-cpu", "x86-64");
+    // FuncAttrs.addAttribute("tune-cpu", "generic");
+    // llvm::sort(Features);
+    // FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
+    // llvm::AttrBuilder Attrs(getLLVMContext());
+    // Attrs.addAttribute(llvm::Attribute::NoUndef);
+    // Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+    // SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+    // ArgAttrs[0] = ArgAttrs[0].addAttributes(
+    //             getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+    // llvm::AttributeList PAL;
+    // PAL = llvm::AttributeList::get(
+    //       getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
+    //       llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
+    // F->setAttributes(PAL);
+    // F->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
+    // F->setDSOLocal(false);
+    //
+
+    // Load ptr to tag field
+    auto* Ty = PPExtGetTypeByName(Name);
+    auto Qty = Ty->getCanonicalTypeInternal();
+    auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+    auto* RecordTy = Ty->getAsRecordDecl();
+    assert(RecordTy);
+    llvm::APInt Apint0(32, 0);
+    llvm::APInt Apint1(32, 1);
+    auto* Number0 =
+      llvm::ConstantInt::get(
+        getLLVMContext(), Apint0);
+    auto* Number1 =
+      llvm::ConstantInt::get(
+        getLLVMContext(), Apint1);
+    ArrayRef<llvm::Value*> IdxsHead({Number0, Number0});
+    ArrayRef<llvm::Value*> IdxsTail({Number0, Number1});
+    auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+      GenRecTy, GV, IdxsHead, "pp_head", BB);
+    auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
+    int FieldIdx = 0;
+    for (auto* Field : HeadRecordTy->fields()) {
+      if (Field->getName().equals("__pp_specialization_type")) {
+        break;
+      }
+      ++FieldIdx;
+    }
+    llvm::APInt ApintIdx(32, FieldIdx);
+    auto* NumberIdx =
+      llvm::ConstantInt::get(
+        getLLVMContext(), ApintIdx);
+    ArrayRef<llvm::Value*> IdxsTagField({Number0, NumberIdx});
+    auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
+    auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
+
+    auto* SpecTypeField = llvm::GetElementPtrInst::CreateInBounds(
+      HeadRecTy, HeadElem, IdxsTagField, "pp_spec_type", BB);
+
+    // Store tag
+    auto ASTIntTy = getContext().IntTy;
+    auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+    auto* LoadTag =
+      new llvm::LoadInst(IntTy, GVTag, "", BB);
+    new llvm::StoreInst(LoadTag, SpecTypeField, BB);
+    llvm::ReturnInst::Create(getLLVMContext(), BB);
+
+    // PPEXT TODO: Check priority value
+    AddGlobalCtor(F, 104);
+  }
 }
 
 

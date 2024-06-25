@@ -114,10 +114,15 @@ void test_type_tag(struct Figure* f)
     printf("[foo_test] f->__pp_specialization_type = %d\n", f->__pp_specialization_type);
 }
 
+struct Figure<struct Circle> gfc;
+
 int main() {
     struct Figure<struct Circle> fc;
     fc.@r = 42;
     fc.color = 0xffffffff;
+
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
+    test_type_tag(&gfc);
 
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
     test_type_tag(&fc);
