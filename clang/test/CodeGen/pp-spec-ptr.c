@@ -10,6 +10,7 @@
 
 typedef struct Circle { int r; } Circle;
 struct Figure { int f; } < Circle*; >;
+struct FigureTag { } < tag_c : Circle*; >;
 
 int main() {
     struct Circle c;
@@ -20,4 +21,12 @@ int main() {
 
     // CHECK-RT: Field value: 5
     printf("Field value: %d\n", fc.@->r);
+
+    struct FigureTag<tag_c> tfc;
+    tfc.@ = &c;
+    tfc.@->r = 7;
+
+    // CHECK-RT: Field value: 7 == 7
+    printf("Field value: %d == %d\n",
+            tfc.@->r, c.r);
 }

@@ -1575,7 +1575,8 @@ private:
 
   struct SpecsDescr {
     std::string VariantName;
-    IdentifierInfo* FullNameIInfo;
+    IdentifierInfo* FullNameIInfo = nullptr;
+    bool IsPtr = false;
   };
   using SpecsVec = SmallVector<SpecsDescr>;
   Optional<SpecsVec> TryParsePPExt(Decl *TagDecl,

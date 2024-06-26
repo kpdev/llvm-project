@@ -5058,10 +5058,13 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
     return {};
   }
 
-  auto DeclGenerator = [&](std::string BaseName, std::string VarName) {
+  auto DeclGenerator = [&](std::string BaseName,
+                           std::string VarName,
+                           bool IsPtr) {
     Parser::SpecsDescr Res;
     Res.VariantName = BaseName;
     Res.FullNameIInfo = &PP.getIdentifierTable().get(VarName);
+    Res.IsPtr = IsPtr;
     return Res;
   };
 
@@ -5100,6 +5103,8 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
       printf(", Name:[%s]", TokName.c_str());
 #endif
 
+      bool IsPtr = false;
+
       if (NextToken().is(tok::colon)) {
         ConsumeToken();
         ConsumeToken();
@@ -5108,10 +5113,14 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
 
         TokName = (Tok.is(tok::kw_void) ? std::string("void") :
                    Tok.getIdentifierInfo()->getName().str());
+        if (NextToken().is(tok::star)) {
+          IsPtr = true;
+          ConsumeToken();
+        }
       }
 
       for (auto& Name : Names) {
-        auto D = DeclGenerator(TokName, Name);
+        auto D = DeclGenerator(TokName, Name, IsPtr);
         Result.push_back(D);
       }
     }
@@ -5723,9 +5732,18 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       if (!IsVariantVoid) {
         assert(VariantDecl);
         auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
+
+        // If there is a specialization like Figure<Circle*> var; then
+        //    then it has "_pp_ptr" in the end (to distiguish it from Figure<Circle> var;)
+        // In other case, if there is a tagged specialization, like Figure<some_tag> var;
+        //    where some_tag has an pointer underlying type (e.g. Figure {} <some_tag:Circle*>)
+        //    then full name does not have "_pp_ptr" in the end (it is not needed),
+        //    instead Parser::SpecsDescr::IsPtr has this information
+        const bool IsPtr =
+          (S.FullNameIInfo->getName().endswith("_pp_ptr") || S.IsPtr);
+
         FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl,
-                        S.FullNameIInfo->getName().endswith("_pp_ptr"),
-                        TestAttrs, TestDecl, FieldDecls);
+                        IsPtr, TestAttrs, TestDecl, FieldDecls);
       }
 
       SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
