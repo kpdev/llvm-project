@@ -10,6 +10,10 @@
 #include "Inputs/pp-linked-triangle.h"
 #include <stdio.h>
 
+void test_create_spec_linkage_from_diff_compilation_units() {
+    struct Figure<Circle>* fc = create_spec(Figure<Circle>);
+}
+
 typedef struct Rhombus { int a, b; } Rhombus;
 // Check version without struct key word
 Figure + < Rhombus; >;

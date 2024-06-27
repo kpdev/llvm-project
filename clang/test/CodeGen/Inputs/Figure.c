@@ -1,6 +1,10 @@
 #include "pp-linked-figure.h"
 #include <stdio.h>
 
+void test_create_spec_linkage_from_diff_compilation_units_2() {
+    struct Figure<Circle>* fc = create_spec(Figure<Circle>);
+}
+
 void printCircle()
 {
     struct Figure<struct Circle> fc;

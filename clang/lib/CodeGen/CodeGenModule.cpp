@@ -1923,7 +1923,8 @@ void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
 
 void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
   StringRef FName = F->getName();
-  if (FName.startswith("__pp_")) {
+  if (FName.startswith("__pp_") ||
+      FName.startswith("create_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
 }
@@ -6782,6 +6783,8 @@ void CodeGenModule::HandlePPExtensionMethods(
 
         llvm::ReturnInst::Create(getLLVMContext(),
           MallocRes, BB);
+
+        adjustPPLinkage(FSpec);
       }
     }
   }
