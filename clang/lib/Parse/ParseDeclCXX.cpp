@@ -1732,9 +1732,11 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
     //              need to check it
     ConsumeToken();
   }
-  assert(Tok.is(tok::identifier));
+  assert(Tok.is(tok::identifier) ||
+         Tok.is(tok::kw_int));
 
-  if (Tok.is(tok::identifier)) {
+  if (Tok.is(tok::identifier) ||
+      Tok.is(tok::kw_int)) {
     Names.push_back({Tok.getIdentifierInfo()->getName(),
                      NextToken().is(tok::star)});
   }

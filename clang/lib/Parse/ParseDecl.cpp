@@ -4800,7 +4800,8 @@ static std::string GetMangledName(const std::string& Base, const std::string& Va
 }
 
 static std::string GetVariantName(Parser& P, std::string CurTokName, const Token& NextTok) {
-  if (!P.getCurToken().is(tok::identifier)) {
+  if (!P.getCurToken().is(tok::identifier) &&
+      !P.getCurToken().is(tok::kw_int)) {
     llvm_unreachable("pp-ext-expected-token-identifier");
     return "<pp-ext-expected-token-identifier>";
   }
@@ -5081,8 +5082,8 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
 #ifdef PPEXT_DUMP
     printf("  Token -> Kind: [%s]", Tok.getName());
 #endif
-
-    if (Tok.is(clang::tok::identifier)) {
+    if (Tok.is(tok::identifier) ||
+        Tok.is(tok::kw_int)) {
       auto TokName = Tok.getIdentifierInfo()->getName().str();
       SmallVector<std::string> Names;
       do {
@@ -5109,7 +5110,8 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
         ConsumeToken();
         ConsumeToken();
         assert(Tok.is(tok::identifier)
-               || Tok.is(tok::kw_void));
+               || Tok.is(tok::kw_void)
+               || Tok.is(tok::kw_int));
 
         TokName = (Tok.is(tok::kw_void) ? std::string("void") :
                    Tok.getIdentifierInfo()->getName().str());
@@ -5741,9 +5743,12 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         //    instead Parser::SpecsDescr::IsPtr has this information
         const bool IsPtr =
           (S.FullNameIInfo->getName().endswith("_pp_ptr") || S.IsPtr);
+        const bool IsBaseType = VariantRecordDecl->getName().equals("int");
 
-        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl,
-                        IsPtr, TestAttrs, TestDecl, FieldDecls);
+        FieldGenerator("__pp_tail",
+                       IsBaseType ? DeclSpec::TST_int : DeclSpec::TST_struct,
+                       VariantRecordDecl,
+                       IsPtr, TestAttrs, TestDecl, FieldDecls);
       }
 
       SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());

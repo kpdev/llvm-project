@@ -64,6 +64,10 @@ command_list = [
     "./build/bin/llvm-lit "
         "clang/test/CodeGen/pp-spec-ptr.c "
         "-v"
+    ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-spec-base-types.c "
+        "-v"
     # ,
     # cd_to_evol_str
     #     + "00-start/ppp/00-ppp-type-c"
