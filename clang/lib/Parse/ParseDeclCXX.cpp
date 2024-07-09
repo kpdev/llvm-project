@@ -2054,7 +2054,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         TagName = Tok.getIdentifierInfo()->getName();
         ConsumeToken();
         ConsumeToken();
-        assert(Tok.is(tok::identifier));
+        assert(Tok.is(tok::identifier) ||
+               Tok.is(tok::kw_int));
       }
 #ifdef PPEXT_DUMP
       printf("!!! [%s] %s\n",
@@ -2123,13 +2124,17 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
           false, false, &TestSkipBody);
         Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
+        const bool IsBaseType = VariantNameIdentifier->getName().equals("int");
+        // TODO PP-EXT: VariantDecl should not be casted to RecordDecl
         auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
         auto BaseRecordDecl = cast<RecordDecl>(BaseDecl);
         SmallVector<Decl *, 32> FieldDecls;
         FieldGenerator("__pp_head", DeclSpec::TST_struct, BaseRecordDecl, false,
                         TestAttrs, TestDecl, FieldDecls);
-        FieldGenerator("__pp_tail", DeclSpec::TST_struct, VariantRecordDecl, false,
-                        TestAttrs, TestDecl, FieldDecls);
+        FieldGenerator("__pp_tail",
+                       IsBaseType ? DeclSpec::TST_int : DeclSpec::TST_struct,
+                       VariantRecordDecl, false,
+                       TestAttrs, TestDecl, FieldDecls);
         SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
         Actions.ActOnFields(getCurScope(), CurLoc, TestDecl, TestFieldDecls,
                       CurLoc, CurLoc, attrs);

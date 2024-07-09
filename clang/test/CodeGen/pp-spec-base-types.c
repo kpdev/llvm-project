@@ -9,7 +9,10 @@
 
 
 struct Figure { int f; } < int; >;
-struct FigureTag { } < tag_c : int; >;
+
+typedef struct FigureTag { }
+    < tag_c : int; > FigureTag;
+FigureTag + < fourth_tag : int; >;
 
 int main() {
     struct Figure<int> fc;
@@ -23,4 +26,10 @@ int main() {
 
     // CHECK-RT: Field value: 7
     printf("Field value: %d\n", tfc.@);
+
+    struct FigureTag<fourth_tag> tfc2;
+    tfc2.@ = 42;
+
+    // CHECK-RT: Field value: 42
+    printf("Field value: %d\n", tfc2.@);
 }
