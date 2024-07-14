@@ -14,6 +14,14 @@ typedef struct FigureTag { }
     < tag_c : int; > FigureTag;
 FigureTag + < fourth_tag : int; >;
 
+void Print1<struct FigureTag* f>(){
+    printf("Print1 default version\n");
+}
+
+void Print1<struct FigureTag<tag_c>* f>() {
+    printf("Print1 tagged version\n");
+}
+
 int main() {
     struct Figure<int> fc;
     fc.@ = 5;
@@ -32,4 +40,10 @@ int main() {
 
     // CHECK-RT: Field value: 42
     printf("Field value: %d\n", tfc2.@);
+
+    // CHECK-RT: Print1 tagged version
+    Print1<&tfc>();
+
+    // CHECK-RT: Print1 default version
+    Print1<&tfc2>();
 }

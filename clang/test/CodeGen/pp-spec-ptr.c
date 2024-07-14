@@ -12,6 +12,14 @@ typedef struct Circle { int r; } Circle;
 struct Figure { int f; } < Circle*; >;
 struct FigureTag { } < tag_c : Circle*; >;
 
+void Print1<struct FigureTag* f>(){
+    printf("Print1 default version\n");
+}
+
+void Print1<struct FigureTag<tag_c>* f>() {
+    printf("Print1 tagged version\n");
+}
+
 int main() {
     struct Circle c;
     c.r = 0;
@@ -29,4 +37,7 @@ int main() {
     // CHECK-RT: Field value: 7 == 7
     printf("Field value: %d == %d\n",
             tfc.@->r, c.r);
+
+    // CHECK-RT: Print1 tagged version
+    Print1<&tfc>();
 }
