@@ -8163,7 +8163,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     for (Decl *D : getCurScope()->decls()) {
       NamedDecl *ND = dyn_cast<NamedDecl>(D);
       auto PVD = cast<ParmVarDecl>(ND);
-      if (PVD) {
+      if (PVD && IsMultimethod) {
         auto* ID = PVD->getType().getBaseTypeIdentifier();
         if (ID &&
             ID->getName().startswith("__pp_struct"))

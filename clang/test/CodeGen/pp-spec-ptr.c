@@ -20,6 +20,12 @@ void Print1<struct FigureTag<tag_c>* f>() {
     printf("Print1 tagged version\n");
 }
 
+void SimpleFun(struct FigureTag<tag_c>* f) {
+    printf("SimpleFun: %d %d\n",
+        f->__pp_specialization_type,
+        f->@->r);
+}
+
 int main() {
     struct Circle c;
     c.r = 0;
@@ -40,4 +46,7 @@ int main() {
 
     // CHECK-RT: Print1 tagged version
     Print1<&tfc>();
+
+    // CHECK-RT: SimpleFun: 1 7
+    SimpleFun(&tfc);
 }
