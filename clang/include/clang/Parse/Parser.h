@@ -1573,6 +1573,8 @@ private:
 
   std::string PPExtConstructTagName(StringRef GenName);
 
+  static DeclSpec::TST PPExtGetFieldTypeByTokKind(tok::TokenKind TK);
+
   struct SpecsDescr {
     std::string VariantName;
     IdentifierInfo* FullNameIInfo = nullptr;

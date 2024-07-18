@@ -4847,6 +4847,9 @@ void Parser::FieldGenerator(const char* FieldName,
                           const ParsedAttributes& Attrs,
                           bool IsPointer)
 {
+  // TODO PPEXT: Combine with other Parser::FieldGenerator method
+  // assert(false &&
+  //   "Check where is it used, and why we have two FieldGenerator");
   ParsingDeclSpec DS(*this);
   auto Policy = Actions.getPrintingPolicy();
   auto Loc = Tok.getLocation();
@@ -5273,6 +5276,10 @@ void Parser::FieldGenerator(const char* FieldName,
                             Decl *TestDecl,
                             SmallVector<Decl *, 32>& FieldDecls)
 {
+  if (FieldType == DeclSpec::TST::TST_void) {
+    return;
+  }
+
   ParsingDeclSpec DS(*this);
   auto Policy = Actions.getPrintingPolicy();
   auto Loc = Tok.getLocation();

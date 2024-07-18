@@ -13,6 +13,7 @@ struct Figure { int f; } < int; >;
 typedef struct FigureTag { }
     < tag_c : int; > FigureTag;
 FigureTag + < fourth_tag : int; >;
+FigureTag + < void_tag : void; >;
 
 void Print1<struct FigureTag* f>(){
     printf("Print1 default version\n");
@@ -20,6 +21,10 @@ void Print1<struct FigureTag* f>(){
 
 void Print1<struct FigureTag<tag_c>* f>() {
     printf("Print1 tagged version\n");
+}
+
+void Print1<struct FigureTag<void_tag>* f>() {
+    printf("Print1 void_tag version\n");
 }
 
 int main() {
@@ -46,4 +51,9 @@ int main() {
 
     // CHECK-RT: Print1 default version
     Print1<&tfc2>();
+
+    struct FigureTag<void_tag> tfv;
+
+    // CHECK-RT: Print1 void_tag version
+    Print1<&tfv>();
 }
