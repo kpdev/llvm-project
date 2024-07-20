@@ -34,9 +34,7 @@ void SimpleFun(struct FigureTag<tag_c>* f) {
         f->@->r);
 }
 
-void PrintWithoutTag<struct Figure* f>(){
-    printf("PrintWithoutTag default\n");
-}
+void PrintWithoutTag<struct Figure* f>() = 0;
 
 void PrintWithoutTag<struct Figure<Rect*>* f>(){
     printf("PrintWithoutTag Rect* [%d %d]\n",
@@ -94,6 +92,6 @@ int main() {
     // CHECK-RT: PrintWithoutTag Rect* [42 2]
     PrintWithoutTag<&fr>();
 
-    // CHECK-RT: PrintWithoutTag default
+    // CHECK-RT-NOT: PrintWithoutTag
     PrintWithoutTag<&fc>();
 }

@@ -2208,16 +2208,25 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
           << FixItHint::CreateRemoval(Tok.getLocation());
       ConsumeToken();
     }
+
+    // TODO PP-EXT: Pass this variable to
+    //              Parser::ParseFunctionDefinition
+    const bool IsPPExtMMDefaultEq0 =
+      (Tok.is(tok::equal) &&
+      D.getIdentifier() &&
+      D.getIdentifier()->getName().startswith("__pp_mm_"));
+
     // Look at the next token to make sure that this isn't a function
     // declaration.  We have to check this because __attribute__ might be the
     // start of a function definition in GCC-extended K&R C.
-    if (!isDeclarationAfterDeclarator()) {
+    if (!isDeclarationAfterDeclarator() || IsPPExtMMDefaultEq0) {
 
       // Function definitions are only allowed at file scope and in C++ classes.
       // The C++ inline method definition case is handled elsewhere, so we only
       // need to handle the file scope definition case.
       if (Context == DeclaratorContext::File) {
-        if (isStartOfFunctionDefinition(D)) {
+        if (isStartOfFunctionDefinition(D)
+              || IsPPExtMMDefaultEq0) {
           // C++23 [dcl.typedef] p1:
           //   The typedef specifier shall not be [...], and it shall not be
           //   used in the decl-specifier-seq of a parameter-declaration nor in
