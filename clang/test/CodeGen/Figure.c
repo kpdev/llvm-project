@@ -114,10 +114,10 @@ void test_type_tag(struct Figure* f)
     printf("[foo_test] f->__pp_specialization_type = %d\n", f->__pp_specialization_type);
 }
 
-struct Figure<struct Circle> gfc;
+struct Figure.Circle gfc;
 
 int main() {
-    struct Figure<struct Circle> fc;
+    struct Figure.Circle fc;
     fc.@r = 42;
     fc.color = 0xffffffff;
 
@@ -127,7 +127,7 @@ int main() {
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
     test_type_tag(&fc);
 
-    struct Figure<struct Rectangle> fr;
+    struct Figure.Rectangle fr;
     fr.@w = 5;
     fr.@h = 7;
     fr.color = 0x000000ff;
@@ -135,7 +135,7 @@ int main() {
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 2
     test_type_tag(&fr);
 
-    struct Figure<struct Triangle> ft;
+    struct Figure.Triangle ft;
     ft.@a = 1;
     ft.@b = 2;
     ft.@c = 3;
@@ -172,9 +172,9 @@ int main() {
     printf("fr.__pp_specialization_type = %d\n", fr.__pp_specialization_type);
     printf("ft.__pp_specialization_type = %d\n", ft.__pp_specialization_type);
 
-    struct Figure<struct Circle> fc2;
-    struct Figure<struct Rectangle> fr2;
-    struct Figure<struct Triangle> ft2;
+    struct Figure.Circle fc2;
+    struct Figure.Rectangle fr2;
+    struct Figure.Triangle ft2;
 
     // CHECK-RT-NEXT: fc2.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr2.__pp_specialization_type = 2
@@ -183,11 +183,11 @@ int main() {
     printf("fr2.__pp_specialization_type = %d\n", fr2.__pp_specialization_type);
     printf("ft2.__pp_specialization_type = %d\n", ft2.__pp_specialization_type);
 
-    struct BaseObject<struct NewObject> obj;
+    struct BaseObject.NewObject obj;
     obj.a = 101;
     obj.@b = 102;
-    // CHECK-RT-NEXT: BaseObject<NewObject>: 101 102
-    printf("BaseObject<NewObject>: %d %d\n", obj.a, obj.@b);
+    // CHECK-RT-NEXT: BaseObject.NewObject: 101 102
+    printf("BaseObject.NewObject: %d %d\n", obj.a, obj.@b);
 }
 
 // This code just checking comilation
@@ -204,8 +204,8 @@ __attribute__((weak))
 void not_called_bar2(int);
 
 int not_called_foo() {
-    struct NewFigure<NewCircle>* fc;
-    struct NewFigure<NewCircle> fcstack;
+    struct NewFigure.NewCircle* fc;
+    struct NewFigure.NewCircle fcstack;
     fcstack.@c = 41;
     fcstack.f = 71;
     fc->@c = 42;

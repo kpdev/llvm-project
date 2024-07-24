@@ -1720,83 +1720,66 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
 )
 {
   assert(Tok.is(tok::l_paren) ||
-         Tok.is(tok::less));
+         Tok.is(tok::period));
   ConsumeAnyToken();
   std::vector<NameAndPtr> Names;
   if (!BaseName.empty())
     Names.push_back({BaseName, false});
 
-  if (Tok.is(tok::kw_struct)) {
-    // PP-EXT TODO: If kw_struct is not used,
-    //              then identifier should be typedef
-    //              need to check it
-    ConsumeToken();
-  }
   assert(Tok.is(tok::identifier) ||
          Tok.is(tok::kw_int));
 
   if (Tok.is(tok::identifier) ||
       Tok.is(tok::kw_int)) {
-    Names.push_back({Tok.getIdentifierInfo()->getName(),
-                     NextToken().is(tok::star)});
+    Names.push_back({Tok.getIdentifierInfo()->getName(), false});
   }
 
   ConsumeToken();
 
-  if (Tok.is(tok::star)) {
-    ConsumeToken();
-  }
+  assert(Tok.isOneOf(
+              tok::identifier,
+              tok::period,
+              tok::star));
 
-  assert(Tok.is(tok::greater)
-    || Tok.is(tok::less));
-
-  if (Tok.is(tok::less)) {
+  if (Tok.is(tok::period)) {
     ConsumeToken();
     // TODO PP-EXT: Check typedef
-    if (Tok.is(tok::kw_struct)) {
-      ConsumeToken();
-    }
     assert(Tok.is(tok::identifier));
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
     ConsumeToken();
   }
 
-  assert(Tok.is(tok::greater)
-    || Tok.is(tok::less));
+  assert(Tok.isOneOf(
+              tok::identifier,
+              tok::period,
+              tok::star));
 
-  if (Tok.is(tok::less)) {
+  if (Tok.is(tok::period)) {
     ConsumeToken();
     assert(Tok.is(tok::identifier));
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
     ConsumeToken();
-    if (Tok.is(tok::less)) {
+
+    if (Tok.is(tok::period)) {
       ConsumeToken();
       assert(Tok.is(tok::identifier));
       Names.push_back({Tok.getIdentifierInfo()->getName(), false});
       ConsumeToken();
-      assert(Tok.is(tok::greater));
-      ConsumeToken();
     }
-    assert(Tok.is(tok::greater));
-    ConsumeToken();
-    assert(Tok.is(tok::greater));
+
     if (NextToken().is(tok::r_paren)) {
       Tok.setKind(tok::l_paren);
-    } else {
-      ConsumeToken();
     }
   }
 
-  assert(Tok.is(tok::greater) ||
-         Tok.is(tok::l_paren));
+  assert(Tok.isOneOf(
+              tok::identifier,
+              tok::period,
+              tok::star,
+              tok::l_paren));
+
   if (NextToken().is(tok::r_paren)) {
     Tok.setKind(tok::l_paren);
-  } else {
-    ConsumeToken();
-  }
-
-  if (Tok.is(tok::greater)) {
-    ConsumeToken();
   }
 
   auto MangledName =
@@ -2205,7 +2188,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       }
       RecoverFromUndeclaredTemplateName(
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
-    } else if (Tok.is(tok::less)) {
+    } else if (Tok.is(tok::period)) {
       Name = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
                                                     attrs);
     }
