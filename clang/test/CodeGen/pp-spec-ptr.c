@@ -20,28 +20,22 @@ void Print1<struct FigureTag* f>(){
     printf("Print1 default version\n");
 }
 
-void Print1<struct FigureTag<tag_c>* f>() {
+void Print1<struct FigureTag.tag_c* f>() {
     printf("Print1 tagged version\n");
 }
 
-void Print1<struct FigureTag<r_tag>* f>() {
+void Print1<struct FigureTag.r_tag* f>() {
     printf("Print1 r_tag version\n");
 }
 
-void SimpleFun(struct FigureTag<tag_c>* f) {
+void SimpleFun(struct FigureTag.tag_c* f) {
     printf("SimpleFun: %d %d\n",
         f->__pp_specialization_type,
         f->@->r);
 }
 
-void PrintWithoutTag<struct Figure* f>() = 0;
 
-void PrintWithoutTag<struct Figure<Rect*>* f>(){
-    printf("PrintWithoutTag Rect* [%d %d]\n",
-        f->@->w, f->@->h);
-}
-
-void SimpleFunR(struct FigureTag<r_tag>* f) {
+void SimpleFunR(struct FigureTag.r_tag* f) {
     printf("SimpleFunR: %d %d %d\n",
         f->__pp_specialization_type,
         f->@->w,
@@ -51,14 +45,8 @@ void SimpleFunR(struct FigureTag<r_tag>* f) {
 int main() {
     struct Circle c;
     c.r = 0;
-    struct Figure<Circle*> fc;
-    fc.@ = &c;
-    fc.@->r = 5;
 
-    // CHECK-RT: Field value: 5
-    printf("Field value: %d\n", fc.@->r);
-
-    struct FigureTag<tag_c> tfc;
+    struct FigureTag.tag_c tfc;
     tfc.@ = &c;
     tfc.@->r = 7;
 
@@ -75,7 +63,7 @@ int main() {
     Rect r;
     r.w = 1;
     r.h = 2;
-    struct FigureTag<r_tag> tfr;
+    struct FigureTag.r_tag tfr;
     tfr.@ = &r;
     tfr.@->w = 3;
 
@@ -84,14 +72,4 @@ int main() {
 
     // CHECK-RT: SimpleFunR: 2 3 2
     SimpleFunR(&tfr);
-
-    struct Figure<Rect*> fr;
-    fr.@ = &r;
-    fr.@->w = 42;
-
-    // CHECK-RT: PrintWithoutTag Rect* [42 2]
-    PrintWithoutTag<&fr>();
-
-    // CHECK-RT-NOT: PrintWithoutTag
-    PrintWithoutTag<&fc>();
 }

@@ -1719,6 +1719,9 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   ParsedAttributes& PAttrs
 )
 {
+  // TODO PP-EXT: Refactor this method
+  //              reduce repeats
+  //              (use do-while-loop)
   assert(Tok.is(tok::l_paren) ||
          Tok.is(tok::period));
   ConsumeAnyToken();
@@ -1746,29 +1749,38 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
     // TODO PP-EXT: Check typedef
     assert(Tok.is(tok::identifier));
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
-    ConsumeToken();
+    if (NextToken().is(tok::r_paren)) {
+      Tok.setKind(tok::l_paren);
+    } else {
+      ConsumeToken();
+    }
   }
 
   assert(Tok.isOneOf(
               tok::identifier,
               tok::period,
-              tok::star));
+              tok::star,
+              tok::l_paren));
 
   if (Tok.is(tok::period)) {
     ConsumeToken();
     assert(Tok.is(tok::identifier));
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
-    ConsumeToken();
+    if (NextToken().is(tok::r_paren)) {
+      Tok.setKind(tok::l_paren);
+    } else {
+      ConsumeToken();
+    }
 
     if (Tok.is(tok::period)) {
       ConsumeToken();
       assert(Tok.is(tok::identifier));
       Names.push_back({Tok.getIdentifierInfo()->getName(), false});
-      ConsumeToken();
-    }
-
-    if (NextToken().is(tok::r_paren)) {
-      Tok.setKind(tok::l_paren);
+      if (NextToken().is(tok::r_paren)) {
+        Tok.setKind(tok::l_paren);
+      } else {
+        ConsumeToken();
+      }
     }
   }
 

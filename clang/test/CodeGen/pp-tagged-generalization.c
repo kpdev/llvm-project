@@ -30,15 +30,15 @@ void PrintFigure<Figure* f>() {
     printf("PrintFigure<Figure* f> [Default]\n");
 }
 
-void PrintFigure<Figure<t0>* f>() {
+void PrintFigure<Figure.t0* f>() {
     printf("PrintFigure<Figure<t0>* f> [Specialized]\n");
 }
 
-void PrintFigure<Figure<t1>* f>() {
+void PrintFigure<Figure.t1* f>() {
     printf("PrintFigure<Figure<t1>* f> [Specialized]\n");
 }
 
-void PrintFigure<Figure<t3>* f>() {
+void PrintFigure<Figure.t3* f>() {
     printf("PrintFigure<Figure<t3>* f> [Specialized]\n");
 }
 
@@ -47,11 +47,11 @@ void PrintSameType<SameTypeTest* f>() {
     printf("PrintSameType<SameTypeTest* f> [Default]\n");
 }
 
-void PrintSameType<SameTypeTest<Circle1>* f>() {
+void PrintSameType<SameTypeTest.Circle1* f>() {
     printf("PrintSameType<SameTypeTest<Circle1>* f> [Specialized]\n");
 }
 
-void PrintSameType<SameTypeTest<Circle3>* f>() {
+void PrintSameType<SameTypeTest.Circle3* f>() {
     printf("PrintSameType<SameTypeTest<Circle3>* f> [Specialized]\n");
 }
 
@@ -61,11 +61,11 @@ void PrintWeekday<WeekDay* d>() {
     printf("PrintFigure<WeekDay* d> [Default]\n");
 }
 
-void PrintWeekday<WeekDay<Monday>* d>() {
+void PrintWeekday<WeekDay.Monday* d>() {
     printf("PrintFigure<WeekDay<Monday>* d> [Specialized]\n");
 }
 
-void PrintWeekday<WeekDay<Tuesday>* d>() {
+void PrintWeekday<WeekDay.Tuesday* d>() {
     printf("PrintFigure<WeekDay<Tuesday>* d> [Specialized]\n");
 }
 
@@ -74,14 +74,14 @@ void foo()
 // CHECK-IR: %__pp_head = getelementptr inbounds %struct.__pp_struct_Figure__t0, ptr %ttt, i32 0, i32 0
 // CHECK-IR: %__pp_specialization_type = getelementptr inbounds %struct.Figure, ptr %__pp_head, i32 0, i32 1
 // CHECK-IR: store i32 %0, ptr %__pp_specialization_type, align 4
-    struct Figure<t0> ttt;
+    struct Figure.t0 ttt;
 }
 
 int main() {
-    struct Figure<t0> t0_obj;
-    struct Figure<t1> t1_obj;
-    struct Figure<t2> t2_obj;
-    struct Figure<t3> t3_obj;
+    struct Figure.t0 t0_obj;
+    struct Figure.t1 t1_obj;
+    struct Figure.t2 t2_obj;
+    struct Figure.t3 t3_obj;
 
 // CHECK-RT: PrintFigure<Figure<t0>* f> [Specialized]
     PrintFigure<&t0_obj>();
@@ -95,9 +95,9 @@ int main() {
 // CHECK-RT: PrintFigure<Figure<t3>* f> [Specialized]
     PrintFigure<&t3_obj>();
 
-    struct WeekDay<Monday> monday;
-    struct WeekDay<Tuesday> tuesday;
-    struct WeekDay<Friday> friday;
+    struct WeekDay.Monday monday;
+    struct WeekDay.Tuesday tuesday;
+    struct WeekDay.Friday friday;
 
 // CHECK-RT: PrintFigure<WeekDay<Monday>* d> [Specialized]
     PrintWeekday<&monday>();
@@ -109,9 +109,9 @@ int main() {
     PrintWeekday<&friday>();
 
 
-    struct SameTypeTest<Circle1> c1;
-    struct SameTypeTest<Circle2> c2;
-    struct SameTypeTest<Circle3> c3;
+    struct SameTypeTest.Circle1 c1;
+    struct SameTypeTest.Circle2 c2;
+    struct SameTypeTest.Circle3 c3;
 
 // CHECK-RT: PrintSameType<SameTypeTest<Circle1>* f> [Specialized]
     PrintSameType<&c1>();

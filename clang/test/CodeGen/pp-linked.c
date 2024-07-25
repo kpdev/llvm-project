@@ -11,15 +11,15 @@
 #include <stdio.h>
 
 void test_create_spec_linkage_from_diff_compilation_units() {
-    struct Figure<Circle>* fc = create_spec(Figure<Circle>);
+    struct Figure.Circle* fc = create_spec(Figure.Circle);
 }
 
 typedef struct Rhombus { int a, b; } Rhombus;
 // Check version without struct key word
 Figure + < Rhombus; >;
 
-void PrintFigure<Figure<Rhombus> *p>() {
-    struct Figure<Rhombus> r = *p;
+void PrintFigure<Figure.Rhombus *p>() {
+    struct Figure.Rhombus r = *p;
     printf(">>> Rhombus: color = %d, a = %d, b = %d\n",
             r.color, r.@a, r.@b);
 }
@@ -31,9 +31,9 @@ void PrintFigureWithArg<struct Figure* f>(int i)
         i);
 }
 
-void PrintFigureWithArg<struct Figure<struct Rhombus> *p>(int i)
+void PrintFigureWithArg<struct Figure.Rhombus *p>(int i)
 {
-    struct Figure<struct Rhombus> r = *p;
+    struct Figure.Rhombus r = *p;
     printf(">>> PrintFigureWithArg Rhombus Color = %d, \
             a = %d, b = %d, Param = %d\n",
         r.color,
@@ -53,9 +53,9 @@ struct Simple + < struct Circle;> ;
 
 int main()
 {
-    struct Simple< Decorator < Simple < Circle > > > sd;
+    struct Simple.Decorator.Simple.Circle sd;
     sd.@.@.@r = 0;
-    struct Simple* s_ptr = create_spec(Simple<Decorator<Simple<Circle > > >);
+    struct Simple* s_ptr = create_spec(Simple.Decorator.Simple.Circle);
 
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]
@@ -78,7 +78,7 @@ int main()
     printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
     printf("Rhombus tag: %d\n", __pp_tag___pp_struct_Figure__Rhombus);
 
-    struct Figure<struct Circle> fc;
+    struct Figure.Circle fc;
     fc.color = 111;
     fc.@r = 100;
 
@@ -86,7 +86,7 @@ int main()
     PrintFigure<&fc>();
 
     // CHECK-RT: >>> Triangle: color = 555, a = 10, b = 20, c = 30
-    struct Figure<struct Triangle> ft;
+    struct Figure.Triangle ft;
     ft.color = 555;
     ft.@a = 10;
     ft.@b = 20;
@@ -95,14 +95,14 @@ int main()
 
 
     // CHECK-RT: >>> Rectangle: color = 333, w = 22, h = 11
-    struct Figure<struct Rectangle> fr;
+    struct Figure.Rectangle fr;
     fr.color = 333;
     fr.@w = 22;
     fr.@h = 11;
     PrintFigure<&fr>();
 
     // CHECK-RT: >>> Rhombus: color = 999, a = 10000, b = 20000
-    struct Figure<struct Rhombus> frh;
+    struct Figure.Rhombus frh;
     frh.color = 999;
     frh.@a = 10000;
     frh.@b = 20000;
@@ -115,17 +115,17 @@ int main()
     PrintFigureWithArg<&frh>(42);
 
     // CHECK-RT: >>> PrintFigureWithArg Rhombus
-    struct Figure* Ptr = create_spec(Figure<Rhombus>);
+    struct Figure* Ptr = create_spec(Figure.Rhombus);
     PrintFigureWithArg<Ptr>(42);
 
     // Test access to tail part
-    struct Figure<struct Circle> f_test;
+    struct Figure.Circle f_test;
     struct Circle cc1 = f_test.@;
     f_test.@ = cc1;
     struct Circle* ptr_cc1 = &(f_test.@);
     ptr_cc1->r = 66;
 
-    struct Figure<struct Circle>* f_ptr = &f_test;
+    struct Figure.Circle* f_ptr = &f_test;
     struct Circle cc2 = f_ptr->@;
     struct Circle* ptr_cc2 = &(f_ptr->@);
     ptr_cc2->r = 55;

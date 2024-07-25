@@ -2,12 +2,12 @@
 #include <stdio.h>
 
 void test_create_spec_linkage_from_diff_compilation_units_2() {
-    struct Figure<Circle>* fc = create_spec(Figure<Circle>);
+    struct Figure.Circle* fc = create_spec(Figure.Circle);
 }
 
 void printCircle()
 {
-    struct Figure<struct Circle> fc;
+    struct Figure.Circle fc;
     fc.@r = 42;
     fc.color = 0xffffffff;
 
@@ -18,7 +18,7 @@ void printCircle()
 
 void printRectangle()
 {
-    struct Figure<struct Rectangle> fr;
+    struct Figure.Rectangle fr;
     fr.@w = 5;
     fr.@h = 7;
     fr.color = 0x000000ff;
@@ -33,8 +33,8 @@ void PrintFigure<struct Figure* f>()
     printf("PrintFigure Default body\n");
 }
 
-void PrintFigure<struct Figure<struct Rectangle> *p>() {
-    struct Figure<struct Rectangle> r = *p;
+void PrintFigure<struct Figure.Rectangle *p>() {
+    struct Figure.Rectangle r = *p;
     printf(">>> Rectangle: color = %d, w = %d, h = %d\n",
             r.color, r.@w, r.@h);
 }

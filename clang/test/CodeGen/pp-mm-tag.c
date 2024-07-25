@@ -16,41 +16,41 @@ void PrintFigures<struct Figure* f1,
 }
 
 
-void PrintFigures<struct Figure<t0> *f1,
-                  struct Figure<t0> *f2>()
+void PrintFigures<struct Figure.t0 *f1,
+                  struct Figure.t0 *f2>()
 {
     printf("t0 + t0\n");
 }
 
-void PrintFigures<struct Figure<t0> *f1,
-                  struct Figure<t1> *f2>()
+void PrintFigures<struct Figure.t0 *f1,
+                  struct Figure.t1 *f2>()
 {
     printf("t0 + t1\n");
 }
 
-void PrintFigures<struct Figure<t1> *f1,
-                  struct Figure<t2> *f2>()
+void PrintFigures<struct Figure.t1 *f1,
+                  struct Figure.t2 *f2>()
 {
     printf("t1 + t2\n");
 }
 
-void PrintFigures<struct Figure<t2> *f1,
-                  struct Figure<t3> *f2>()
+void PrintFigures<struct Figure.t2 *f1,
+                  struct Figure.t3 *f2>()
 {
     printf("t2 + t3\n");
 }
 
-void PrintFigures<struct Figure<t3> *f1,
-                  struct Figure<t0> *f2>()
+void PrintFigures<struct Figure.t3 *f1,
+                  struct Figure.t0 *f2>()
 {
     printf("t3 + t0\n");
 }
 
 int main() {
-    struct Figure<t0> t0_obj;
-    struct Figure<t1> t1_obj;
-    struct Figure<t2> t2_obj;
-    struct Figure<t3> t3_obj;
+    struct Figure.t0 t0_obj;
+    struct Figure.t1 t1_obj;
+    struct Figure.t2 t2_obj;
+    struct Figure.t3 t3_obj;
 
     // CHECK-RT: t0 + t0
     PrintFigures<&t0_obj, &t0_obj>();

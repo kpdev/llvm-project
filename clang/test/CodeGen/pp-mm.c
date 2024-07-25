@@ -13,33 +13,33 @@ void PrintFigures<struct Figure* f1,
 }
 
 
-void PrintFigures<struct Figure<Circle> *f1,
-                  struct Figure<Circle> *f2>()
+void PrintFigures<struct Figure.Circle *f1,
+                  struct Figure.Circle *f2>()
 {
     printf("circ + circ\n");
 }
 
-void PrintFigures<struct Figure<Rectangle> *f1,
-                  struct Figure<Rectangle> *f2>()
+void PrintFigures<struct Figure.Rectangle *f1,
+                  struct Figure.Rectangle *f2>()
 {
     printf("rect + rect\n");
 }
 
-void PrintFigures<struct Figure<Circle> *f1,
-                  struct Figure<Rectangle> *f2>()
+void PrintFigures<struct Figure.Circle *f1,
+                  struct Figure.Rectangle *f2>()
 {
     printf("circ + rect\n");
 }
 
-void PrintFigures<struct Figure<Rectangle> *f1,
-                  struct Figure<Circle> *f2>()
+void PrintFigures<struct Figure.Rectangle *f1,
+                  struct Figure.Circle *f2>()
 {
     printf("rect + circ\n");
 }
 
 int main() {
-    struct Figure<Circle> fc;
-    struct Figure<Rectangle> fr;
+    struct Figure.Circle fc;
+    struct Figure.Rectangle fr;
     // CHECK-RT: circ + circ
     PrintFigures<&fc, &fc>();
     // CHECK-RT: circ + rect

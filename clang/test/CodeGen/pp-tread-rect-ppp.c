@@ -67,7 +67,7 @@ struct ThreadData + <struct RectPreimeter;>;
 
 // Обработчик специализации, запускаемый в потоке
 // вычисляет периметр прямоугольника.
-void RunThread<struct ThreadData<struct RectPreimeter> *rp>() {
+void RunThread<struct ThreadData.RectPreimeter *rp>() {
   struct RectPreimeter* tmp = &rp->@;
   tmp->p = (double)((tmp->r.x + tmp->r.y)*2);
   // rp->@ = (double)((rp->@r.x+rp->@r.y)*2);
@@ -84,21 +84,21 @@ int main () {
     // Ее можно заменить на присваивания.
     // Представлен вариант инициализации не всех полей. Может его и не будет.
     // struct ThreadData<struct RectPreimeter> thread1 = {0}<{3,5,0.0}>;
-    struct ThreadData<struct RectPreimeter> thread1;
+    struct ThreadData.RectPreimeter thread1;
     thread1.threadId = 0;
     thread1.@r.x = 3;
     thread1.@r.y = 5;
     thread1.@p = 0.0;
 
     // struct ThreadData<struct RectPreimeter> thread2 = {0}<{7,4,0.0}>;
-    struct ThreadData<struct RectPreimeter> thread2;
+    struct ThreadData.RectPreimeter thread2;
     thread2.threadId = 0;
     thread2.@r.x = 7;
     thread2.@r.y = 4;
     thread2.@p = 0.0;
 
     // struct ThreadData<struct RectPreimeter> thread3 = {0}<{6,8,0.0}>;
-    struct ThreadData<struct RectPreimeter> thread3;
+    struct ThreadData.RectPreimeter thread3;
     thread3.threadId = 0;
     thread3.@r.x = 6;
     thread3.@r.y = 8;
