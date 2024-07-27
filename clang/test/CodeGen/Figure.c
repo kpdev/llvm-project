@@ -88,6 +88,7 @@ Figure + < Triangle; >;
 typedef struct BaseObject { int a; }<> BaseObject;
 typedef struct NewObject { int b; } NewObject;
 BaseObject + < NewObject; >;
+BaseObject + <int;>;
 
 void PrintFigure<Figure* f>() {}
 // void PrintFigureWithArg<struct Figure* f>(unsigned i);
@@ -188,6 +189,11 @@ int main() {
     obj.@b = 102;
     // CHECK-RT-NEXT: BaseObject.NewObject: 101 102
     printf("BaseObject.NewObject: %d %d\n", obj.a, obj.@b);
+
+    struct BaseObject.int obj2;
+    obj2.@ = 777;
+    // CHECK-RT-NEXT: BaseObject.int: 777
+    printf("BaseObject.int: %d\n", obj2.@);
 }
 
 // This code just checking comilation
