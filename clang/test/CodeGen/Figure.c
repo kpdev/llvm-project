@@ -226,3 +226,8 @@ int not_called_foo() {
     not_called_bar2(fcstack.f);
     return fc->@c + fcstack.@c + fc->f + fcstack.f;
 }
+
+// Check if casting works as expected
+void foo_check_cast(void* ptr) {
+    struct Figure.Circle* fc = (struct Figure.Circle*)ptr;
+}

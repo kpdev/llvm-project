@@ -1568,7 +1568,8 @@ private:
 
   IdentifierInfo* PPExtGetIdForExistingOrNewlyCreatedGen(
     StringRef BaseName,
-    ParsedAttributes& PAttrs
+    ParsedAttributes& PAttrs,
+    bool NeedToAddLParen = true
   );
 
   std::string PPExtConstructTagName(StringRef GenName);

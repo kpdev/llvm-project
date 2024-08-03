@@ -8167,8 +8167,9 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     }
   }
 
-  bool IsMultimethod =
-    D.getName().Identifier->getName().startswith("__pp_mm_");
+  const bool IsMultimethod =
+    (D.getName().Identifier &&
+     D.getName().Identifier->getName().startswith("__pp_mm_"));
   // Collect non-parameter declarations from the prototype if this is a function
   // declaration. They will be moved into the scope of the function. Only do
   // this in C and not C++, where the decls will continue to live in the

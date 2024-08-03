@@ -1716,7 +1716,8 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
 
 IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   StringRef BaseName,
-  ParsedAttributes& PAttrs
+  ParsedAttributes& PAttrs,
+  bool NeedToAddLParen
 )
 {
   // TODO PP-EXT: Refactor this method
@@ -1790,7 +1791,7 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
               tok::star,
               tok::l_paren));
 
-  if (NextToken().is(tok::r_paren)) {
+  if (NeedToAddLParen && NextToken().is(tok::r_paren)) {
     Tok.setKind(tok::l_paren);
   }
 
@@ -2203,7 +2204,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::period)) {
       Name = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
-                                                    attrs);
+                                                    attrs,
+                                                    ParenCount == 0);
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);
