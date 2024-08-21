@@ -158,23 +158,35 @@ Retry:
   case tok::identifier:
   ParseIdentifier: {
     if (Tok.getIdentifierInfo()
-            ->getName().equals("create_spec")) {
+            ->getName().equals("create_spec") ||
+        Tok.getIdentifierInfo()
+            ->getName().equals("init_spec")) {
       auto IdentTok = Tok;
       ParsedAttributes Attrs(AttrFactory);
       ConsumeToken();
-      assert(Tok.is(tok::less));
+      assert(Tok.is(tok::l_paren));
       auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
         "",
         Attrs);
       auto Mangled =
         IdentTok.getIdentifierInfo()->getName().str()
         + TypeIdent->getName().str();
-      Tok = IdentTok;
       IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+      if (IIMangled->getName().startswith("init_spec")) {
+        ConsumeToken();
+      }
+
+      Tok = IdentTok;
       Tok.setIdentifierInfo(IIMangled);
+      PPExtNextTokIsLParen = true;
     }
 
     Token Next = NextToken();
+
+    if (PPExtNextTokIsLParen) {
+      Next.setKind(tok::l_paren);
+    }
+
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement
       // Both C++11 and GNU attributes preceding the label appertain to the
       // label, so put them in a single list to pass on to

@@ -1738,29 +1738,39 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   ConsumeToken();
 
   assert(Tok.isOneOf(
+              tok::r_paren,
               tok::identifier,
               tok::period,
               tok::star));
 
   while (Tok.is(tok::period)) {
-    ConsumeToken();
-    assert(Tok.is(tok::identifier));
-    Names.push_back({Tok.getIdentifierInfo()->getName(), false});
-    // NextToken can be a comma
-    if (NextToken().is(tok::r_paren)) {
-      Tok.setKind(tok::l_paren);
-    } else {
+    assert(NextToken().is(tok::identifier));
+    auto IdentTok = NextToken();
+
+    Names.push_back({IdentTok.getIdentifierInfo()->getName(), false});
+
+    const bool IsLastIter =
+      PP.LookAhead(1).isOneOf(tok::r_paren, tok::comma);
+
+    if (!IsLastIter) {
       ConsumeToken();
+      ConsumeToken();
+    } else {
+      break;
     }
   }
 
   assert(Tok.isOneOf(
+              tok::comma,
               tok::identifier,
               tok::period,
               tok::star,
-              tok::l_paren));
+              tok::l_paren,
+              tok::r_paren));
 
-  if (NeedToAddLParen && NextToken().is(tok::r_paren)) {
+  if (NeedToAddLParen &&
+      (Tok.is(tok::comma) ||
+       NextToken().is(tok::r_paren))) {
     Tok.setKind(tok::l_paren);
   }
 

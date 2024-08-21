@@ -1924,7 +1924,8 @@ void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
 void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
   StringRef FName = F->getName();
   if (FName.startswith("__pp_") ||
-      FName.startswith("create_spec")) {
+      FName.startswith("create_spec") ||
+      FName.startswith("init_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
 }
@@ -5011,7 +5012,8 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
   }
 
-  if (F->getName().startswith("create_spec")) {
+  if (F->getName().startswith("create_spec") ||
+      F->getName().startswith("init_spec")) {
     PPCreateSpecsToDefine.push_back(F);
   }
 
@@ -6609,8 +6611,11 @@ void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
   for (auto* FSpec : PPCreateSpecsToDefine) {
+    const bool IsInitSpec = FSpec->getName().startswith("init_spec");
+
     if(FSpec->getBasicBlockList().empty()) {
-      auto TypeNameExtracted =
+      auto TypeNameExtracted = IsInitSpec ?
+        FSpec->getName().substr(sizeof("init_spec") - 1) :
         FSpec->getName().substr(sizeof("create_spec") - 1);
 
 #ifdef PPEXT_DUMP
@@ -6637,67 +6642,70 @@ void CodeGenModule::HandlePPExtensionMethods(
 #endif
 
       auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
+      llvm::Value* PtrToObjForGEP = IsInitSpec ? FSpec->getArg(0) : nullptr;
+      llvm::CallInst* MallocRes = nullptr;
       {
-        StringRef MangledName = "malloc";
-        llvm::Function *F = getModule().getFunction(MangledName);
-        if (!F) {
-          auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-          auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
-          auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
-                            static_cast<unsigned>(64));
-          SmallVector<llvm::Type*, 8> ArgTypes(1);
-          ArgTypes[0] = Arg1Type;
-          auto* FTy = llvm::FunctionType::get(MallocResultType,
-                                    ArgTypes, false);
-          F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
-                            MangledName, &getModule());
+        if (!IsInitSpec)
+        {
+          StringRef MangledName = "malloc";
+          llvm::Function *F = getModule().getFunction(MangledName);
+          if (!F) {
+            auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+            auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
+            auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
+                              static_cast<unsigned>(64));
+            SmallVector<llvm::Type*, 8> ArgTypes(1);
+            ArgTypes[0] = Arg1Type;
+            auto* FTy = llvm::FunctionType::get(MallocResultType,
+                                      ArgTypes, false);
+            F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+                              MangledName, &getModule());
+          }
+
+          llvm::AttrBuilder FuncAttrs(getLLVMContext());
+          llvm::AttrBuilder RetAttrs(getLLVMContext());
+          Optional<unsigned> NumElemsParam;
+          FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
+          getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
+          std::vector<std::string> Features;
+          Features = getTarget().getTargetOpts().Features;
+          FuncAttrs.addAttribute("target-cpu", "x86-64");
+          FuncAttrs.addAttribute("tune-cpu", "generic");
+          llvm::sort(Features);
+          FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
+          llvm::AttrBuilder Attrs(getLLVMContext());
+          Attrs.addAttribute(llvm::Attribute::NoUndef);
+          Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+          SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+          ArgAttrs[0] = ArgAttrs[0].addAttributes(
+                      getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+          llvm::AttributeList PAL;
+          PAL = llvm::AttributeList::get(
+                getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
+                llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
+          F->setAttributes(PAL);
+          F->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
+          F->setDSOLocal(false);
+
+          SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
+          SmallVector<llvm::Value *, 16> IRCallArgs(1);
+          auto ASTLongLongTy = getContext().LongLongTy;
+          auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+          auto* SizeAlloca = new llvm::AllocaInst(LongLongTy, 0, "Size", BB);
+          llvm::APInt ApintAlloc(64, BytesToAlloc);
+          auto* NumberAllocBytes =
+            llvm::ConstantInt::get(getLLVMContext(), ApintAlloc);
+          new llvm::StoreInst(NumberAllocBytes, SizeAlloca, BB);
+          auto* LoadTmp =
+            new llvm::LoadInst(LongLongTy, SizeAlloca, "", BB);
+          IRCallArgs[0] = LoadTmp;
+
+          MallocRes = llvm::CallInst::Create(F->getFunctionType(),
+            F, IRCallArgs, "call_malloc", BB);
+          MallocRes->setAttributes(PAL);
+
+          PtrToObjForGEP = MallocRes;
         }
-
-        llvm::AttrBuilder FuncAttrs(getLLVMContext());
-        llvm::AttrBuilder RetAttrs(getLLVMContext());
-        Optional<unsigned> NumElemsParam;
-        FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
-        getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
-        std::vector<std::string> Features;
-        Features = getTarget().getTargetOpts().Features;
-        FuncAttrs.addAttribute("target-cpu", "x86-64");
-        FuncAttrs.addAttribute("tune-cpu", "generic");
-        llvm::sort(Features);
-        FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
-        llvm::AttrBuilder Attrs(getLLVMContext());
-        Attrs.addAttribute(llvm::Attribute::NoUndef);
-        Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
-        SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
-        ArgAttrs[0] = ArgAttrs[0].addAttributes(
-                    getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
-        llvm::AttributeList PAL;
-        PAL = llvm::AttributeList::get(
-              getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
-              llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
-        F->setAttributes(PAL);
-        F->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
-        F->setDSOLocal(false);
-
-        SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
-        SmallVector<llvm::Value *, 16> IRCallArgs(1);
-        auto ASTLongLongTy = getContext().LongLongTy;
-        auto ASTIntTy = getContext().IntTy;
-        auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
-        auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-        auto* SizeAlloca = new llvm::AllocaInst(LongLongTy, 0, "Size", BB);
-        llvm::APInt ApintAlloc(64, BytesToAlloc);
-        auto* NumberAllocBytes =
-          llvm::ConstantInt::get(getLLVMContext(), ApintAlloc);
-        new llvm::StoreInst(NumberAllocBytes, SizeAlloca, BB);
-        auto* LoadTmp =
-          new llvm::LoadInst(LongLongTy, SizeAlloca, "", BB);
-        IRCallArgs[0] = LoadTmp;
-
-        auto* MallocRes = llvm::CallInst::Create(F->getFunctionType(),
-          F, IRCallArgs, "call_malloc", BB);
-        MallocRes->setAttributes(PAL);
-
-        llvm::Value* PtrToObjForGEP = MallocRes;
 
         do {
           auto Qty = Ty->getCanonicalTypeInternal();
@@ -6768,6 +6776,8 @@ void CodeGenModule::HandlePPExtensionMethods(
           auto *GV = getModule().getGlobalVariable(genName);
 
           assert(GV);
+          auto ASTIntTy = getContext().IntTy;
+          auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
           auto* LoadGlobalTag =
             new llvm::LoadInst(IntTy, GV, "global_spec_tag", BB);
           new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
@@ -6781,8 +6791,14 @@ void CodeGenModule::HandlePPExtensionMethods(
 
         } while(Ty);
 
-        llvm::ReturnInst::Create(getLLVMContext(),
-          MallocRes, BB);
+        if (IsInitSpec) {
+          llvm::ReturnInst::Create(getLLVMContext(), BB);
+        }
+        else {
+          assert(MallocRes);
+          llvm::ReturnInst::Create(getLLVMContext(),
+            MallocRes, BB);
+        }
 
         adjustPPLinkage(FSpec);
       }

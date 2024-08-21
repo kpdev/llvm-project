@@ -2767,7 +2767,8 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                      : LookupOrdinaryName);
   if (R.getResultKind() ==
       clang::LookupResult::NotFound &&
-      Name.getAsIdentifierInfo()->getName().startswith("create_spec")) {
+      (Name.getAsIdentifierInfo()->getName().startswith("create_spec") ||
+       Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
     auto ResTy = Context.VoidPtrTy;
     ArrayRef<QualType> ArrTys;
     auto FPI = FunctionProtoType::ExtProtoInfo();

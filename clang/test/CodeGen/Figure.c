@@ -89,6 +89,7 @@ typedef struct BaseObject { int a; }<> BaseObject;
 typedef struct NewObject { int b; } NewObject;
 BaseObject + < NewObject; >;
 BaseObject + <int;>;
+BaseObject + < Circle; >;
 
 void PrintFigure<Figure* f>() {}
 // void PrintFigureWithArg<struct Figure* f>(unsigned i);
@@ -194,6 +195,15 @@ int main() {
     obj2.@ = 777;
     // CHECK-RT-NEXT: BaseObject.int: 777
     printf("BaseObject.int: %d\n", obj2.@);
+
+    struct BaseObject.NewObject* obj3 = malloc(sizeof(struct BaseObject.NewObject));
+    init_spec(BaseObject.NewObject, obj3);
+    // CHECK-RT-NEXT: obj3.__pp_specialization_type = 1
+    printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
+
+    init_spec(BaseObject.Circle, obj3);
+    // CHECK-RT-NEXT: obj3.__pp_specialization_type = 3
+    printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
 }
 
 // This code just checking comilation

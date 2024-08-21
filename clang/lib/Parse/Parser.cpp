@@ -1740,6 +1740,9 @@ Parser::TryAnnotateName(CorrectionCandidateCallback *CCC,
   }
 
   Token Next = NextToken();
+  if (PPExtNextTokIsLParen) {
+    Next.setKind(tok::l_paren);
+  }
 
   // Look up and classify the identifier. We don't perform any typo-correction
   // after a scope specifier, because in general we can't recover from typos

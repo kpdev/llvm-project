@@ -897,9 +897,17 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
 
   if (Result.getResultKind() ==
       clang::LookupResult::NotFound &&
-      Name->getName().startswith("create_spec")) {
+      (Name->getName().startswith("create_spec") ||
+       Name->getName().startswith("init_spec"))) {
+    const bool IsInitSpec = Name->getName().startswith("init_spec");
     auto ResTy = Context.VoidPtrTy;
-    ArrayRef<QualType> ArrTys;
+    std::vector<QualType> ArrTysVec;
+    if (IsInitSpec) {
+      ArrTysVec.push_back(Context.VoidPtrTy);
+      ResTy = Context.VoidTy;
+    }
+    ArrayRef<QualType> ArrTys(ArrTysVec);
+
     auto FPI = FunctionProtoType::ExtProtoInfo();
     auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
 
@@ -910,6 +918,18 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
                                             getCurFPFeatures().isFPConstrained(),
                                             false, QTy->isFunctionProtoType());
     SmallVector<ParmVarDecl *, 16> Params;
+    if (IsInitSpec) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
+
     NewD->setParams(Params);
     Result.addDecl(NewD);
   }

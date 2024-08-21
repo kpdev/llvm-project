@@ -1655,6 +1655,8 @@ private:
                                        DeclSpec::TST ReturnTypeSpecifier,
                                        SmallVector<DeclaratorChunk::ParamInfo, 16>& ParamInfo);
 
+  bool PPExtNextTokIsLParen = false;
+
   //===--------------------------------------------------------------------===//
   // C99 6.7: Declarations.
 

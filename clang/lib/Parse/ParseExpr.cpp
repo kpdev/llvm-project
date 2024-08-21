@@ -1015,12 +1015,14 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     Name.setIdentifier(&II, ILoc);
 
     // Check create_spec
-    if (Name.Identifier->getName().equals("create_spec")) {
+    if (Name.Identifier->getName().equals("create_spec") ||
+        Name.Identifier->getName().equals("init_spec")) {
       assert(Tok.is(tok::l_paren) &&
-             "[PP-EXT] Expected l_paren after create_spec");
+             "[PP-EXT] Expected l_paren after create_spec & init_spec");
     }
     if (Tok.is(tok::l_paren)) {
-      if (Name.Identifier->getName().equals("create_spec")) {
+      if (Name.Identifier->getName().equals("create_spec") ||
+          Name.Identifier->getName().equals("init_spec")) {
         ParsedAttributes attrs(AttrFactory);
         auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs);
         auto S = Name.Identifier->getName().str()
@@ -1028,6 +1030,10 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
         StringRef Mangled(S);
         IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
         Name.setIdentifier(IIMangled, ILoc);
+        assert(Tok.is(tok::period));
+        ConsumeToken();
+        assert(Tok.is(tok::identifier));
+        Tok.setKind(tok::l_paren);
       }
     }
 
