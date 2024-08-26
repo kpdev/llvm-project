@@ -5065,8 +5065,7 @@ void Parser::AddStmts(StmtVector& Stmts,
 
 
 Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
-                                       SmallVector<Decl *, 32>& FieldDecls,
-                                       const ParsedAttributes& Attrs) {
+                                       SmallVector<Decl *, 32>& FieldDecls) {
   if (Tok.isNot(clang::tok::less)) {
     return {};
   }
@@ -5150,14 +5149,35 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
 #endif
   ConsumeAnyToken();
 
+  ParsedAttributes FieldAttrs(AttrFactory);
   FieldGenerator("__pp_specialization_type",
                   DeclSpec::TST_int, TagDecl,
                   nullptr,
                   FieldDecls,
-                  Attrs,
+                  FieldAttrs,
                   false);
 
   return Result;
+}
+
+void Parser::PPExtAddAlign8Attr(ParsedAttributes &Attrs)
+{
+  auto* II = &PP.getIdentifierTable().get("aligned");
+  ArgsVector ArgExprs;
+  StringRef TokSpelling = "8";
+  clang::NumericLiteralParser Literal(TokSpelling, Tok.getLocation(),
+                        PP.getSourceManager(), PP.getLangOpts(),
+                        PP.getTargetInfo(), PP.getDiagnostics());
+  llvm::APInt PriorityValue(64, 0);
+  Literal.GetIntegerValue(PriorityValue);
+  PriorityValue = PriorityValue.trunc(32);
+  QualType Ty = Actions.Context.IntTy;
+  auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
+  ArgExprs.push_back(Expr);
+
+  Attrs.addNew(II,SourceRange(), nullptr, SourceLocation(),
+    ArgExprs.data(), ArgExprs.size(),
+    ParsedAttr::Syntax::AS_GNU);
 }
 
 void Parser::AddFunc(std::string FuncName,
@@ -5684,7 +5704,10 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   SmallVector<Decl *, 32> FieldDecls(TagDecl->fields());
 
-  Optional<SpecsVec> PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls, attrs);
+  Optional<SpecsVec> PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls);
+  if (PPExtSpecs) {
+    PPExtAddAlign8Attr(attrs);
+  }
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);

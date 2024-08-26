@@ -1583,9 +1583,10 @@ private:
   };
   using SpecsVec = SmallVector<SpecsDescr>;
   Optional<SpecsVec> TryParsePPExt(Decl *TagDecl,
-                         SmallVector<Decl *, 32>& FieldDecls,
-                         const ParsedAttributes& Attrs);
-  
+                         SmallVector<Decl *, 32>& FieldDecls);
+
+  void PPExtAddAlign8Attr(ParsedAttributes &Attrs);
+
   void FieldGenerator(const char* FieldName,
                           DeclSpec::TST FieldType,
                           Decl *TagDecl,
