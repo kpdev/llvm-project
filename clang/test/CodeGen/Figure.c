@@ -212,12 +212,16 @@ int main() {
 
 struct NewCircle { int c; };
 struct NewFigure { int f; } < struct NewCircle; >;
+NewFigure + < cptr: Circle*; >;
 
 __attribute__((weak))
 void not_called_bar(int*);
 
 __attribute__((weak))
 void not_called_bar2(int);
+
+__attribute__((weak))
+void not_called_cptr(Circle*, int*);
 
 int not_called_foo() {
     struct NewFigure.NewCircle* fc;
@@ -234,6 +238,8 @@ int not_called_foo() {
     not_called_bar2(fcstack.@c);
     not_called_bar2(fc->f);
     not_called_bar2(fcstack.f);
+    struct NewFigure.cptr* pfcptr = create_spec(NewFigure.cptr);
+    not_called_cptr(pfcptr->@, 0);
     return fc->@c + fcstack.@c + fc->f + fcstack.f;
 }
 

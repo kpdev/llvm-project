@@ -2086,18 +2086,23 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
               || NTok.is(tok::arrow)) {
             ConsumeToken();
           } else {
-            assert(NTok.is(tok::identifier) ||
-                   NTok.is(tok::semi) ||
-                   NTok.is(tok::equal) ||
-                   NTok.is(tok::r_paren));
+            assert(NTok.isOneOf(
+              tok::identifier,
+              tok::semi,
+              tok::equal,
+              tok::r_paren,
+              tok::comma
+            ));
             Tok.setKind(tok::period);
           }
 
-          assert(Tok.is(tok::period)
-            || Tok.is(tok::arrow));
-          if (NTok.is(tok::semi)  ||
-              NTok.is(tok::equal) ||
-              NTok.is(tok::r_paren)) {
+          assert(Tok.isOneOf(tok::period, tok::arrow));
+
+          if (NTok.isOneOf(
+                tok::semi,
+                tok::equal,
+                tok::r_paren,
+                tok::comma)) {
             // Return whole variant part
             //              var.@ or var->@
             ConsumeToken();
