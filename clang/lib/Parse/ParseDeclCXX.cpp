@@ -1727,11 +1727,17 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   if (!BaseName.empty())
     Names.push_back({BaseName, false});
 
-  assert(Tok.is(tok::identifier) ||
-         Tok.is(tok::kw_int));
+  assert(Tok.isOneOf(tok::identifier,
+                     tok::kw_int,
+                     tok::kw_double,
+                     tok::kw_float,
+                     tok::kw_char));
 
-  if (Tok.is(tok::identifier) ||
-      Tok.is(tok::kw_int)) {
+  if (Tok.isOneOf(tok::identifier,
+                  tok::kw_int,
+                  tok::kw_double,
+                  tok::kw_float,
+                  tok::kw_char)) {
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
   }
 
@@ -1799,6 +1805,15 @@ DeclSpec::TST Parser::PPExtGetFieldTypeByTokKind(tok::TokenKind TK)
   switch (TK) {
     case tok::kw_int:
       Res = DeclSpec::TST::TST_int;
+      break;
+    case tok::kw_char:
+      Res = DeclSpec::TST::TST_char;
+      break;
+    case tok::kw_double:
+      Res = DeclSpec::TST::TST_double;
+      break;
+    case tok::kw_float:
+      Res = DeclSpec::TST::TST_float;
       break;
     case tok::kw_void:
       Res = DeclSpec::TST::TST_void;
@@ -2048,8 +2063,11 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         ConsumeToken();
         ConsumeToken();
         assert(Tok.isOneOf(tok::identifier,
+                           tok::kw_void,
                            tok::kw_int,
-                           tok::kw_void));
+                           tok::kw_char,
+                           tok::kw_double,
+                           tok::kw_float));
       }
 #ifdef PPEXT_DUMP
       printf("!!! [%s] %s\n",

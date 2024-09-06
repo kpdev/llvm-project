@@ -4809,8 +4809,11 @@ static std::string GetMangledName(const std::string& Base, const std::string& Va
 }
 
 static std::string GetVariantName(Parser& P, std::string CurTokName, const Token& NextTok) {
-  if (!P.getCurToken().is(tok::identifier) &&
-      !P.getCurToken().is(tok::kw_int)) {
+  if (!P.getCurToken().isOneOf(tok::identifier,
+                tok::kw_int,
+                tok::kw_double,
+                tok::kw_float,
+                tok::kw_char)) {
     llvm_unreachable("pp-ext-expected-token-identifier");
     return "<pp-ext-expected-token-identifier>";
   }
@@ -5093,8 +5096,11 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
 #ifdef PPEXT_DUMP
     printf("  Token -> Kind: [%s]", Tok.getName());
 #endif
-    if (Tok.is(tok::identifier) ||
-        Tok.is(tok::kw_int)) {
+    if (Tok.isOneOf(tok::identifier,
+                    tok::kw_int,
+                    tok::kw_double,
+                    tok::kw_float,
+                    tok::kw_char)) {
       auto TokName = Tok.getIdentifierInfo()->getName().str();
       SmallVector<std::string> Names;
       do {
@@ -5107,7 +5113,11 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
         }
         ConsumeToken();
         ConsumeToken();
-        assert(Tok.is(tok::identifier));
+        assert(Tok.isOneOf(tok::identifier,
+                    tok::kw_int,
+                    tok::kw_double,
+                    tok::kw_float,
+                    tok::kw_char));
         TokName = Tok.getIdentifierInfo()->getName().str();
       } while(true);
 
@@ -5120,12 +5130,14 @@ Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
       if (NextToken().is(tok::colon)) {
         ConsumeToken();
         ConsumeToken();
-        assert(Tok.is(tok::identifier)
-               || Tok.is(tok::kw_void)
-               || Tok.is(tok::kw_int));
+        assert(Tok.isOneOf(tok::identifier,
+                           tok::kw_void,
+                           tok::kw_int,
+                           tok::kw_double,
+                           tok::kw_float,
+                           tok::kw_char));
 
-        TokName = (Tok.is(tok::kw_void) ? std::string("void") :
-                   Tok.getIdentifierInfo()->getName().str());
+        TokName = Tok.getIdentifierInfo()->getName().str();
         if (NextToken().is(tok::star)) {
           IsPtr = true;
           ConsumeToken();
@@ -5782,10 +5794,27 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         //    instead Parser::SpecsDescr::IsPtr has this information
         const bool IsPtr =
           (S.FullNameIInfo->getName().endswith("_pp_ptr") || S.IsPtr);
-        const bool IsBaseType = VariantRecordDecl->getName().equals("int");
+
+        auto GetTST = [](StringRef VarName) {
+          auto Result = DeclSpec::TST::TST_struct;
+          if (VarName.equals("int")) {
+            Result = DeclSpec::TST::TST_int;
+          }
+          else if (VarName.equals("double")) {
+            Result = DeclSpec::TST::TST_double;
+          }
+          else if (VarName.equals("float")) {
+            Result = DeclSpec::TST::TST_float;
+          }
+          else if (VarName.equals("char")) {
+            Result = DeclSpec::TST::TST_char;
+          }
+
+          return Result;
+        };
 
         FieldGenerator("__pp_tail",
-                       IsBaseType ? DeclSpec::TST_int : DeclSpec::TST_struct,
+                       GetTST(VariantRecordDecl->getName()),
                        VariantRecordDecl,
                        IsPtr, TestAttrs, TestDecl, FieldDecls);
       }
