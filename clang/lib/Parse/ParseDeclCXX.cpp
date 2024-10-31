@@ -1799,6 +1799,32 @@ std::string Parser::PPExtConstructTagName(StringRef GenName)
           + GenName.substr(0, NextPos - 2).str();
 }
 
+void Parser::PPExtHandleGetSpecSize()
+{
+  assert(Tok.is(tok::identifier));
+  auto TokIdentName = Tok.getIdentifierInfo()->getName();
+  if (TokIdentName.equals("get_spec_size")) {
+    // Need to replace it with global var of tags number
+    // (mangled like the following: __pp_tags_Figure)
+    ConsumeToken();
+    assert(Tok.is(tok::l_paren));
+    // Change type of token
+    // to avoid paren pairing issue in parser
+    Tok.setKind(tok::identifier);
+    ConsumeToken();
+    assert(Tok.is(tok::identifier));
+    auto IdentTok = Tok;
+    auto GenName = Tok.getIdentifierInfo()->getName();
+    std::string TagName = "__pp_tags_" + GenName.str();
+    StringRef NameToCheck(TagName);
+    auto* TagIdent = PP.getIdentifierInfo(TagName);
+    ConsumeToken();
+    assert(Tok.is(tok::r_paren));
+    Tok = IdentTok;
+    Tok.setIdentifierInfo(TagIdent);
+  }
+}
+
 DeclSpec::TST Parser::PPExtGetFieldTypeByTokKind(tok::TokenKind TK)
 {
   auto Res = DeclSpec::TST::TST_struct;

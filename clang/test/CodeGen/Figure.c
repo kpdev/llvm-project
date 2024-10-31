@@ -167,6 +167,10 @@ int main() {
     printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
     printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
 
+    // CHECK-RT-NEXT: get_spec_size = 3
+    int numberOfSpecs = get_spec_size(Figure);
+    printf("get_spec_size = %d\n", numberOfSpecs);
+
     // CHECK-RT-NEXT: fc.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr.__pp_specialization_type = 2
     // CHECK-RT-NEXT: ft.__pp_specialization_type = 3

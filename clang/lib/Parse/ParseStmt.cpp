@@ -157,6 +157,7 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
+    PPExtHandleGetSpecSize();
     if (Tok.getIdentifierInfo()
             ->getName().equals("create_spec") ||
         Tok.getIdentifierInfo()
