@@ -5232,6 +5232,13 @@ void Parser::AddFunc(std::string FuncName,
   DeclaratorContext Context = DeclaratorContext::File;
   ParsingDeclarator D(*this, DS, LocalAttrs, Context);
 
+  DeclSpec DSPtr(AttrFactory);
+  const bool IsCreateSpec = (Mode == PPFuncMode::CreateSpec);
+  if (IsCreateSpec) {
+    DSPtr.Finish(Actions, Actions.getASTContext().getPrintingPolicy());
+    D.ExtendWithDeclSpec(DSPtr);
+  }
+
   auto FuncNameIdentifier = &PP.getIdentifierTable().get(FuncName);
   D.SetIdentifier(FuncNameIdentifier, SourceLocation());
   D.SetRangeEnd(SourceLocation());
@@ -5277,6 +5284,16 @@ void Parser::AddFunc(std::string FuncName,
 
     Actions.ActOnFinishFunctionDeclarationDeclarator(D);
 
+    if (IsCreateSpec) {
+      SourceLocation Loc = Tok.getLocation();
+      D.AddTypeInfo(
+        DeclaratorChunk::getPointer(
+                                DSPtr.getTypeQualifiers(), Loc, DSPtr.getConstSpecLoc(),
+                                DSPtr.getVolatileSpecLoc(), DSPtr.getRestrictSpecLoc(),
+                                DSPtr.getAtomicSpecLoc(), DSPtr.getUnalignedSpecLoc()),
+                                std::move(DSPtr.getAttributes()), SourceLocation());
+    }
+
     Sema::SkipBodyInfo SkipBody;
     Sema::FnBodyKind BodyKind = Sema::FnBodyKind::Other;
     ParseScope BodyScope(this, Scope::FnScope | Scope::DeclScope |
@@ -5294,7 +5311,7 @@ void Parser::AddFunc(std::string FuncName,
     bool isStmtExpr = false;
     StmtResult FnBody;
     Actions.ActOnStartOfCompoundStmt(false);
-    {
+    if (Mode != PPFuncMode::CreateSpec) {
       AddStmts(Stmts, Mode, TagNameToInit, ppMNames);
       Sema::CompoundScopeRAII CompoundScope(Actions, isStmtExpr);
       Actions.ActOnAfterCompoundStatementLeadingPragmas();
@@ -5372,7 +5389,8 @@ void Parser::PPMangledNames::addVariantName(std::string VariantName)
     PPMangledNames::PPVariant{
       VariantName,
       "__pp_init_" + VariantName,
-      "__pp_tag_" + VariantName}
+      "__pp_tag_" + VariantName,
+      "create_spec" + VariantName}
   );
 }
 
@@ -5839,6 +5857,9 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       auto& V = ppMNames.VariantStructNames.back();
       AddFunc(V.VariantInitFuncName,
         PPFuncMode::Init,
+        V.VariantTagVariableName, ppMNames);
+      AddFunc(V.VariantCreateSpecFuncName,
+        PPFuncMode::CreateSpec,
         V.VariantTagVariableName, ppMNames);
     }
   }

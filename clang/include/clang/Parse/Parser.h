@@ -1600,6 +1600,7 @@ private:
     Ctor,
     Init,
     Increment,
+    CreateSpec,
     MMDefault
   };
 
@@ -1608,6 +1609,7 @@ private:
       std::string VariantName;
       std::string VariantInitFuncName;
       std::string VariantTagVariableName;
+      std::string VariantCreateSpecFuncName;
     };
 
     std::string BaseStructName;
