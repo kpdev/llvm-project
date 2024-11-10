@@ -6754,12 +6754,110 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
 }
 
 
+void CodeGenModule::PPExtRecordCreateSpec(
+  llvm::Function* FnCreateSpec,
+  RecordDecl* RDSpec,
+  llvm::Module& Parent)
+{
+  // Create initializer declaration
+  std::vector<llvm::Type *> ArgTypes;
+  // auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+  // auto* ResultType = llvm::PointerType::get(PointeeType, 0);
+  auto* ResultType = llvm::Type::getVoidTy(getLLVMContext());
+  llvm::FunctionType *FnTy =
+      llvm::FunctionType::get(ResultType,
+                              ArgTypes, false);
+  llvm::FunctionType *FnCSTy =
+      llvm::FunctionType::get(
+        llvm::PointerType::get(
+          llvm::Type::getInt8Ty(getLLVMContext()), 0),
+        ArgTypes, false
+      );
+
+  // Extract generalization name
+  auto SpecName = RDSpec->getName();
+  constexpr auto SzPPstruct = sizeof("__pp_struct_") - 1;
+  const auto DoubleUnderscore = SpecName.find("__", SzPPstruct);
+  auto GenName = SpecName.substr(
+    SzPPstruct,
+    DoubleUnderscore - SzPPstruct
+  );
+  if (SpecName.count("____") != 0) {
+    fprintf(stderr, "[PP-EXT] Decorated generalizations "
+      "are not yet supported for recording get_spec_ptr\n");
+    return;
+  }
+  std::string FName = std::string("__pp_record_cs_") + GenName.str();
+  auto* FnRecordCSArr =
+      llvm::Function::Create(FnTy,
+        llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+        0, // AddressSpace
+        FName,
+        &Parent);
+
+  // Add body to initializer
+  auto* BB = llvm::BasicBlock::Create(
+    getLLVMContext(), "entry", FnRecordCSArr);
+
+  // Decremented specialization tag
+  auto specTagName =
+    std::string("__pp_tag_") +
+    SpecName.str();
+  StringRef TmpDbg2(specTagName);
+  auto* SpecTagPtr =
+    getModule().getGlobalVariable(specTagName);
+  SpecTagPtr->dump();
+
+  auto ASTIntTy = getContext().IntTy;
+  auto CGIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+  auto CGAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto* LoadGV = new llvm::LoadInst(CGIntTy, SpecTagPtr, Twine(),
+    false, CGAlignment.getAsAlign(), BB);
+  llvm::APInt api1(32, 1);
+  auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
+  auto* DecrementedIdx = llvm::BinaryOperator::CreateNSWSub(
+    LoadGV, OneVal, "", BB);
+  auto ASTLongLongTy = getContext().LongLongTy;
+  auto CGLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+  auto DecrIdx64 = llvm::CastInst::Create(
+    llvm::Instruction::CastOps::SExt,
+    DecrementedIdx,
+    CGLongLongTy, "", BB);
+
+  // Array of create_spec
+  auto initArrName =
+    std::string("__pp_cs_arr_") +
+    GenName.str();
+  StringRef TmpDbg(initArrName);
+  auto* InitArrPtr =
+    getModule().getGlobalVariable(initArrName);
+
+  auto* FnPtrType = llvm::PointerType::get(FnCSTy, 0);
+  auto* LoadInitArr = new llvm::LoadInst(
+                            FnPtrType,
+                            InitArrPtr, "", BB);
+
+  // Store function pointer
+  ArrayRef<llvm::Value*> Idxs(
+    {DecrIdx64});
+  auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
+    FnPtrType, LoadInitArr, Idxs, "", BB);
+  new llvm::StoreInst(FnCreateSpec, Elem, BB);
+
+  // InitArrPtr->dump();
+  printf("%s\n", GenName.str().c_str());
+
+  llvm::ReturnInst::Create(getLLVMContext(), BB);
+  AddGlobalCtor(FnRecordCSArr, 103);
+}
+
 void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
   if (F->getName().startswith("__pp_inc_tags")) {
     StringRef GenName(F->getName().substr(sizeof("__pp_inc_tags")));
     PPExtInitCreateSpecArray(GenName, *F->getParent());
+    return;
   }
 
   for (auto* FSpec : PPCreateSpecsToDefine) {
@@ -6953,6 +7051,8 @@ void CodeGenModule::HandlePPExtensionMethods(
         }
 
         adjustPPLinkage(FSpec);
+
+        PPExtRecordCreateSpec(FSpec, RecordTy, *FSpec->getParent());
       }
     }
   }

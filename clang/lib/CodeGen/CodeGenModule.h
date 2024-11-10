@@ -1874,7 +1874,7 @@ private:
   clang::Type* PPExtGetTypeByName(StringRef TypeNameExtracted);
   void HandlePPExtensionMethods(llvm::Function* F, GlobalDecl GD);
   void PPExtGenerateInitForGlobVarIfNeeded(llvm::GlobalVariable* GV);
-
+  void PPExtRecordCreateSpec(llvm::Function* FnCreateSpec, RecordDecl* RDSpec, llvm::Module& Parent);
   using MMParams = std::vector<FunctionDecl::PPMMParam>;
   void AddPPSpecialization(llvm::Function* F,
                            const MMParams& Gens);
