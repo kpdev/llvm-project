@@ -6482,6 +6482,138 @@ void CodeGenModule::AddPPSpecialization(
   AddGlobalCtor(FRecorder, 103);
 }
 
+void CodeGenModule::PPExtInitCreateSpecArray(
+    StringRef GenName,
+    llvm::Module& Parent)
+{
+  // Create initializer declaration
+  std::vector<llvm::Type *> ArgTypes;
+  // auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+  // auto* ResultType = llvm::PointerType::get(PointeeType, 0);
+  auto* ResultType = llvm::Type::getVoidTy(getLLVMContext());
+  llvm::FunctionType *FnTy =
+      llvm::FunctionType::get(ResultType,
+                              ArgTypes, false);
+  llvm::FunctionType *FnCSTy =
+      llvm::FunctionType::get(
+        llvm::PointerType::get(
+          llvm::Type::getInt8Ty(getLLVMContext()), 0),
+        ArgTypes, false
+      );
+  std::string FName = std::string("__pp_init_cs_arr_") + GenName.str();
+  auto* FnInitCSArr =
+      llvm::Function::Create(FnTy,
+        llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+        0, // AddressSpace
+        FName,
+        &Parent);
+
+  // Add body to initializer
+  auto* BB = llvm::BasicBlock::Create(
+    getLLVMContext(), "entry", FnInitCSArr);
+
+  // Get tags value
+  auto tagsName = std::string("__pp_tags_")
+                  + GenName.str();
+  auto *GV = getModule().getGlobalVariable(tagsName);
+  auto ASTIntTy = getContext().IntTy;
+  auto ASTLongLongTy = getContext().LongLongTy;
+  auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+  auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
+    false, MyAlignment.getAsAlign(), BB);
+
+  // Multiply Tags * sizeof(Ptr)
+  llvm::APInt apint8(64, 8);
+  auto Int8_Number = llvm::ConstantInt::get(getLLVMContext(), apint8);
+  auto* CInstr = llvm::CastInst::Create(
+      llvm::Instruction::CastOps::SExt,
+      LoadGV,
+      MyLongLongTy,
+      "", BB);
+  auto MulInstr = llvm::BinaryOperator::Create(llvm::BinaryOperator::BinaryOps::Mul,
+    Int8_Number, CInstr, "", BB);
+
+  // Get Malloc Fn
+  // TODO: Reuse HandlePPExtensionMethods
+  // (use function, which will return ptr to malloc)
+  StringRef MallocName = "malloc";
+  llvm::Function *FnMalloc = getModule().getFunction(MallocName);
+  if (!FnMalloc) {
+    auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+    auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
+    auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
+                      static_cast<unsigned>(64));
+    SmallVector<llvm::Type*, 8> ArgTypes(1);
+    ArgTypes[0] = Arg1Type;
+    auto* FTy = llvm::FunctionType::get(MallocResultType,
+                              ArgTypes, false);
+    FnMalloc = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
+                              MallocName, &getModule());
+  }
+  llvm::AttrBuilder FuncAttrs(getLLVMContext());
+  llvm::AttrBuilder RetAttrs(getLLVMContext());
+  Optional<unsigned> NumElemsParam;
+  FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
+  getDefaultFunctionAttributes(MallocName, false, false, FuncAttrs);
+  std::vector<std::string> Features;
+  Features = getTarget().getTargetOpts().Features;
+  FuncAttrs.addAttribute("target-cpu", "x86-64");
+  FuncAttrs.addAttribute("tune-cpu", "generic");
+  llvm::sort(Features);
+  FuncAttrs.addAttribute("target-features", llvm::join(Features, ","));
+  llvm::AttrBuilder Attrs(getLLVMContext());
+  Attrs.addAttribute(llvm::Attribute::NoUndef);
+  Attrs.addStackAlignmentAttr(llvm::MaybeAlign(0));
+  SmallVector<llvm::AttributeSet, 4> ArgAttrs(1);
+  ArgAttrs[0] = ArgAttrs[0].addAttributes(
+              getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), Attrs));
+  llvm::AttributeList PAL;
+  PAL = llvm::AttributeList::get(
+        getLLVMContext(), llvm::AttributeSet::get(getLLVMContext(), FuncAttrs),
+        llvm::AttributeSet::get(getLLVMContext(), RetAttrs), ArgAttrs);
+  FnMalloc->setAttributes(PAL);
+  FnMalloc->setCallingConv(static_cast<llvm::CallingConv::ID>(0));
+  FnMalloc->setDSOLocal(false);
+  // -- end of block which should be extracted to separate function
+
+  // Call malloc
+  SmallVector<llvm::OperandBundleDef, 1> BundleListBundleList;
+  SmallVector<llvm::Value *, 16> IRCallArgs(1);
+  IRCallArgs[0] = MulInstr;
+  auto* CI = llvm::CallInst::Create(FnMalloc->getFunctionType(),
+    FnMalloc, IRCallArgs, "call_malloc", BB);
+  CI->setAttributes(PAL);
+
+  // Get array
+  auto arrName = std::string("__pp_cs_arr_") + GenName.str();
+  StringRef TmpDbg(arrName);
+  auto* FnPtrType = llvm::PointerType::get(FnCSTy, 0);
+  auto* InitArrPtr =
+    getModule().getGlobalVariable(arrName);
+  if (!InitArrPtr) {
+    InitArrPtr = new llvm::GlobalVariable(getModule(),
+      FnPtrType,
+      false,
+      llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+      nullptr, arrName);
+    InitArrPtr->setAlignment(llvm::MaybeAlign(8));
+    InitArrPtr->setDSOLocal(true);
+    InitArrPtr->setInitializer(
+                llvm::Constant::getNullValue(FnPtrType));
+  }
+
+  new llvm::StoreInst(CI, InitArrPtr, BB);
+
+  // auto* LoadInitArr = new llvm::LoadInst(
+  //                           FnPtrType,
+  //                           InitArrPtr, "", BB);
+
+  llvm::ReturnInst::Create(getLLVMContext(), BB);
+  AddGlobalCtor(FnInitCSArr, 102);
+}
+
 llvm::Function*
 CodeGenModule::PPExtCreateMMRecorder(llvm::Function* BaseF)
 {
@@ -6625,6 +6757,11 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
 void CodeGenModule::HandlePPExtensionMethods(
   llvm::Function* F, GlobalDecl GD)
 {
+  if (F->getName().startswith("__pp_inc_tags")) {
+    StringRef GenName(F->getName().substr(sizeof("__pp_inc_tags")));
+    PPExtInitCreateSpecArray(GenName, *F->getParent());
+  }
+
   for (auto* FSpec : PPCreateSpecsToDefine) {
     const bool IsInitSpec = FSpec->getName().startswith("init_spec");
 
