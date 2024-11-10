@@ -2196,11 +2196,11 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 
         auto& V = ppMNames.VariantStructNames.back();
         if (NeedCtorsDefinitions) {
-          AddFunc(V.VariantInitFuncName,
-            PPFuncMode::Init,
-            V.VariantTagVariableName, ppMNames);
           AddFunc(V.VariantCreateSpecFuncName,
             PPFuncMode::CreateSpec,
+            V.VariantTagVariableName, ppMNames);
+          AddFunc(V.VariantInitFuncName,
+            PPFuncMode::Init,
             V.VariantTagVariableName, ppMNames);
         }
       }

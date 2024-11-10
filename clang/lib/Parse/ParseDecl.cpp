@@ -5855,11 +5855,11 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 #endif
 
       auto& V = ppMNames.VariantStructNames.back();
-      AddFunc(V.VariantInitFuncName,
-        PPFuncMode::Init,
-        V.VariantTagVariableName, ppMNames);
       AddFunc(V.VariantCreateSpecFuncName,
         PPFuncMode::CreateSpec,
+        V.VariantTagVariableName, ppMNames);
+      AddFunc(V.VariantInitFuncName,
+        PPFuncMode::Init,
         V.VariantTagVariableName, ppMNames);
     }
   }
