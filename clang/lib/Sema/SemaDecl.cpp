@@ -897,14 +897,19 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
 
   if (Result.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name->getName().startswith("create_spec") ||
+      (Name->getName().startswith("create_spec")  ||
+       Name->getName().startswith("get_spec_ptr") ||
        Name->getName().startswith("init_spec"))) {
     const bool IsInitSpec = Name->getName().startswith("init_spec");
+    const bool IsGetSpecPtr = Name->getName().startswith("get_spec_ptr");
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> ArrTysVec;
     if (IsInitSpec) {
       ArrTysVec.push_back(Context.VoidPtrTy);
       ResTy = Context.VoidTy;
+    }
+    else if (IsGetSpecPtr) {
+      ArrTysVec.push_back(Context.IntTy);
     }
     ArrayRef<QualType> ArrTys(ArrTysVec);
 
@@ -924,6 +929,17 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
         Context.getTranslationUnitDecl(),
         NameLoc, NameLoc, nullptr,
         Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
+    else if (IsGetSpecPtr) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.IntTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.IntTy,
         tfi,
         clang::StorageClass::SC_None,
         nullptr);

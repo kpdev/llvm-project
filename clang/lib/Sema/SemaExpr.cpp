@@ -2767,10 +2767,18 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                      : LookupOrdinaryName);
   if (R.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name.getAsIdentifierInfo()->getName().startswith("create_spec") ||
+      (Name.getAsIdentifierInfo()->getName().startswith("create_spec")  ||
+       Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr") ||
        Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
     auto ResTy = Context.VoidPtrTy;
-    ArrayRef<QualType> ArrTys;
+    std::vector<QualType> tmpvec;
+    const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
+          ->getName().startswith("get_spec_ptr");
+    if (IsGetSpecPtr) {
+      tmpvec.push_back(Context.IntTy);
+    }
+    ArrayRef<QualType> ArrTys(tmpvec);
+
     auto FPI = FunctionProtoType::ExtProtoInfo();
     auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
 
@@ -2781,6 +2789,17 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                                             getCurFPFeatures().isFPConstrained(),
                                             false, QTy->isFunctionProtoType());
     SmallVector<ParmVarDecl *, 16> Params;
+    if (IsGetSpecPtr) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.IntTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
     NewD->setParams(Params);
     // TODO: Remove it
     auto X = DeclRefExpr::Create(Context,

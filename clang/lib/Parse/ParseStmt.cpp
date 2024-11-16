@@ -159,6 +159,23 @@ Retry:
   ParseIdentifier: {
     PPExtHandleGetSpecSize();
     if (Tok.getIdentifierInfo()
+            ->getName().equals("get_spec_ptr")) {
+      const auto IdentTok = Tok;
+      ConsumeToken();
+      assert(Tok.is(tok::l_paren));
+      // Replace Tok kind to avoid
+      // balancing parens error in parser
+      Tok.setKind(tok::comma);
+      ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      const auto Mangled =
+        IdentTok.getIdentifierInfo()->getName().str()
+        + Tok.getIdentifierInfo()->getName().str();
+      auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+      Tok.setIdentifierInfo(IIMangled);
+      PPExtNextTokIsLParen = true;
+    }
+    else if (Tok.getIdentifierInfo()
             ->getName().equals("create_spec") ||
         Tok.getIdentifierInfo()
             ->getName().equals("init_spec")) {

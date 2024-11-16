@@ -1925,6 +1925,7 @@ void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
   StringRef FName = F->getName();
   if (FName.startswith("__pp_") ||
       FName.startswith("create_spec") ||
+      FName.startswith("get_spec_ptr") ||
       FName.startswith("init_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
@@ -5027,7 +5028,8 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
   }
 
-  if (F->getName().startswith("create_spec") ||
+  if (F->getName().startswith("create_spec")  ||
+      F->getName().startswith("get_spec_ptr") ||
       F->getName().startswith("init_spec")) {
     PPCreateSpecsToDefine.push_back(F);
   }
@@ -6862,11 +6864,14 @@ void CodeGenModule::HandlePPExtensionMethods(
 
   for (auto* FSpec : PPCreateSpecsToDefine) {
     const bool IsInitSpec = FSpec->getName().startswith("init_spec");
+    const bool IsGetSpecPtr = FSpec->getName().startswith("get_spec_ptr");
 
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted = IsInitSpec ?
         FSpec->getName().substr(sizeof("init_spec") - 1) :
-        FSpec->getName().substr(sizeof("create_spec") - 1);
+        (IsGetSpecPtr ?
+          FSpec->getName().substr(sizeof("get_spec_ptr") - 1) :
+          FSpec->getName().substr(sizeof("create_spec") - 1));
 
 #ifdef PPEXT_DUMP
       printf("Need to generate body for %s [%s]\n",
@@ -6890,6 +6895,53 @@ void CodeGenModule::HandlePPExtensionMethods(
         (int)Context.getTypeSizeInChars(Ty).getQuantity());
         RecordTy->dump();
 #endif
+
+      if (IsGetSpecPtr) {
+        auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
+        llvm::Value* Idx = FSpec->getArg(0);
+        StringRef GenName(FSpec->getName().substr(sizeof("get_spec_ptr") - 1));
+        auto arrName = std::string("__pp_cs_arr_") + GenName.str();
+        auto* InitArr = getModule().getGlobalVariable(arrName);
+        std::vector<llvm::Type *> ArgTypes;
+        auto* ResultType = llvm::Type::getInt8PtrTy(getLLVMContext());
+        llvm::FunctionType *FnTy =
+            llvm::FunctionType::get(ResultType,
+                                    ArgTypes, false);
+
+        auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+
+        // Extend parameter to i64
+        // TODO PP-EXT: Change type in function signature
+        //    (from get_spec_ptr(i32) to get_spec_ptr(i64))
+        auto ASTLongLongTy = getContext().LongLongTy;
+        auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
+        auto* IdxExt = llvm::CastInst::Create(
+            llvm::Instruction::CastOps::SExt,
+            Idx,
+            MyLongLongTy,
+            "", BB);
+
+        // Load pointer to necessary create_spec
+        ArrayRef<llvm::Value*> TypeTagsIdxs({
+          IdxExt});
+        auto* LoadInitArr = new llvm::LoadInst(
+          FnPtrType,
+          InitArr, "", BB);
+        auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
+          FnPtrType,
+          LoadInitArr, TypeTagsIdxs, "", BB);
+        auto LoadElem = new llvm::LoadInst(
+          FnTy->getPointerTo(),
+          Elem, "", BB);
+
+        // Execute create_spec
+        SmallVector<llvm::Value*> VecArgs;
+        ArrayRef<llvm::Value *> Args (VecArgs);
+        auto *CI = llvm::CallInst::Create(FnTy,
+                    LoadElem, Args, "call_res", BB);
+        llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
+        continue;
+      }
 
       auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
       llvm::Value* PtrToObjForGEP = IsInitSpec ? FSpec->getArg(0) : nullptr;

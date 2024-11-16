@@ -1020,25 +1020,47 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     Name.setIdentifier(&II, ILoc);
 
     // Check create_spec
-    if (Name.Identifier->getName().equals("create_spec") ||
+    if (Name.Identifier->getName().equals("create_spec")  ||
+        Name.Identifier->getName().equals("get_spec_ptr") ||
         Name.Identifier->getName().equals("init_spec")) {
       assert(Tok.is(tok::l_paren) &&
              "[PP-EXT] Expected l_paren after create_spec & init_spec");
     }
     if (Tok.is(tok::l_paren)) {
-      if (Name.Identifier->getName().equals("create_spec") ||
+      if (Name.Identifier->getName().equals("create_spec")  ||
+          Name.Identifier->getName().equals("get_spec_ptr") ||
           Name.Identifier->getName().equals("init_spec")) {
-        ParsedAttributes attrs(AttrFactory);
-        auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs);
-        auto S = Name.Identifier->getName().str()
-                  + Id->getName().str();
-        StringRef Mangled(S);
-        IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
-        Name.setIdentifier(IIMangled, ILoc);
-        assert(Tok.is(tok::period));
-        ConsumeToken();
-        assert(Tok.is(tok::identifier));
-        Tok.setKind(tok::l_paren);
+
+        if (Name.Identifier
+            ->getName().equals("get_spec_ptr")) {
+          // Replace Tok kind to avoid
+          // balancing parens error in parser
+          Tok.setKind(tok::comma);
+          ConsumeToken();
+          assert(Tok.is(tok::identifier));
+          const auto Mangled =
+            Name.Identifier->getName().str()
+            + Tok.getIdentifierInfo()->getName().str();
+          auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          // Tok = IdentTok;
+          Name.setIdentifier(IIMangled, ILoc);
+          ConsumeToken();
+          assert(Tok.is(tok::comma));
+          Tok.setKind(tok::l_paren);
+        }
+        else {
+          ParsedAttributes attrs(AttrFactory);
+          auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs);
+          auto S = Name.Identifier->getName().str()
+                    + Id->getName().str();
+          StringRef Mangled(S);
+          IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          Name.setIdentifier(IIMangled, ILoc);
+          assert(Tok.is(tok::period));
+          ConsumeToken();
+          assert(Tok.is(tok::identifier));
+          Tok.setKind(tok::l_paren);
+        }
       }
     }
 
