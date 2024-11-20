@@ -5767,6 +5767,10 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       m_PPGlobalVars.push_back(VarGenerate(VarName));
     }
 
+    AddFunc("create_spec" + TagDecl->getNameAsString(),
+      PPFuncMode::CreateSpec,
+      ppMNames.BaseStructName, ppMNames);
+
     for (auto S : *PPExtSpecs) {
       Sema::SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;

@@ -6526,12 +6526,18 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
     false, MyAlignment.getAsAlign(), BB);
 
+  // Increment
+  llvm::APInt api1(32, 1);
+  auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
+  auto* IncrementedTags = llvm::BinaryOperator::CreateNSWAdd(
+    LoadGV, OneVal, "", BB);
+
   // Multiply Tags * sizeof(Ptr)
   llvm::APInt apint8(64, 8);
   auto Int8_Number = llvm::ConstantInt::get(getLLVMContext(), apint8);
   auto* CInstr = llvm::CastInst::Create(
       llvm::Instruction::CastOps::SExt,
-      LoadGV,
+      IncrementedTags,
       MyLongLongTy,
       "", BB);
   auto MulInstr = llvm::BinaryOperator::Create(llvm::BinaryOperator::BinaryOps::Mul,
@@ -6780,16 +6786,19 @@ void CodeGenModule::PPExtRecordCreateSpec(
   auto SpecName = RDSpec->getName();
   constexpr auto SzPPstruct = sizeof("__pp_struct_") - 1;
   const auto DoubleUnderscore = SpecName.find("__", SzPPstruct);
-  auto GenName = SpecName.substr(
-    SzPPstruct,
-    DoubleUnderscore - SzPPstruct
-  );
+  const bool IsGeneralization = (DoubleUnderscore == StringRef::npos);
+  auto GenName = IsGeneralization ?
+    SpecName :
+    SpecName.substr(
+      SzPPstruct,
+      DoubleUnderscore - SzPPstruct
+    );
   if (SpecName.count("____") != 0) {
     fprintf(stderr, "[PP-EXT] Decorated generalizations "
       "are not yet supported for recording get_spec_ptr\n");
     return;
   }
-  std::string FName = std::string("__pp_record_cs_") + GenName.str();
+  std::string FName = std::string("__pp_record_cs_") + SpecName.str();
   auto* FnRecordCSArr =
       llvm::Function::Create(FnTy,
         llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
@@ -6806,24 +6815,26 @@ void CodeGenModule::PPExtRecordCreateSpec(
     std::string("__pp_tag_") +
     SpecName.str();
   StringRef TmpDbg2(specTagName);
-  auto* SpecTagPtr =
-    getModule().getGlobalVariable(specTagName);
-  SpecTagPtr->dump();
-
   auto ASTIntTy = getContext().IntTy;
   auto CGIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+  llvm::Value* SpecTagPtr =
+    getModule().getGlobalVariable(specTagName);
+
   auto CGAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
-  auto* LoadGV = new llvm::LoadInst(CGIntTy, SpecTagPtr, Twine(),
-    false, CGAlignment.getAsAlign(), BB);
-  llvm::APInt api1(32, 1);
-  auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
-  auto* DecrementedIdx = llvm::BinaryOperator::CreateNSWSub(
-    LoadGV, OneVal, "", BB);
+  llvm::Value* LoadGV;
+  if (IsGeneralization) {
+    LoadGV = llvm::Constant::getNullValue(CGIntTy);
+  }
+  else {
+    LoadGV = new llvm::LoadInst(CGIntTy, SpecTagPtr, Twine(),
+            false, CGAlignment.getAsAlign(), BB);
+  }
+
   auto ASTLongLongTy = getContext().LongLongTy;
   auto CGLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
   auto DecrIdx64 = llvm::CastInst::Create(
     llvm::Instruction::CastOps::SExt,
-    DecrementedIdx,
+    LoadGV,
     CGLongLongTy, "", BB);
 
   // Array of create_spec
@@ -6833,8 +6844,19 @@ void CodeGenModule::PPExtRecordCreateSpec(
   StringRef TmpDbg(initArrName);
   auto* InitArrPtr =
     getModule().getGlobalVariable(initArrName);
-
   auto* FnPtrType = llvm::PointerType::get(FnCSTy, 0);
+  if (!InitArrPtr) {
+    InitArrPtr = new llvm::GlobalVariable(getModule(),
+      FnPtrType,
+      false,
+      llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+      nullptr, initArrName);
+    InitArrPtr->setAlignment(llvm::MaybeAlign(8));
+    InitArrPtr->setDSOLocal(true);
+    InitArrPtr->setInitializer(
+                llvm::Constant::getNullValue(FnPtrType));
+  }
+
   auto* LoadInitArr = new llvm::LoadInst(
                             FnPtrType,
                             InitArrPtr, "", BB);
@@ -7027,6 +7049,10 @@ void CodeGenModule::HandlePPExtensionMethods(
           auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
             GenRecTy, PtrToObjForGEP, IdxsHead, "pp_head", BB);
           auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
+          if (HeadRecordTy == nullptr) {
+            // It is a generalization
+            HeadRecordTy = RecordTy;
+          }
           int FieldIdx = 0;
           for (auto* Field : HeadRecordTy->fields()) {
             if (Field->getName().equals("__pp_specialization_type")) {
@@ -7076,13 +7102,19 @@ void CodeGenModule::HandlePPExtensionMethods(
 
           StringRef DbgStr(genName);
           auto *GV = getModule().getGlobalVariable(genName);
-
-          assert(GV);
           auto ASTIntTy = getContext().IntTy;
           auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-          auto* LoadGlobalTag =
-            new llvm::LoadInst(IntTy, GV, "global_spec_tag", BB);
-          new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+          if (GV) {
+            auto* LoadGlobalTag =
+              new llvm::LoadInst(IntTy, GV,
+                  "global_spec_tag", BB);
+            new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+          }
+          else {
+            new llvm::StoreInst(
+              llvm::Constant::getNullValue(IntTy), TagElem, BB);
+          }
+
           auto Pos = TypeNameExtracted.find("____");
           if (Pos != StringRef::npos) {
             TypeNameExtracted = TypeNameExtracted.substr(Pos + 2);

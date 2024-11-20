@@ -213,15 +213,16 @@ int main() {
     int fig_spec_count = get_spec_size(Figure);
     printf("fig_spec_count = %d\n", fig_spec_count);
 
+    // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 0
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 1
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 2
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 3
-    for (int i = 0; i < fig_spec_count; ++i) {
+    for (int i = 0; i <= fig_spec_count; ++i) {
         struct Figure* created_ptr = get_spec_ptr(Figure, i);
         printf("created_ptr->__pp_specialization_type = %d\n",
                 created_ptr->__pp_specialization_type);
     }
-    // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 2
+    // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 1
     struct Figure* created_ptr = get_spec_ptr(Figure, 1);
     printf("created_ptr->__pp_specialization_type = %d\n",
             created_ptr->__pp_specialization_type);
