@@ -866,10 +866,6 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
                         // unqualified-id: identifier
                         // constant: enumeration-constant
 
-    // PP-EXT: First check if this identifier
-    //         should be transformed
-    PPExtHandleGetSpecSize();
-
     // Turn a potentially qualified name into a annot_typename or
     // annot_cxxscope if it would be valid.  This handles things like x::y, etc.
     if (getLangOpts().CPlusPlus) {
@@ -1020,18 +1016,35 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     Name.setIdentifier(&II, ILoc);
 
     // Check create_spec
-    if (Name.Identifier->getName().equals("create_spec")  ||
-        Name.Identifier->getName().equals("get_spec_ptr") ||
+    if (Name.Identifier->getName().equals("create_spec")   ||
+        Name.Identifier->getName().equals("get_spec_ptr")  ||
+        Name.Identifier->getName().equals("get_spec_size") ||
         Name.Identifier->getName().equals("init_spec")) {
       assert(Tok.is(tok::l_paren) &&
              "[PP-EXT] Expected l_paren after create_spec & init_spec");
     }
     if (Tok.is(tok::l_paren)) {
-      if (Name.Identifier->getName().equals("create_spec")  ||
-          Name.Identifier->getName().equals("get_spec_ptr") ||
+      if (Name.Identifier->getName().equals("create_spec")   ||
+          Name.Identifier->getName().equals("get_spec_ptr")  ||
+          Name.Identifier->getName().equals("get_spec_size") ||
           Name.Identifier->getName().equals("init_spec")) {
 
         if (Name.Identifier
+            ->getName().equals("get_spec_size")) {
+          assert(NextToken().is(tok::identifier));
+          const auto Mangled =
+            Name.Identifier->getName().str()
+            + NextToken().getIdentifierInfo()->getName().str();
+          auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          Name.setIdentifier(IIMangled, ILoc);
+          // Replace Tok kind to avoid
+          // balancing parens error in parser
+          Tok.setKind(tok::comma);
+          ConsumeToken();
+          assert(NextToken().is(tok::r_paren));
+          Tok.setKind(tok::l_paren);
+        }
+        else if (Name.Identifier
             ->getName().equals("get_spec_ptr")) {
           // Replace Tok kind to avoid
           // balancing parens error in parser

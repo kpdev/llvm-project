@@ -897,11 +897,14 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
 
   if (Result.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name->getName().startswith("create_spec")  ||
-       Name->getName().startswith("get_spec_ptr") ||
+      (Name->getName().startswith("create_spec")   ||
+       Name->getName().startswith("get_spec_ptr")  ||
+       Name->getName().startswith("get_spec_size") ||
        Name->getName().startswith("init_spec"))) {
     const bool IsInitSpec = Name->getName().startswith("init_spec");
     const bool IsGetSpecPtr = Name->getName().startswith("get_spec_ptr");
+    const bool IsGetSpecSize = Name->getName().startswith("get_spec_size");
+
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> ArrTysVec;
     if (IsInitSpec) {
@@ -910,6 +913,9 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
     }
     else if (IsGetSpecPtr) {
       ArrTysVec.push_back(Context.IntTy);
+    }
+    else if (IsGetSpecSize) {
+      ResTy = Context.IntTy;
     }
     ArrayRef<QualType> ArrTys(ArrTysVec);
 

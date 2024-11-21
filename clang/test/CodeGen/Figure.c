@@ -167,7 +167,7 @@ int main() {
     printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
     printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
 
-    // CHECK-RT-NEXT: get_spec_size = 3
+    // CHECK-RT-NEXT: get_spec_size = 4
     int numberOfSpecs = get_spec_size(Figure);
     printf("get_spec_size = %d\n", numberOfSpecs);
 
@@ -209,7 +209,7 @@ int main() {
     // CHECK-RT-NEXT: obj3.__pp_specialization_type = 3
     printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
 
-    // CHECK-RT-NEXT: fig_spec_count = 3
+    // CHECK-RT-NEXT: fig_spec_count = 4
     int fig_spec_count = get_spec_size(Figure);
     printf("fig_spec_count = %d\n", fig_spec_count);
 
@@ -217,7 +217,7 @@ int main() {
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 1
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 2
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 3
-    for (int i = 0; i <= fig_spec_count; ++i) {
+    for (int i = 0; i < fig_spec_count; ++i) {
         struct Figure* created_ptr = get_spec_ptr(Figure, i);
         printf("created_ptr->__pp_specialization_type = %d\n",
                 created_ptr->__pp_specialization_type);

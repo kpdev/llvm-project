@@ -2767,15 +2767,21 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                      : LookupOrdinaryName);
   if (R.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name.getAsIdentifierInfo()->getName().startswith("create_spec")  ||
-       Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr") ||
+      (Name.getAsIdentifierInfo()->getName().startswith("create_spec")   ||
+       Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr")  ||
+       Name.getAsIdentifierInfo()->getName().startswith("get_spec_size") ||
        Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> tmpvec;
     const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
           ->getName().startswith("get_spec_ptr");
+    const bool IsGetSpecSize = Name.getAsIdentifierInfo()
+          ->getName().startswith("get_spec_size");
     if (IsGetSpecPtr) {
       tmpvec.push_back(Context.IntTy);
+    }
+    else if (IsGetSpecSize) {
+      ResTy = Context.IntTy;
     }
     ArrayRef<QualType> ArrTys(tmpvec);
 

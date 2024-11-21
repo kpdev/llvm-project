@@ -1926,6 +1926,7 @@ void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
   if (FName.startswith("__pp_") ||
       FName.startswith("create_spec") ||
       FName.startswith("get_spec_ptr") ||
+      FName.startswith("get_spec_size") ||
       FName.startswith("init_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
@@ -5028,8 +5029,9 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
   }
 
-  if (F->getName().startswith("create_spec")  ||
-      F->getName().startswith("get_spec_ptr") ||
+  if (F->getName().startswith("create_spec")   ||
+      F->getName().startswith("get_spec_ptr")  ||
+      F->getName().startswith("get_spec_size") ||
       F->getName().startswith("init_spec")) {
     PPCreateSpecsToDefine.push_back(F);
   }
@@ -6887,13 +6889,16 @@ void CodeGenModule::HandlePPExtensionMethods(
   for (auto* FSpec : PPCreateSpecsToDefine) {
     const bool IsInitSpec = FSpec->getName().startswith("init_spec");
     const bool IsGetSpecPtr = FSpec->getName().startswith("get_spec_ptr");
+    const bool IsGetSpecSize = FSpec->getName().startswith("get_spec_size");
 
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted = IsInitSpec ?
         FSpec->getName().substr(sizeof("init_spec") - 1) :
         (IsGetSpecPtr ?
           FSpec->getName().substr(sizeof("get_spec_ptr") - 1) :
-          FSpec->getName().substr(sizeof("create_spec") - 1));
+          (IsGetSpecSize ?
+            FSpec->getName().substr(sizeof("get_spec_size") - 1) :
+            FSpec->getName().substr(sizeof("create_spec") - 1)));
 
 #ifdef PPEXT_DUMP
       printf("Need to generate body for %s [%s]\n",
@@ -6962,6 +6967,25 @@ void CodeGenModule::HandlePPExtensionMethods(
         auto *CI = llvm::CallInst::Create(FnTy,
                     LoadElem, Args, "call_res", BB);
         llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
+        continue;
+      }
+
+      if (IsGetSpecSize) {
+        auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
+        StringRef GenName(FSpec->getName().substr(sizeof("get_spec_size") - 1));
+        auto gvName = std::string("__pp_tags_") + GenName.str();
+        auto* GV = getModule().getGlobalVariable(gvName);
+        auto ASTIntTy = getContext().IntTy;
+        auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+        auto* LoadGlobalTag =
+          new llvm::LoadInst(IntTy, GV,
+              "tags", BB);
+        llvm::APInt api1(32, 1);
+        auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
+        auto* IncrementedTags = llvm::BinaryOperator::CreateNSWAdd(
+          LoadGlobalTag, OneVal, "", BB);
+        llvm::ReturnInst::Create(getLLVMContext(),
+          IncrementedTags, BB);
         continue;
       }
 

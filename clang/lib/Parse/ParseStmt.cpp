@@ -157,7 +157,6 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
-    PPExtHandleGetSpecSize();
     if (Tok.getIdentifierInfo()
             ->getName().equals("get_spec_ptr")) {
       const auto IdentTok = Tok;
@@ -176,19 +175,35 @@ Retry:
       PPExtNextTokIsLParen = true;
     }
     else if (Tok.getIdentifierInfo()
-            ->getName().equals("create_spec") ||
+            ->getName().equals("create_spec")   ||
+        Tok.getIdentifierInfo()
+            ->getName().equals("get_spec_size") ||
         Tok.getIdentifierInfo()
             ->getName().equals("init_spec")) {
+
+      const bool IsGSS = Tok.getIdentifierInfo()
+                          ->getName().equals("get_spec_size");
+
       auto IdentTok = Tok;
       ParsedAttributes Attrs(AttrFactory);
       ConsumeToken();
       assert(Tok.is(tok::l_paren));
-      auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
-        "",
-        Attrs);
+
+      StringRef SuffixName;
+      if (IsGSS) {
+        assert(NextToken().is(tok::identifier));
+        SuffixName = NextToken().getIdentifierInfo()->getName();
+      }
+      else {
+        auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
+          "",
+          Attrs);
+        SuffixName = TypeIdent->getName();
+      }
+
       auto Mangled =
         IdentTok.getIdentifierInfo()->getName().str()
-        + TypeIdent->getName().str();
+        + SuffixName.str();
       IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
       if (IIMangled->getName().startswith("init_spec")) {
         ConsumeToken();
