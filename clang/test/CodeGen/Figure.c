@@ -91,7 +91,22 @@ BaseObject + < NewObject; >;
 BaseObject + <int;>;
 BaseObject + < Circle; >;
 
-void PrintFigure<Figure* f>() {}
+void PrintFigure<Figure* f>() {
+    printf("Default\n");
+}
+
+void PrintFigure<Figure.Circle* f>() {
+    printf("Circle\n");
+}
+
+void PrintFigure<Figure.Rectangle* f>() {
+    printf("Rectangle\n");
+}
+
+void PrintFigure<Figure.Triangle* f>() {
+    printf("Triangle\n");
+}
+
 // void PrintFigureWithArg<struct Figure* f>(unsigned i);
 // void MultiMethod<struct Figure* f1, struct Figure* f2>();
 // void MultiMethodWithArgs<struct Figure* f1, struct Figure* f2>(unsigned c1, unsigned c2);
@@ -214,13 +229,18 @@ int main() {
     printf("fig_spec_count = %d\n", fig_spec_count);
 
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 0
+    // CHECK-RT-NEXT: Default
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 1
+    // CHECK-RT-NEXT: Circle
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 2
+    // CHECK-RT-NEXT: Rectangle
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 3
+    // CHECK-RT-NEXT: Triangle
     for (int i = 0; i < fig_spec_count; ++i) {
         struct Figure* created_ptr = get_spec_ptr(Figure, i);
         printf("created_ptr->__pp_specialization_type = %d\n",
                 created_ptr->__pp_specialization_type);
+        PrintFigure<created_ptr>();
     }
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 1
     struct Figure* created_ptr = get_spec_ptr(Figure, 1);

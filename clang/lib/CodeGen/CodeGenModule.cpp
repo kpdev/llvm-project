@@ -6420,7 +6420,8 @@ void CodeGenModule::AddPPSpecialization(
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
   auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
 
-  auto GetTagForType = [&](const FunctionDecl::PPMMParam& g) {
+  auto GetTagForType =
+    [&](const FunctionDecl::PPMMParam& g) -> llvm::Value* {
     auto genName = std::string("__pp_tag_")
       + g.RD->getNameAsString();
     StringRef StrRefTagsName(genName);
@@ -6428,12 +6429,7 @@ void CodeGenModule::AddPPSpecialization(
     auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
     auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
-
-    llvm::APInt api1(32, 1);
-    auto* OneVal = llvm::ConstantInt::get(getLLVMContext(), api1);
-    auto* DecrementedIdx = llvm::BinaryOperator::CreateNSWSub(
-      LoadGV, OneVal, "", BB);
-    return DecrementedIdx;
+    return LoadGV;
   };
 
   auto* DecrementedIdx = GetTagForType(Gens[0]);
@@ -7232,9 +7228,12 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
   auto *GV = getModule().getGlobalVariable(genName);
   auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
-  auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
+  auto* LoadGVDef = new llvm::LoadInst(MyIntTy, GV, Twine(),
     false, MyAlignment.getAsAlign(), BB);
 
+  llvm::APInt apint1_32(32, 1);
+  auto Int1_Number32 = llvm::ConstantInt::get(getLLVMContext(), apint1_32);
+  auto* LoadGV = llvm::BinaryOperator::CreateNSWAdd(LoadGVDef, Int1_Number32, "Increment", BB);
   llvm::APInt apint8(64, 8);
   auto Int8_Number = llvm::ConstantInt::get(getLLVMContext(), apint8);
 
@@ -7471,7 +7470,8 @@ CodeGenModule::PPExtGetIndexForMM(
   const MMParams& Gens)
 {
   auto* BB = &F->getEntryBlock();
-  auto GetIdxForGen = [&](const FunctionDecl::PPMMParam& g) {
+  auto GetIdxForGen =
+    [&](const FunctionDecl::PPMMParam& g) -> llvm::Value* {
     auto Qty = g.RD->getTypeForDecl()
                               ->getCanonicalTypeInternal();
     auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
@@ -7505,11 +7505,7 @@ CodeGenModule::PPExtGetIndexForMM(
       "[PP-EXT] MM TypeTag %d\n",
       TypeTag);
 
-    llvm::APInt api1(32, 1);
-    auto OneInt = llvm::ConstantInt::get(
-        llvm::Type::getInt32Ty(getLLVMContext()), 1);
-    auto TypeTagIdx = llvm::BinaryOperator::CreateNSWSub(TypeTag, OneInt, "", BB);
-    return TypeTagIdx;
+    return TypeTag;
   };
 
   auto* TypeTagIdxExt0 = GetIdxForGen(Gens[0]);

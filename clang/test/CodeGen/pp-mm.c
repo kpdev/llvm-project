@@ -48,4 +48,8 @@ int main() {
     PrintFigures<&fr, &fc>();
     // CHECK-RT: rect + rect
     PrintFigures<&fr, &fr>();
+
+    struct Figure* fp = get_spec_ptr(Figure, 0);
+    // CHECK-RT: default
+    PrintFigures<fp, fp>();
 }
