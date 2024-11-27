@@ -1019,6 +1019,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     if (Name.Identifier->getName().equals("create_spec")   ||
         Name.Identifier->getName().equals("get_spec_ptr")  ||
         Name.Identifier->getName().equals("get_spec_size") ||
+        Name.Identifier->getName().equals("spec_index_cmp") ||
         Name.Identifier->getName().equals("init_spec")) {
       assert(Tok.is(tok::l_paren) &&
              "[PP-EXT] Expected l_paren after create_spec & init_spec");
@@ -1027,6 +1028,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       if (Name.Identifier->getName().equals("create_spec")   ||
           Name.Identifier->getName().equals("get_spec_ptr")  ||
           Name.Identifier->getName().equals("get_spec_size") ||
+          Name.Identifier->getName().equals("spec_index_cmp") ||
           Name.Identifier->getName().equals("init_spec")) {
 
         if (Name.Identifier
@@ -1043,6 +1045,29 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           ConsumeToken();
           assert(NextToken().is(tok::r_paren));
           Tok.setKind(tok::l_paren);
+        }
+        else if (Name.Identifier
+            ->getName().equals("spec_index_cmp")) {
+          auto IdentTok =
+            PP.LookAhead(0).is(tok::identifier) ?
+            PP.LookAhead(0) : PP.LookAhead(1);
+          assert(IdentTok.is(tok::identifier));
+          auto* II = IdentTok.getIdentifierInfo();
+          LookupResult Result(Actions, II, Tok.getLocation(),
+            Sema::LookupOrdinaryName);
+          Actions.LookupName(Result, getCurScope());
+          assert(Result.getResultKind() == LookupResult::Found);
+          auto FD = Result.getFoundDecl();
+          assert(FD);
+          auto VD = cast<clang::VarDecl>(FD);
+          assert(VD);
+          clang::QualType QTT = VD->getType();
+          auto Str = QTT.getAsString();
+          StringRef SS(Str);
+          auto StructName = SS.split(" ").second;
+          auto MangledName = "spec_index_cmp" + StructName.str();
+          auto IIMangled = &PP.getIdentifierTable().get(MangledName);
+          Name.setIdentifier(IIMangled, ILoc);
         }
         else if (Name.Identifier
             ->getName().equals("get_spec_ptr")) {

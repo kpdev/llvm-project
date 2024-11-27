@@ -897,13 +897,15 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
 
   if (Result.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name->getName().startswith("create_spec")   ||
-       Name->getName().startswith("get_spec_ptr")  ||
-       Name->getName().startswith("get_spec_size") ||
+      (Name->getName().startswith("create_spec")    ||
+       Name->getName().startswith("get_spec_ptr")   ||
+       Name->getName().startswith("get_spec_size")  ||
+       Name->getName().startswith("spec_index_cmp") ||
        Name->getName().startswith("init_spec"))) {
     const bool IsInitSpec = Name->getName().startswith("init_spec");
     const bool IsGetSpecPtr = Name->getName().startswith("get_spec_ptr");
     const bool IsGetSpecSize = Name->getName().startswith("get_spec_size");
+    const bool IsSpecIdxCmp = Name->getName().startswith("spec_index_cmp");
 
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> ArrTysVec;
@@ -916,6 +918,11 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
     }
     else if (IsGetSpecSize) {
       ResTy = Context.IntTy;
+    }
+    else if (IsSpecIdxCmp) {
+      ResTy = Context.IntTy;
+      ArrTysVec.push_back(Context.VoidPtrTy);
+      ArrTysVec.push_back(Context.VoidPtrTy);
     }
     ArrayRef<QualType> ArrTys(ArrTysVec);
 
@@ -938,6 +945,18 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
         tfi,
         clang::StorageClass::SC_None,
         nullptr);
+      Params.push_back(PVDecl);
+    }
+    else if (IsSpecIdxCmp) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
       Params.push_back(PVDecl);
     }
     else if (IsGetSpecPtr) {

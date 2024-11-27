@@ -2770,6 +2770,7 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
       (Name.getAsIdentifierInfo()->getName().startswith("create_spec")   ||
        Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr")  ||
        Name.getAsIdentifierInfo()->getName().startswith("get_spec_size") ||
+       Name.getAsIdentifierInfo()->getName().startswith("spec_index_cmp") ||
        Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> tmpvec;
@@ -2777,11 +2778,18 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
           ->getName().startswith("get_spec_ptr");
     const bool IsGetSpecSize = Name.getAsIdentifierInfo()
           ->getName().startswith("get_spec_size");
+    const bool IsSpecIdxCmp = Name.getAsIdentifierInfo()
+          ->getName().startswith("spec_index_cmp");
     if (IsGetSpecPtr) {
       tmpvec.push_back(Context.IntTy);
     }
     else if (IsGetSpecSize) {
       ResTy = Context.IntTy;
+    }
+    else if (IsSpecIdxCmp) {
+      ResTy = Context.IntTy;
+      tmpvec.push_back(Context.VoidPtrTy);
+      tmpvec.push_back(Context.VoidPtrTy);
     }
     ArrayRef<QualType> ArrTys(tmpvec);
 
@@ -2804,6 +2812,18 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
         tfi,
         clang::StorageClass::SC_None,
         nullptr);
+      Params.push_back(PVDecl);
+    }
+    else if (IsSpecIdxCmp) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
       Params.push_back(PVDecl);
     }
     NewD->setParams(Params);

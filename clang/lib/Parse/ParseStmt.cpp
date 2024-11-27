@@ -175,6 +175,29 @@ Retry:
       PPExtNextTokIsLParen = true;
     }
     else if (Tok.getIdentifierInfo()
+            ->getName().equals("spec_index_cmp")) {
+      auto IdentTok =
+        PP.LookAhead(1).is(tok::identifier) ?
+        PP.LookAhead(1) : PP.LookAhead(2);
+      assert(IdentTok.is(tok::identifier));
+      auto* II = IdentTok.getIdentifierInfo();
+      LookupResult Result(Actions, II, Tok.getLocation(),
+        Sema::LookupOrdinaryName);
+      Actions.LookupName(Result, getCurScope());
+      assert(Result.getResultKind() == LookupResult::Found);
+      auto FD = Result.getFoundDecl();
+      assert(FD);
+      auto VD = cast<clang::VarDecl>(FD);
+      assert(VD);
+      clang::QualType QTT = VD->getType();
+      auto Str = QTT.getAsString();
+      StringRef SS(Str);
+      auto StructName = SS.split(" ").second;
+      auto MangledName = "spec_index_cmp" + StructName.str();
+      auto IIMangled = &PP.getIdentifierTable().get(MangledName);
+      Tok.setIdentifierInfo(IIMangled);
+    }
+    else if (Tok.getIdentifierInfo()
             ->getName().equals("create_spec")   ||
         Tok.getIdentifierInfo()
             ->getName().equals("get_spec_size") ||

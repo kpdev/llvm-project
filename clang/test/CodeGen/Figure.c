@@ -246,6 +246,22 @@ int main() {
     struct Figure* created_ptr = get_spec_ptr(Figure, 1);
     printf("created_ptr->__pp_specialization_type = %d\n",
             created_ptr->__pp_specialization_type);
+
+    // CHECK-RT-NEXT: Trian+Trian cmp: 3
+    int res_cmp1 = spec_index_cmp(&ft, &ft);
+    printf("Trian+Trian cmp: %d\n", res_cmp1);
+
+    // CHECK-RT-NEXT: Rect+Rect cmp: 2
+    int res_cmp2 = spec_index_cmp(&fr, &fr);
+    printf("Rect+Rect cmp: %d\n", res_cmp2);
+
+    // CHECK-RT-NEXT: Circ+Circ2 cmp: 1
+    int res_cmp3 = spec_index_cmp(&fc, &fc2);
+    printf("Circ+Circ2 cmp: %d\n", res_cmp3);
+
+    // CHECK-RT-NEXT: Circ+Rect cmp: -1
+    int res_cmp4 = spec_index_cmp(&fc, &fr);
+    printf("Circ+Rect cmp: %d\n", res_cmp4);
 }
 
 // This code just checking comilation

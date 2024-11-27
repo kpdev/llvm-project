@@ -1927,6 +1927,7 @@ void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
       FName.startswith("create_spec") ||
       FName.startswith("get_spec_ptr") ||
       FName.startswith("get_spec_size") ||
+      FName.startswith("spec_index_cmp") ||
       FName.startswith("init_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
@@ -5032,6 +5033,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   if (F->getName().startswith("create_spec")   ||
       F->getName().startswith("get_spec_ptr")  ||
       F->getName().startswith("get_spec_size") ||
+      F->getName().startswith("spec_index_cmp") ||
       F->getName().startswith("init_spec")) {
     PPCreateSpecsToDefine.push_back(F);
   }
@@ -6886,6 +6888,7 @@ void CodeGenModule::HandlePPExtensionMethods(
     const bool IsInitSpec = FSpec->getName().startswith("init_spec");
     const bool IsGetSpecPtr = FSpec->getName().startswith("get_spec_ptr");
     const bool IsGetSpecSize = FSpec->getName().startswith("get_spec_size");
+    const bool IsSpecIdxCmp = FSpec->getName().startswith("spec_index_cmp");
 
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted = IsInitSpec ?
@@ -6895,6 +6898,73 @@ void CodeGenModule::HandlePPExtensionMethods(
           (IsGetSpecSize ?
             FSpec->getName().substr(sizeof("get_spec_size") - 1) :
             FSpec->getName().substr(sizeof("create_spec") - 1)));
+
+      // TODO: Refactor
+      if (IsSpecIdxCmp) {
+        TypeNameExtracted = FSpec->getName().substr(sizeof("spec_index_cmp") - 1);
+        TypeNameExtracted = TypeNameExtracted.substr(sizeof("__pp_struct_") - 1);
+        auto Pos = TypeNameExtracted.find("__");
+        TypeNameExtracted = TypeNameExtracted.substr(0, Pos);
+        auto* Ty = PPExtGetTypeByName(TypeNameExtracted);
+        assert(Ty);
+
+        auto* RecordTy = Ty->getAsRecordDecl();
+        assert(RecordTy);
+
+        int FieldIdx = 0;
+        for (auto* Field : RecordTy->fields()) {
+          if (Field->getName().equals("__pp_specialization_type")) {
+            break;
+          }
+          ++FieldIdx;
+        }
+        llvm::APInt ApintIdx(32, FieldIdx);
+        auto* NumberIdx =
+          llvm::ConstantInt::get(
+            getLLVMContext(), ApintIdx);
+        llvm::APInt Apint0(32, 0);
+        llvm::APInt ApintM1(32, -1);
+        auto* Number0 =
+          llvm::ConstantInt::get(
+            getLLVMContext(), Apint0);
+        auto* NumberM1 =
+          llvm::ConstantInt::get(
+            getLLVMContext(), ApintM1);
+        ArrayRef<llvm::Value*> IdxsTagField({Number0, NumberIdx});
+        auto HeadQTy = RecordTy->getTypeForDecl()->getCanonicalTypeInternal();
+        auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
+
+        auto* Arg1 = FSpec->getArg(0);
+        auto* Arg2 = FSpec->getArg(1);
+        auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", FSpec);
+        auto ASTIntTy = getContext().IntTy;
+        auto CGIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+        auto* RetVal = new llvm::AllocaInst(CGIntTy, 0, "retval", BB);
+        auto* Tag1 = llvm::GetElementPtrInst::CreateInBounds(
+          HeadRecTy, Arg1, IdxsTagField, "pp_spec_type", BB);
+        auto* Tag2 = llvm::GetElementPtrInst::CreateInBounds(
+          HeadRecTy, Arg2, IdxsTagField, "pp_spec_type", BB);
+        auto* LTag1 = new llvm::LoadInst(CGIntTy, Tag1, "", BB);
+        auto* LTag2 = new llvm::LoadInst(CGIntTy, Tag2, "", BB);
+        auto* Cmp = llvm::CmpInst::Create(
+          llvm::Instruction::OtherOps::ICmp,
+          llvm::CmpInst::Predicate::ICMP_EQ,
+          LTag1, LTag2, "", BB);
+        auto* BBIfThen = llvm::BasicBlock::Create(getLLVMContext(), "if.then", FSpec);
+        auto* BBIfEnd  = llvm::BasicBlock::Create(getLLVMContext(), "if.end", FSpec);
+        auto* BBRet    = llvm::BasicBlock::Create(getLLVMContext(), "return", FSpec);
+        llvm::BranchInst::Create(BBIfThen, BBIfEnd,
+                                 Cmp, BB);
+        new llvm::StoreInst(LTag1, RetVal, BBIfThen);
+        llvm::BranchInst::Create(BBRet, BBIfThen);
+
+        new llvm::StoreInst(NumberM1, RetVal, BBIfEnd);
+        llvm::BranchInst::Create(BBRet, BBIfEnd);
+
+        auto* Ret = new llvm::LoadInst(CGIntTy, RetVal, "", BBRet);
+        llvm::ReturnInst::Create(getLLVMContext(), Ret, BBRet);
+        continue;
+      }
 
 #ifdef PPEXT_DUMP
       printf("Need to generate body for %s [%s]\n",
