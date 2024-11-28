@@ -7138,18 +7138,24 @@ void CodeGenModule::HandlePPExtensionMethods(
           ArrayRef<llvm::Value*> IdxsTail({Number0, Number1});
           auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
             GenRecTy, PtrToObjForGEP, IdxsHead, "pp_head", BB);
+          assert(!RecordTy->fields().empty());
+          auto firstField = *RecordTy->field_begin();
           auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
-          if (HeadRecordTy == nullptr) {
+          if (!firstField->getName().equals("__pp_head")) {
             // It is a generalization
             HeadRecordTy = RecordTy;
           }
+
           int FieldIdx = 0;
+          bool SpecTypeWasFound = false;
           for (auto* Field : HeadRecordTy->fields()) {
             if (Field->getName().equals("__pp_specialization_type")) {
+              SpecTypeWasFound = true;
               break;
             }
             ++FieldIdx;
           }
+          assert(SpecTypeWasFound);
           llvm::APInt ApintIdx(32, FieldIdx);
           auto* NumberIdx =
             llvm::ConstantInt::get(

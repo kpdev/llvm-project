@@ -305,3 +305,11 @@ int not_called_foo() {
 void foo_check_cast(void* ptr) {
     struct Figure.Circle* fc = (struct Figure.Circle*)ptr;
 }
+
+
+// Check structs inside generalization
+struct RectangleCover {
+  struct Rectangle r;
+} <>;
+
+void RectangleLink(struct RectangleCover* rc) {}
