@@ -134,6 +134,10 @@ void test_type_tag(struct Figure* f)
 struct Figure.Circle gfc;
 
 int main() {
+    struct Figure f;
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 0
+    test_type_tag(&f);
+
     struct Figure.Circle fc;
     fc.@r = 42;
     fc.color = 0xffffffff;
