@@ -2816,15 +2816,22 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     }
     else if (IsSpecIdxCmp) {
       auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
-      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+      ParmVarDecl* PVDecl1 = ParmVarDecl::Create(Context,
         Context.getTranslationUnitDecl(),
         NameLoc, NameLoc, nullptr,
         Context.VoidPtrTy,
         tfi,
         clang::StorageClass::SC_None,
         nullptr);
-      Params.push_back(PVDecl);
-      Params.push_back(PVDecl);
+      ParmVarDecl* PVDecl2 = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl1);
+      Params.push_back(PVDecl2);
     }
     NewD->setParams(Params);
     // TODO: Remove it

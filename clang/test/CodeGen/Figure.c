@@ -262,6 +262,15 @@ int main() {
     // CHECK-RT-NEXT: Circ+Rect cmp: -1
     int res_cmp4 = spec_index_cmp(&fc, &fr);
     printf("Circ+Rect cmp: %d\n", res_cmp4);
+
+    // CHECK-RT-NEXT: Rect+Circ cmp: -1
+    res_cmp4 = spec_index_cmp(&fr, &fc);
+    printf("Rect+Circ cmp: %d\n", res_cmp4);
+
+    // CHECK-RT-NEXT: Checked usage spec_index_cmp in condition
+    if (spec_index_cmp(&fc, &fc) >= 0) {
+        printf("Checked usage spec_index_cmp in condition\n");
+    }
 }
 
 // This code just checking comilation
