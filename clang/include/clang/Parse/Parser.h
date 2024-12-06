@@ -1572,7 +1572,30 @@ private:
     bool NeedToAddLParen = true
   );
 
+  enum class PPStructType {
+    Default,
+    Generalization,
+    Specialization
+  };
+
+  PPStructType PPExtGetStructType(const RecordDecl* RD) const;
+
+  struct PPStructInitDesc {
+    NamedDecl* VD;
+    const RecordDecl* RD;
+    const PPStructType Type;
+  };
+
+  std::vector<PPStructInitDesc> PPExtGetRDListToInit(const RecordDecl* RD) const;
+
   std::string PPExtConstructTagName(StringRef GenName);
+
+  struct PPMemberInitData {
+    Expr* Assign;
+    Expr* MemberAccess;
+  };
+
+  PPMemberInitData PPExtInitPPStruct(PPStructInitDesc IDesc, Expr* MemberAccess);
 
   static DeclSpec::TST PPExtGetFieldTypeByTokKind(tok::TokenKind TK);
 

@@ -133,10 +133,25 @@ void test_type_tag(struct Figure* f)
 
 struct Figure.Circle gfc;
 
+struct RectangleCover {
+  struct Figure.Circle fc;
+  struct Figure.Triangle ft;
+  Rectangle r;
+} <>;
+
 int main() {
     struct Figure f;
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 0
     test_type_tag(&f);
+
+    struct RectangleCover rc;
+    // CHECK-RT: RectangleCover tag: 0
+    printf("RectangleCover tag: %d\n",
+        rc.__pp_specialization_type);
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 1
+    test_type_tag(&rc.fc);
+    // CHECK-RT:      [foo_test] f->__pp_specialization_type = 3
+    test_type_tag(&rc.ft);
 
     struct Figure.Circle fc;
     fc.@r = 42;
@@ -318,11 +333,3 @@ int not_called_foo() {
 void foo_check_cast(void* ptr) {
     struct Figure.Circle* fc = (struct Figure.Circle*)ptr;
 }
-
-
-// Check structs inside generalization
-struct RectangleCover {
-  struct Rectangle r;
-} <>;
-
-void RectangleLink(struct RectangleCover* rc) {}

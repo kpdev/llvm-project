@@ -1175,6 +1175,160 @@ StmtResult Parser::handleExprStmt(ExprResult E, ParsedStmtContext StmtCtx) {
   return Actions.ActOnExprStmt(E, /*DiscardedValue=*/!IsStmtExprResult);
 }
 
+Parser::PPStructType
+Parser::PPExtGetStructType(const RecordDecl* RD) const
+{
+  StringRef TagFieldName("__pp_specialization_type");
+  for (auto FieldIter = RD->field_begin();
+            FieldIter != RD->field_end(); ++FieldIter) {
+    if (FieldIter->getName().equals(TagFieldName)) {
+      return PPStructType::Generalization;
+    }
+  }
+
+  if (RD->getName().startswith("__pp_struct")) {
+    return PPStructType::Specialization;
+  }
+
+  return PPStructType::Default;
+}
+
+
+std::vector<Parser::PPStructInitDesc>
+Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
+{
+  std::vector<Parser::PPStructInitDesc> Result;
+  assert(!RD->field_empty());
+  auto HeadElem = *RD->field_begin();
+  auto HeadType = HeadElem->getType();
+  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
+                          getAsRecordDecl();
+
+  if (!RDHead ||
+      !HeadElem->getName().equals("__pp_head")) {
+    RDHead = RD;
+  }
+
+  for (auto FieldIter = RDHead->field_begin();
+            FieldIter != RDHead->field_end(); ++FieldIter) {
+    auto FieldType = FieldIter->getType();
+    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
+                            getAsRecordDecl();
+    if (RDField) {
+      auto StrTy = PPExtGetStructType(RDField);
+      if (StrTy != PPStructType::Default) {
+        Result.emplace_back(
+          PPStructInitDesc{*FieldIter, RDField, StrTy});
+      }
+    }
+  }
+
+  return Result;
+}
+
+
+Parser::PPMemberInitData
+Parser::PPExtInitPPStruct(PPStructInitDesc IDesc, Expr* MemberAccess)
+{
+  auto RDType = PPExtGetStructType(IDesc.RD);
+  auto TName = IDesc.RD->getName();
+  StringRef TagFieldName("__pp_specialization_type");
+  assert(RDType != PPStructType::Default);
+  // Initialize tag
+  CXXScopeSpec SS;
+  UnqualifiedId HeadFieldId;
+  {
+    // setup field name
+    IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
+    HeadFieldId.setIdentifier(Id, SourceLocation());
+  }
+
+  ExprResult ERes;
+  if (MemberAccess == nullptr) {
+    ERes = Actions.ActOnNameClassifiedAsNonType(
+      getCurScope(),
+      SS,
+      IDesc.VD,
+      SourceLocation(),
+      NextToken()
+    );
+  }
+  else {
+    UnqualifiedId CurStructId;
+    CurStructId.setIdentifier(
+      &PP.getIdentifierTable().get(IDesc.VD->getName()),
+      SourceLocation());
+    // Access from head to current struct
+    ERes = Actions.ActOnMemberAccessExpr(getCurScope(),
+              MemberAccess, SourceLocation(),
+              clang::tok::period,
+              SS,
+              SourceLocation(),
+              CurStructId,
+              nullptr);
+  }
+
+  const bool isVariant = (PPStructType::Specialization == RDType);
+  auto HeadField = isVariant ?
+      Actions.ActOnMemberAccessExpr(getCurScope(),
+        ERes.get(), SourceLocation(),
+        clang::tok::period,
+        SS,
+        SourceLocation(),
+        HeadFieldId,
+        nullptr)
+    : ERes;
+
+  IdentifierInfo* Id = &PP.getIdentifierTable().get(TagFieldName);
+  UnqualifiedId TagFieldId;
+  TagFieldId.setIdentifier(Id, SourceLocation());
+  auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+    HeadField.get(), SourceLocation(),
+    clang::tok::period,
+    SS,
+    SourceLocation(),
+    TagFieldId,
+    nullptr);
+
+  Expr* RHSRes;
+  // Prepare RHS
+  if (isVariant) {
+    std::string TagName = PPExtConstructTagName(TName);
+    IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
+    UnqualifiedId VarName;
+    VarName.setIdentifier(II, SourceLocation());
+    DeclarationNameInfo DNI;
+    DNI.setName(VarName.Identifier);
+    LookupResult R(Actions, DNI,
+      Sema::LookupOrdinaryName);
+    getActions().LookupName(R, getCurScope(), true);
+    auto* D = cast<ValueDecl>(R.getFoundDecl());
+    auto RHSResDeclRef = DeclRefExpr::Create(getActions().Context,
+      NestedNameSpecifierLoc(), SourceLocation(),
+      D,
+      false,
+      R.getLookupNameInfo(),
+      D->getType(),
+      clang::VK_LValue,
+      D);
+    getActions().MarkDeclRefReferenced(RHSResDeclRef);
+    RHSRes = RHSResDeclRef;
+  }
+  else {
+    RHSRes = Actions.ActOnIntegerConstant(Tok.getLocation(), 0).get();
+  }
+
+  ExprResult AssignmentOpExpr =
+    Actions.ActOnBinOp(
+      getCurScope(),
+      SourceLocation(),
+      clang::tok::equal,
+      TagField.get(),
+      RHSRes
+    );
+  return PPMemberInitData{AssignmentOpExpr.get(), HeadField.get()};
+}
+
 StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
   PrettyStackTraceLoc CrashInfo(PP.getSourceManager(),
                                 Tok.getLocation(),
@@ -1290,106 +1444,29 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       Stmts.push_back(R.get());
 
       // Check if it is pp variant
+      // TODO: Move to separate function
       if (isa<DeclStmt>(R.get())) {
         DeclStmt* DS = cast_or_null<DeclStmt>(R.get());
         if (DS->isSingleDecl()) {
           if (VarDecl* VD = cast_or_null<VarDecl>(DS->getSingleDecl())) {
             if (RecordDecl* RD = VD->getType().getCanonicalType().getTypePtr()->
                             getAsRecordDecl()) {
-              auto TName = RD->getName();
-              auto Tmp = VD->getNameAsString();
-              StringRef TagFieldName("__pp_specialization_type");
-              bool isGen = false;
-              for (auto FieldIter = RD->field_begin();
-                        FieldIter != RD->field_end(); ++FieldIter) {
-                  if (FieldIter->getName().equals(TagFieldName)) {
-                    isGen = true;
-                    break;
-                  }
-                }
-
-              const bool isVariant = !isGen
-                          && TName.startswith("__pp_struct");
-
-              if (isGen || isVariant) {
-                // Initialize tag
-                CXXScopeSpec SS;
-                UnqualifiedId FieldName;
-                {
-                  // setup field name
-                  IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
-                  FieldName.setIdentifier(Id, SourceLocation());
-                }
-
-                ExprResult ERes = Actions.ActOnNameClassifiedAsNonType(
-                  getCurScope(),
-                  SS,
-                  VD,
-                  SourceLocation(),
-                  NextToken()
+              auto RDType = PPExtGetStructType(RD);
+              if (RDType != PPStructType::Default) {
+                auto AssignmentOpExpr = PPExtInitPPStruct(
+                  PPStructInitDesc{VD, RD, RDType},
+                  nullptr
                 );
+                Stmts.push_back(AssignmentOpExpr.Assign);
 
-                auto TagField = isVariant ?
-                    Actions.ActOnMemberAccessExpr(getCurScope(),
-                      ERes.get(), SourceLocation(),
-                      clang::tok::period,
-                      SS,
-                      SourceLocation(),
-                      FieldName,
-                      nullptr)
-                  : ERes;
-
-                IdentifierInfo* Id = &PP.getIdentifierTable().get(TagFieldName);
-                FieldName.setIdentifier(Id, SourceLocation());
-                TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
-                  TagField.get(), SourceLocation(),
-                  clang::tok::period,
-                  SS,
-                  SourceLocation(),
-                  FieldName,
-                  nullptr);
-
-                Expr* RHSRes;
-                // Prepare RHS
-                if (isVariant) {
-                  std::string TagName = PPExtConstructTagName(TName);
-                  IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
-                  UnqualifiedId VarName;
-                  VarName.setIdentifier(II, SourceLocation());
-                  DeclarationNameInfo DNI;
-                  DNI.setName(VarName.Identifier);
-                  LookupResult R(Actions, DNI,
-                    Sema::LookupOrdinaryName);
-                  getActions().LookupName(R, getCurScope(), true);
-                  auto* D = cast<ValueDecl>(R.getFoundDecl());
-                  auto RHSResDeclRef = DeclRefExpr::Create(getActions().Context,
-                    NestedNameSpecifierLoc(), SourceLocation(),
-                    D,
-                    false,
-                    R.getLookupNameInfo(),
-                    D->getType(),
-                    clang::VK_LValue,
-                    D);
-                  getActions().MarkDeclRefReferenced(RHSResDeclRef);
-                  RHSRes = RHSResDeclRef;
+                auto FieldsToInit = PPExtGetRDListToInit(RD);
+                for (auto IDesc : FieldsToInit) {
+                  auto ResInit =
+                    PPExtInitPPStruct(IDesc, AssignmentOpExpr.MemberAccess);
+                  Stmts.push_back(ResInit.Assign);
                 }
-                else {
-                  RHSRes = Actions.ActOnIntegerConstant(Tok.getLocation(), 0).get();
-                }
-
-                ExprResult AssignmentOpExpr =
-                  Actions.ActOnBinOp(
-                    getCurScope(),
-                    SourceLocation(),
-                    clang::tok::equal,
-                    TagField.get(),
-                    RHSRes
-                  );
-
-                Stmts.push_back(AssignmentOpExpr.get());
               }
             }
-
           }
         }
       }// Check if it is pp varian
