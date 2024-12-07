@@ -16,6 +16,7 @@
 #include "clang/Basic/OpenACCKinds.h"
 #include "clang/Basic/OperatorPrecedence.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Lex/CodeCompletionHandler.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Sema.h"
@@ -1572,6 +1573,22 @@ private:
     ParsedAttributes& PAttrs,
     bool NeedToAddLParen = true
   );
+
+  enum class PPStructType {
+    Default,
+    Generalization,
+    Specialization
+  };
+
+  PPStructType PPExtGetStructType(const RecordDecl* RD) const;
+
+  struct PPStructInitDesc {
+    NamedDecl* VD;
+    const RecordDecl* RD;
+    const PPStructType Type;
+  };
+
+  std::vector<PPStructInitDesc> PPExtGetRDListToInit(const RecordDecl* RD) const;
 
   std::string PPExtConstructTagName(StringRef GenName);
 
