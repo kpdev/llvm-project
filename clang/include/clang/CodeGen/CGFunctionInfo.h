@@ -834,6 +834,23 @@ public:
 };
 
 }  // end namespace CodeGen
+
+enum class PPStructType {
+  Default,
+  Generalization,
+  Specialization
+};
+
+PPStructType PPExtGetStructType(const RecordDecl* RD);
+
+struct PPStructInitDesc {
+  NamedDecl* VD;
+  const RecordDecl* RD;
+  const PPStructType Type;
+};
+
+std::vector<PPStructInitDesc> PPExtGetRDListToInit(const RecordDecl* RD);
+
 }  // end namespace clang
 
 #endif

@@ -51,6 +51,81 @@ StmtResult Parser::ParseStatement(SourceLocation *TrailingElseLoc,
   return Res;
 }
 
+namespace clang
+{
+
+PPStructType
+PPExtGetStructType(const RecordDecl* RD)
+{
+  StringRef TagFieldName("__pp_specialization_type");
+  for (auto FieldIter = RD->field_begin();
+            FieldIter != RD->field_end(); ++FieldIter) {
+    if (FieldIter->getName().equals(TagFieldName)) {
+      return PPStructType::Generalization;
+    }
+  }
+
+  if (RD->getName().startswith("__pp_struct")) {
+    return PPStructType::Specialization;
+  }
+
+  return PPStructType::Default;
+}
+
+std::vector<PPStructInitDesc>
+PPExtGetRDListToInit(const RecordDecl* RD)
+{
+  std::vector<PPStructInitDesc> Result;
+  assert(!RD->field_empty());
+  auto HeadElem = *RD->field_begin();
+  auto HeadType = HeadElem->getType();
+  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
+                          getAsRecordDecl();
+
+  if (!RDHead ||
+      !HeadElem->getName().equals("__pp_head")) {
+    RDHead = RD;
+  }
+
+  for (auto FieldIter = RDHead->field_begin();
+            FieldIter != RDHead->field_end(); ++FieldIter) {
+    auto FieldType = FieldIter->getType();
+    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
+                            getAsRecordDecl();
+    if (RDField) {
+      auto StrTy = PPExtGetStructType(RDField);
+      if (StrTy != PPStructType::Default) {
+        Result.emplace_back(
+          PPStructInitDesc{*FieldIter, RDField, StrTy});
+      }
+    }
+  }
+
+  return Result;
+}
+
+} // namespace clang
+
+
+
+PPStructType
+PPExtGetStructType(const RecordDecl* RD)
+{
+  StringRef TagFieldName("__pp_specialization_type");
+  for (auto FieldIter = RD->field_begin();
+            FieldIter != RD->field_end(); ++FieldIter) {
+    if (FieldIter->getName().equals(TagFieldName)) {
+      return PPStructType::Generalization;
+    }
+  }
+
+  if (RD->getName().startswith("__pp_struct")) {
+    return PPStructType::Specialization;
+  }
+
+  return PPStructType::Default;
+}
+
 StmtResult
 Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
                                     ParsedStmtContext StmtCtx,
@@ -1173,57 +1248,6 @@ StmtResult Parser::handleExprStmt(ExprResult E, ParsedStmtContext StmtCtx) {
   if (IsStmtExprResult)
     E = Actions.ActOnStmtExprResult(E);
   return Actions.ActOnExprStmt(E, /*DiscardedValue=*/!IsStmtExprResult);
-}
-
-Parser::PPStructType
-Parser::PPExtGetStructType(const RecordDecl* RD) const
-{
-  StringRef TagFieldName("__pp_specialization_type");
-  for (auto FieldIter = RD->field_begin();
-            FieldIter != RD->field_end(); ++FieldIter) {
-    if (FieldIter->getName().equals(TagFieldName)) {
-      return PPStructType::Generalization;
-    }
-  }
-
-  if (RD->getName().startswith("__pp_struct")) {
-    return PPStructType::Specialization;
-  }
-
-  return PPStructType::Default;
-}
-
-
-std::vector<Parser::PPStructInitDesc>
-Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
-{
-  std::vector<Parser::PPStructInitDesc> Result;
-  assert(!RD->field_empty());
-  auto HeadElem = *RD->field_begin();
-  auto HeadType = HeadElem->getType();
-  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
-                          getAsRecordDecl();
-
-  if (!RDHead ||
-      !HeadElem->getName().equals("__pp_head")) {
-    RDHead = RD;
-  }
-
-  for (auto FieldIter = RDHead->field_begin();
-            FieldIter != RDHead->field_end(); ++FieldIter) {
-    auto FieldType = FieldIter->getType();
-    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
-                            getAsRecordDecl();
-    if (RDField) {
-      auto StrTy = PPExtGetStructType(RDField);
-      if (StrTy != PPStructType::Default) {
-        Result.emplace_back(
-          PPStructInitDesc{*FieldIter, RDField, StrTy});
-      }
-    }
-  }
-
-  return Result;
 }
 
 
