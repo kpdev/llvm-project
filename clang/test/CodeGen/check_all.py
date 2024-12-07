@@ -12,7 +12,7 @@ if not os.path.isfile(path_to_clang):
 
 command_list = [
     "./build/bin/llvm-lit "
-        "clang/test/CodeGen/Figure.c "
+        "clang/test/CodeGen/pp-base.c "
         "-v"
     ,
     "./build/bin/llvm-lit "
@@ -49,7 +49,7 @@ for cmd in command_list:
     print("\n===========")
     str_test = "[TEST][" + str(idx) + "]"
     idx = idx + 1
-    print("***", str_test, "Run command: ", cmd, " ***")
+    print("***", str_test, "***\nRun command: ", cmd)
     retval = os.system(cmd)
     if retval != 0:
         print("***", str_test, "Error with: ", cmd)
