@@ -19,9 +19,29 @@ struct RectangleCover {
 struct RectangleCover g_rc;
 
 int main() {
+    // CHECK-RT: g_rc tag = 0
+    printf("g_rc tag = %d\n",
+        g_rc.__pp_specialization_type);
+
+    // CHECK-RT: g_rc.fc tag = 1
+    printf("g_rc.fc tag = %d\n",
+        g_rc.fc.__pp_specialization_type);
+
+    // CHECK-RT: g_rc.ft tag = 3
+    printf("g_rc.ft tag = %d\n",
+        g_rc.ft.__pp_specialization_type);
+
     struct RectangleCover rc;
     // CHECK-RT: rc tag = 0
     printf("rc tag = %d\n",
         rc.__pp_specialization_type);
+
+    // CHECK-RT: rc.fc tag = 1
+    printf("rc.fc tag = %d\n",
+        rc.fc.__pp_specialization_type);
+
+    // CHECK-RT: rc.ft tag = 3
+    printf("rc.ft tag = %d\n",
+        rc.ft.__pp_specialization_type);
     return 0;
 }
