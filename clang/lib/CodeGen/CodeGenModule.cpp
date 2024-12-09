@@ -106,6 +106,74 @@ static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
   llvm_unreachable("invalid C++ ABI kind");
 }
 
+namespace
+{
+
+enum class PPStructType {
+  Default,
+  Generalization,
+  Specialization
+};
+
+struct PPStructInitDesc {
+  NamedDecl* VD;
+  const RecordDecl* RD;
+  const PPStructType Type;
+};
+
+PPStructType
+PPExtGetStructType(const RecordDecl* RD)
+{
+  StringRef TagFieldName("__pp_specialization_type");
+  for (auto FieldIter = RD->field_begin();
+            FieldIter != RD->field_end(); ++FieldIter) {
+    if (FieldIter->getName().equals(TagFieldName)) {
+      return PPStructType::Generalization;
+    }
+  }
+
+  if (RD->getName().startswith("__pp_struct")) {
+    return PPStructType::Specialization;
+  }
+
+  return PPStructType::Default;
+}
+
+
+std::vector<PPStructInitDesc>
+PPExtGetRDListToInit(const RecordDecl* RD)
+{
+  std::vector<PPStructInitDesc> Result;
+  assert(!RD->field_empty());
+  auto HeadElem = *RD->field_begin();
+  auto HeadType = HeadElem->getType();
+  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
+                          getAsRecordDecl();
+
+  if (!RDHead ||
+      !HeadElem->getName().equals("__pp_head")) {
+    RDHead = RD;
+  }
+
+  for (auto FieldIter = RDHead->field_begin();
+            FieldIter != RDHead->field_end(); ++FieldIter) {
+    auto FieldType = FieldIter->getType();
+    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
+                            getAsRecordDecl();
+    if (RDField) {
+      auto StrTy = PPExtGetStructType(RDField);
+      if (StrTy != PPStructType::Default) {
+        Result.emplace_back(
+          PPStructInitDesc{*FieldIter, RDField, StrTy});
+      }
+    }
+  }
+
+  return Result;
+}
+
+}
+
 static std::unique_ptr<TargetCodeGenInfo>
 createTargetCodeGenInfo(CodeGenModule &CGM) {
   const TargetInfo &Target = CGM.getTarget();
@@ -6658,15 +6726,18 @@ CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
 
 void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
       llvm::GlobalVariable* GV) {
-
-  StringRef Name("");
   auto *VTy = GV->getValueType();
-  if (VTy->isStructTy()) {
-    auto VTyName = VTy->getStructName();
-    Name = VTyName.split(".").second;
+  if (!VTy->isStructTy()) {
+    return;
   }
 
-  if (!Name.startswith("__pp_struct")) {
+  auto VTyName = VTy->getStructName();
+  StringRef Name = VTyName.split(".").second;
+  auto* Ty = PPExtGetTypeByName(Name);
+  auto* RecordTy = Ty->getAsRecordDecl();
+  assert(RecordTy);
+  auto RDType = PPExtGetStructType(RecordTy);
+  if (RDType == PPStructType::Default) {
     return;
   }
 
@@ -6680,8 +6751,12 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
     F = llvm::Function::Create(FTy, llvm::Function::ExternalLinkage,
                       MangledName, &getModule());
     auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", F);
+    const bool IsEmptyGeneralization = Name.startswith("__pp_struct");
+    std::string TagPrefix =
+      IsEmptyGeneralization ?
+        "__pp_tag_" : "__pp_tags_";
     auto* GVTag = getModule().getGlobalVariable(
-      std::string("__pp_tag_") + Name.str());
+      TagPrefix + Name.str());
 
     // PPEXT TODO: Setup attributes
     // Attrs
@@ -6712,11 +6787,8 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
     //
 
     // Load ptr to tag field
-    auto* Ty = PPExtGetTypeByName(Name);
     auto Qty = Ty->getCanonicalTypeInternal();
     auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
-    auto* RecordTy = Ty->getAsRecordDecl();
-    assert(RecordTy);
     llvm::APInt Apint0(32, 0);
     llvm::APInt Apint1(32, 1);
     auto* Number0 =
@@ -6751,9 +6823,11 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
     // Store tag
     auto ASTIntTy = getContext().IntTy;
     auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-    auto* LoadTag =
-      new llvm::LoadInst(IntTy, GVTag, "", BB);
-    new llvm::StoreInst(LoadTag, SpecTypeField, BB);
+    llvm::Value* InitVal =
+      IsEmptyGeneralization ?
+        (llvm::Value*)new llvm::LoadInst(IntTy, GVTag, "", BB) :
+        (llvm::Value*)llvm::Constant::getNullValue(IntTy);
+    new llvm::StoreInst(InitVal, SpecTypeField, BB);
     llvm::ReturnInst::Create(getLLVMContext(), BB);
 
     // PPEXT TODO: Check priority value

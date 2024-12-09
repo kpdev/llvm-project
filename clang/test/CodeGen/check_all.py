@@ -16,6 +16,10 @@ command_list = [
         "-v"
     ,
     "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-init.c "
+        "-v"
+    ,
+    "./build/bin/llvm-lit "
         "clang/test/CodeGen/pp-linked.c "
         "-v"
     ,
