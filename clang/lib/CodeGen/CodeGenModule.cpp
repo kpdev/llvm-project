@@ -6731,9 +6731,9 @@ void CodeGenModule::PPExtInitGenOrSpec(
   StringRef Name,
   llvm::Value* ParentObject)
 {
-    const bool IsEmptyGeneralization = Name.startswith("__pp_struct");
+    const bool IsFullGeneralization = Name.startswith("__pp_struct");
     std::string TagPrefix =
-      IsEmptyGeneralization ?
+      IsFullGeneralization ?
         "__pp_tag_" : "__pp_tags_";
     auto* GVTag = getModule().getGlobalVariable(
       TagPrefix + Name.str());
@@ -6757,7 +6757,9 @@ void CodeGenModule::PPExtInitGenOrSpec(
       GenRecTy, ParentObject, IdxsHead, "pp_head", BB);
     auto* RecordTy = Ty->getAsRecordDecl();
     assert(RecordTy);
-    auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
+    auto HeadRecordTy = IsFullGeneralization ?
+      RecordTy->field_begin()->getType()->getAsRecordDecl() :
+      RecordTy;
     int FieldIdx = 0;
     for (auto* Field : HeadRecordTy->fields()) {
       if (Field->getName().equals("__pp_specialization_type")) {
@@ -6780,7 +6782,7 @@ void CodeGenModule::PPExtInitGenOrSpec(
     auto ASTIntTy = getContext().IntTy;
     auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
     llvm::Value* InitVal =
-      IsEmptyGeneralization ?
+      IsFullGeneralization ?
         (llvm::Value*)new llvm::LoadInst(IntTy, GVTag, "", BB) :
         (llvm::Value*)llvm::Constant::getNullValue(IntTy);
     new llvm::StoreInst(InitVal, SpecTypeField, BB);

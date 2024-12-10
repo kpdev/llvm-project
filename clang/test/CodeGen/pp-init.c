@@ -5,7 +5,12 @@
 
 typedef struct Circle { int r; } Circle;
 typedef struct Rectangle { int w, h; } Rectangle;
-struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
+struct Figure {
+    unsigned color;
+    int additional_workload;
+    double additional_workload2;
+    char additional_workload3;
+} < struct Circle; struct Rectangle; >;
 
 typedef struct Triangle { int a, b, c; } Triangle;
 Figure + < Triangle; >;
@@ -30,6 +35,12 @@ int main() {
     // CHECK-RT: g_rc.ft tag = 3
     printf("g_rc.ft tag = %d\n",
         g_rc.ft.__pp_specialization_type);
+
+    // Just check compilation
+    init_spec(Figure.Rectangle, &(g_rc.fc));
+    // CHECK-RT: g_rc.fc tag = 2
+    printf("g_rc.fc tag = %d\n",
+        g_rc.fc.__pp_specialization_type);
 
     struct RectangleCover rc;
     // CHECK-RT: rc tag = 0
