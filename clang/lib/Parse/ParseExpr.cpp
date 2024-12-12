@@ -1094,10 +1094,13 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           StringRef Mangled(S);
           IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
           Name.setIdentifier(IIMangled, ILoc);
-          assert(Tok.is(tok::period));
-          ConsumeToken();
-          assert(Tok.is(tok::identifier));
-          Tok.setKind(tok::l_paren);
+          assert(Tok.is(tok::period)
+                  || Tok.is(tok::l_paren));
+          if (!Tok.is(tok::l_paren)) {
+            ConsumeToken();
+            assert(Tok.is(tok::identifier));
+            Tok.setKind(tok::l_paren);
+          }
         }
       }
     }

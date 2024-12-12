@@ -24,6 +24,25 @@ struct RectangleCover {
 struct RectangleCover g_rc;
 
 int main() {
+    // CHECK-RT: pf_empty tag = 0
+    struct Figure* pf_empty = create_spec(Figure);
+    printf("pf_empty tag = %d\n",
+        pf_empty->__pp_specialization_type);
+
+    // CHECK-RT: prc tag = 0
+    struct RectangleCover* prc = create_spec(RectangleCover);
+    printf("prc tag = %d\n",
+        prc->__pp_specialization_type);
+
+    // CHECK-RT: prc->fc tag = 1
+    printf("prc->fc tag = %d\n",
+        prc->fc.__pp_specialization_type);
+
+    // CHECK-RT: prc->ft tag = 3
+    printf("prc->ft tag = %d\n",
+        prc->ft.__pp_specialization_type);
+
+
     // CHECK-RT: g_rc tag = 0
     printf("g_rc tag = %d\n",
         g_rc.__pp_specialization_type);

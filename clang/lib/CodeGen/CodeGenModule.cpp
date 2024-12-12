@@ -7293,6 +7293,28 @@ void CodeGenModule::HandlePPExtensionMethods(
               llvm::Constant::getNullValue(IntTy), TagElem, BB);
           }
 
+          // tag for the current struct is inited
+          // next step: init tags for direct fields
+          // TODO: Combine it with
+          //       CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded
+          auto FieldsToInit = PPExtGetRDListToInit(RecordTy);
+          for (auto& F : FieldsToInit) {
+            llvm::APInt Apint0(32, 0);
+            llvm::APInt ApintIdx(32, F.Idx);
+            auto* Number0 =
+              llvm::ConstantInt::get(
+                getLLVMContext(), Apint0);
+            auto* NumberIdx =
+              llvm::ConstantInt::get(
+                getLLVMContext(), ApintIdx);
+            llvm::Value* FieldIdxs[] = {Number0, NumberIdx};
+            auto Qty = Ty->getCanonicalTypeInternal();
+            auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+            auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+              GenRecTy, PtrToObjForGEP, FieldIdxs, "pp_struct_field_to_init", BB);
+            PPExtInitGenOrSpec(BB, F.RD->getName(), HeadElem);
+          }
+
           auto Pos = TypeNameExtracted.find("____");
           if (Pos != StringRef::npos) {
             TypeNameExtracted = TypeNameExtracted.substr(Pos + 2);
