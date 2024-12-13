@@ -6544,8 +6544,7 @@ void CodeGenModule::AddPPSpecialization(
   auto* LoadInitArr = new llvm::LoadInst(
                             FnPtrType,
                             InitArrPtr, "", BB);
-  ArrayRef<llvm::Value*> Idxs(
-    {DecrIdx64});
+  llvm::Value* Idxs[] = {DecrIdx64};
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
     FnTy, LoadInitArr, Idxs, "", BB);
   new llvm::StoreInst(F, Elem, BB);
@@ -6744,15 +6743,10 @@ void CodeGenModule::PPExtInitGenOrSpec(
     auto Qty = Ty->getCanonicalTypeInternal();
     auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
     llvm::APInt Apint0(32, 0);
-    llvm::APInt Apint1(32, 1);
     auto* Number0 =
       llvm::ConstantInt::get(
         getLLVMContext(), Apint0);
-    auto* Number1 =
-      llvm::ConstantInt::get(
-        getLLVMContext(), Apint1);
-    ArrayRef<llvm::Value*> IdxsHead({Number0, Number0});
-    ArrayRef<llvm::Value*> IdxsTail({Number0, Number1});
+    llvm::Value* IdxsHead[] = {Number0, Number0};
     auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
       GenRecTy, ParentObject, IdxsHead, "pp_head", BB);
     auto* RecordTy = Ty->getAsRecordDecl();
@@ -6771,7 +6765,7 @@ void CodeGenModule::PPExtInitGenOrSpec(
     auto* NumberIdx =
       llvm::ConstantInt::get(
         getLLVMContext(), ApintIdx);
-    ArrayRef<llvm::Value*> IdxsTagField({Number0, NumberIdx});
+    llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
     auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
     auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
 
@@ -6828,7 +6822,7 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
       auto* NumberIdx =
         llvm::ConstantInt::get(
           getLLVMContext(), ApintIdx);
-      ArrayRef<llvm::Value*> FieldIdxs({Number0, NumberIdx});
+      llvm::Value* FieldIdxs[] = {Number0, NumberIdx};
       auto Qty = Ty->getCanonicalTypeInternal();
       auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
       auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
@@ -6944,8 +6938,7 @@ void CodeGenModule::PPExtRecordCreateSpec(
                             InitArrPtr, "", BB);
 
   // Store function pointer
-  ArrayRef<llvm::Value*> Idxs(
-    {DecrIdx64});
+  llvm::Value* Idxs[] = {DecrIdx64};
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
     FnPtrType, LoadInitArr, Idxs, "", BB);
   new llvm::StoreInst(FnCreateSpec, Elem, BB);
@@ -7012,7 +7005,7 @@ void CodeGenModule::HandlePPExtensionMethods(
         auto* NumberM1 =
           llvm::ConstantInt::get(
             getLLVMContext(), ApintM1);
-        ArrayRef<llvm::Value*> IdxsTagField({Number0, NumberIdx});
+        llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
         auto HeadQTy = RecordTy->getTypeForDecl()->getCanonicalTypeInternal();
         auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
 
@@ -7097,8 +7090,7 @@ void CodeGenModule::HandlePPExtensionMethods(
             "", BB);
 
         // Load pointer to necessary create_spec
-        ArrayRef<llvm::Value*> TypeTagsIdxs({
-          IdxExt});
+        llvm::Value* TypeTagsIdxs[] = {IdxExt};
         auto* LoadInitArr = new llvm::LoadInst(
           FnPtrType,
           InitArr, "", BB);
@@ -7216,8 +7208,8 @@ void CodeGenModule::HandlePPExtensionMethods(
           auto* Number1 =
             llvm::ConstantInt::get(
               getLLVMContext(), Apint1);
-          ArrayRef<llvm::Value*> IdxsHead({Number0, Number0});
-          ArrayRef<llvm::Value*> IdxsTail({Number0, Number1});
+          llvm::Value* IdxsHead[] = {Number0, Number0};
+          llvm::Value* IdxsTail[] = {Number0, Number1};
           auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
             GenRecTy, PtrToObjForGEP, IdxsHead, "pp_head", BB);
           assert(!RecordTy->fields().empty());
@@ -7242,7 +7234,7 @@ void CodeGenModule::HandlePPExtensionMethods(
           auto* NumberIdx =
             llvm::ConstantInt::get(
               getLLVMContext(), ApintIdx);
-          ArrayRef<llvm::Value*> IdxsTagField({Number0, NumberIdx});
+          llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
           auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
           auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
 
@@ -7605,7 +7597,7 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   auto* LoadInitArr = new llvm::LoadInst(
                             FnPtrType,
                             ArrayPtr, "", BBBody);
-  ArrayRef<llvm::Value*> Idxs({CurIdx});
+  llvm::Value* Idxs[] = {CurIdx};
   auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
     FnPtrType, LoadInitArr, Idxs, "", BBBody);
   CreateCallPrintf(BBBody,
@@ -7670,7 +7662,7 @@ CodeGenModule::PPExtGetIndexForMM(
     CreateCallPrintf(BB,
       "[PP-EXT] MM Index of typetag %d\n", CurIdx);
 
-    ArrayRef<llvm::Value*> Idxs({ZeroVal, CurIdx});
+    llvm::Value* Idxs[] = {ZeroVal, CurIdx};
 
     auto* TypeTagPtr = llvm::GetElementPtrInst::CreateInBounds(
       GenRecTy, GenRecParamPtr, Idxs, "", BB);
@@ -7785,8 +7777,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
 #endif
       }
 
-      ArrayRef<llvm::Value*> TypeTagsIdxs({
-        TypeTagIdxExt});
+      llvm::Value* TypeTagsIdxs[] = {TypeTagIdxExt};
       CreateCallPrintf(BB,
         "[PP-EXT] MM InitArr ptr %p\n",
         InitArr);
