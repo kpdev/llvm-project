@@ -1716,7 +1716,8 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
 IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   StringRef BaseName,
   ParsedAttributes& PAttrs,
-  bool NeedToAddLParen
+  bool NeedToAddLParen,
+  bool SaveLastIdent
 )
 {
   assert(Tok.is(tok::l_paren) ||
@@ -1740,8 +1741,9 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
   }
 
-  if (Names.size() != 1 ||
-    !NextToken().is(tok::r_paren)) {
+  if (!SaveLastIdent &&
+    (Names.size() != 1 ||
+    !NextToken().is(tok::r_paren))) {
     ConsumeToken();
   }
 

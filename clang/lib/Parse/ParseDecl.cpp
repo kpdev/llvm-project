@@ -3762,17 +3762,38 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::kw_decltype:
     case tok::identifier:
     ParseIdentifier: {
-      if (Tok.is(tok::identifier) &&
-          PP.LookAhead(0).is(tok::plus) &&
-          PP.LookAhead(1).is(tok::less)) {
-        // PP-EXT: Parse extension like: Figure + < Circle; >
-        // PP-EXT TODO: Check if Tok is typedef to generalization
-        //              e.g. check existance of __pp_spec_type field
-        auto Kind = tok::kw_struct;
-        ParsedAttributes Attributes(AttrFactory);
-        ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
-                            EnteringContext, DSContext, Attributes);
-        continue;
+      if (Tok.is(tok::identifier)) {
+        if (PP.LookAhead(0).is(tok::plus) &&
+            PP.LookAhead(1).is(tok::less)) {
+          // PP-EXT: Parse extension like: Figure + < Circle; >
+          // PP-EXT TODO: Check if Tok is typedef to generalization
+          //              e.g. check existance of __pp_spec_type field
+          auto Kind = tok::kw_struct;
+          ParsedAttributes Attributes(AttrFactory);
+          ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
+                              EnteringContext, DSContext, Attributes);
+          continue;
+        }
+        else if (PP.LookAhead(0).is(tok::period) &&
+                 PP.LookAhead(1).is(tok::identifier)) {
+          // Check if it is a specializatoin
+          auto TokIdentName = Tok.getIdentifierInfo()->getName();
+          auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+          if (IdentRDecl) {
+            auto RDType = PPExtGetStructType(IdentRDecl);
+            if (RDType == PPStructType::Generalization) {
+              ParsedAttributes Attributes(AttrFactory);
+              ConsumeToken();
+              auto* II = PPExtGetIdForExistingOrNewlyCreatedGen(
+                TokIdentName, Attributes, false, true);
+              Tok.setIdentifierInfo(II);
+              auto Kind = tok::kw_struct;
+              ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
+                                  EnteringContext, DSContext, Attributes);
+              continue;
+            }
+          }
+        }
       }
 
       // This identifier can only be a typedef name if we haven't already seen
@@ -8253,11 +8274,23 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   // surrounding context.
   SmallVector<NamedDecl *, 0> DeclsInPrototype;
   bool IsSpecialization = false;
+  StringRef FuncNameMM = D.getIdentifier()->getName();
+  const int SpecNum =
+    FunctionDecl::getNumOfSpecializationsPPMM(FuncNameMM);
+
+  // PP-EXT: Now it is needed to check if it is a Mono/MultiMethod (MM)
+  //         and if so - if it is a specialized, or default one
+  //         In order to do so, we check all first arguments, which are
+  //         included in <...> brackets (SpecNum count). For default version there are expected
+  //         only generalizations. If there will be specializations, then
+  //         it is a specialized MM and we will add a "__pp_spec" postfix to its name
   if (getCurScope()->isFunctionDeclarationScope() && !getLangOpts().CPlusPlus) {
+    int SpecNumIter = SpecNum;
     for (Decl *D : getCurScope()->decls()) {
       NamedDecl *ND = dyn_cast<NamedDecl>(D);
       auto PVD = cast<ParmVarDecl>(ND);
-      if (PVD && IsMultimethod) {
+      const bool IsArgInSpecNumCount = (SpecNumIter-- > 0);
+      if (PVD && IsMultimethod && IsArgInSpecNumCount) {
         auto* ID = PVD->getType().getBaseTypeIdentifier();
         if (ID &&
             ID->getName().startswith("__pp_struct"))
@@ -8266,7 +8299,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
 
       if (!ND || isa<ParmVarDecl>(ND))
         continue;
-      if (IsMultimethod &&
+      if (IsMultimethod && IsArgInSpecNumCount &&
           ND->getName().startswith("__pp_struct"))
         IsSpecialization = true;
       DeclsInPrototype.push_back(ND);
@@ -8283,17 +8316,15 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   }
 
   if (IsSpecialization) {
-    StringRef FuncName = D.getIdentifier()->getName();
-    std::string strMangled = FuncName.str();
-    auto SpecNum =
-      FunctionDecl::getNumOfSpecializationsPPMM(FuncName);
+    std::string strMangled = FuncNameMM.str();
+    int SpecNumIter = SpecNum;
     for(auto& PIn : ParamInfo) {
       strMangled += cast<ParmVarDecl>(
                       PIn.Param)
                         ->getType()
                         .getBaseTypeIdentifier()
                         ->getName().str();
-      if (--SpecNum <= 0) {
+      if (--SpecNumIter <= 0) {
         break;
       }
     }

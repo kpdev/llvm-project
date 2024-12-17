@@ -3775,8 +3775,10 @@ void FunctionDecl::setParams(ASTContext &C,
 
 int FunctionDecl::getNumOfSpecializationsPPMM(StringRef Name)
 {
-  assert(Name.startswith("__pp_mm_")
-    && "Expected pp mono/multimethod");
+  if (!Name.startswith("__pp_mm_")) {
+    return -1;
+  }
+
   auto PrefixSize = sizeof("__pp_mm_") - 1;
   auto PosAfterNum = Name.find_first_of("_", PrefixSize);
   auto NumStr = Name.substr(PrefixSize,
