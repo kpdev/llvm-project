@@ -47,6 +47,19 @@ void MultimethodFirstRect<Figure.Circle* t2>(Figure.Rectangle* r1, int* ofst) {
   printf("Rectangle - Circle Combination\n");
 }
 
+static
+void StaticPrintFigure<struct Figure* f1>()
+{
+    printf("static default\n");
+}
+
+
+static
+void StaticPrintFigure<struct Figure.Circle *f1>()
+{
+    printf("static circ\n");
+}
+
 int main() {
     struct Figure.Circle fc;
     struct Figure.Rectangle fr;
@@ -68,4 +81,9 @@ int main() {
     MultimethodFirstRect<&fr>(&fr, &dummy);
     // CHECK-RT: Rectangle - Circle Combination
     MultimethodFirstRect<&fc>(&fr, &dummy);
+
+    // CHECK-RT: static default
+    StaticPrintFigure<&fr>();
+    // CHECK-RT: static circ
+    StaticPrintFigure<&fc>();
 }
