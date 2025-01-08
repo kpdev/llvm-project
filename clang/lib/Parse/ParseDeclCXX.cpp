@@ -1754,7 +1754,12 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
               tok::star));
 
   while (Tok.is(tok::period)) {
-    assert(NextToken().is(tok::identifier));
+    assert(NextToken().isOneOf(
+      tok::identifier,
+      tok::kw_int,
+      tok::kw_double,
+      tok::kw_char
+    ));
     auto IdentTok = NextToken();
 
     Names.push_back({IdentTok.getIdentifierInfo()->getName(), false});
@@ -2062,7 +2067,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         CurLoc = ConsumeToken();
       }
       assert(Tok.isOneOf(tok::identifier,
-                         tok::kw_int));
+                         tok::kw_int,
+                         tok::kw_double,
+                         tok::kw_char));
       StringRef TagName;
       if (NextToken().is(tok::colon)) {
         TagName = Tok.getIdentifierInfo()->getName();
