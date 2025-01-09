@@ -5355,7 +5355,8 @@ void Parser::FieldGenerator(const char* FieldName,
                             Decl *TestDecl,
                             SmallVector<Decl *, 32>& FieldDecls)
 {
-  if (FieldType == DeclSpec::TST::TST_void) {
+  if (FieldType == DeclSpec::TST::TST_void
+      && !IsPointer) {
     return;
   }
 

@@ -84,6 +84,7 @@ struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
 
 typedef struct Triangle { int a, b, c; } Triangle;
 Figure + < Triangle; >;
+Figure + <empty: void*;>;
 
 typedef struct BaseObject { int a; }<> BaseObject;
 typedef struct NewObject { int b; } NewObject;
@@ -192,7 +193,7 @@ int main() {
     // MultiMethod<&fc, &fr>();
     // MultiMethodWithArgs<&fc, &fr>(7, 8);
 
-    // CHECK-RT: Figure tags: 3
+    // CHECK-RT: Figure tags: 4
     // CHECK-RT-NEXT: Circle tag: 1
     // CHECK-RT-NEXT: Rectangle tag: 2
     // CHECK-RT-NEXT: Triangle tag: 3
@@ -201,7 +202,7 @@ int main() {
     printf("Rectangle tag: %d\n", __pp_tag___pp_struct_Figure__Rectangle);
     printf("Triangle tag: %d\n", __pp_tag___pp_struct_Figure__Triangle);
 
-    // CHECK-RT-NEXT: get_spec_size = 4
+    // CHECK-RT-NEXT: get_spec_size = 5
     int numberOfSpecs = get_spec_size(Figure);
     printf("get_spec_size = %d\n", numberOfSpecs);
 
@@ -243,7 +244,7 @@ int main() {
     // CHECK-RT-NEXT: obj3.__pp_specialization_type = 3
     printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
 
-    // CHECK-RT-NEXT: fig_spec_count = 4
+    // CHECK-RT-NEXT: fig_spec_count = 5
     int fig_spec_count = get_spec_size(Figure);
     printf("fig_spec_count = %d\n", fig_spec_count);
 
@@ -255,6 +256,9 @@ int main() {
     // CHECK-RT-NEXT: Rectangle
     // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 3
     // CHECK-RT-NEXT: Triangle
+    // Checking empty tag (with void*)
+    // CHECK-RT-NEXT: created_ptr->__pp_specialization_type = 4
+    // CHECK-RT-NEXT: Default
     for (int i = 0; i < fig_spec_count; ++i) {
         struct Figure* created_ptr = get_spec_ptr(Figure, i);
         printf("created_ptr->__pp_specialization_type = %d\n",
