@@ -6792,6 +6792,10 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
   auto VTyName = VTy->getStructName();
   StringRef Name = VTyName.split(".").second;
   auto* Ty = PPExtGetTypeByName(Name);
+  if (!Ty) {
+    // Anonimous type
+    return;
+  }
   auto* RecordTy = Ty->getAsRecordDecl();
   assert(RecordTy);
   auto RDType = PPExtGetStructType(RecordTy);
