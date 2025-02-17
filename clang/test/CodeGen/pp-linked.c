@@ -54,8 +54,23 @@ struct Simple + < struct Circle;> ;
 int main()
 {
     struct Simple.Decorator.Simple.Circle sd;
+    // CHECK-RT: [1 1 2]
+    printf("[%d %d %d]\n",
+        sd.__pp_specialization_type,
+        sd.@.__pp_specialization_type,
+        sd.@.@.__pp_specialization_type
+    );
+
     sd.@.@.@r = 0;
     struct Simple* s_ptr = create_spec(Simple.Decorator.Simple.Circle);
+
+    // TODO: Make it work
+    // // C~HECK-RT: [1 1 2]
+    // printf("[%d %d %d]\n",
+    //     s_ptr->__pp_specialization_type,
+    //     s_ptr->@.__pp_specialization_type,
+    //     s_ptr->@.@.__pp_specialization_type
+    // );
 
     // CHECK-RT: FigCircle: 42 4294967295
     // CHECK-RT-NEXT: Circle tags check: [1]

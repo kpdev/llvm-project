@@ -71,9 +71,10 @@ void PrintWeekday<WeekDay.Tuesday* d>() {
 
 void foo()
 {
-// CHECK-IR: %__pp_head = getelementptr inbounds %struct.__pp_struct_Figure__t0, ptr %ttt, i32 0, i32 0
-// CHECK-IR: %__pp_specialization_type = getelementptr inbounds %struct.Figure, ptr %__pp_head, i32 0, i32 1
-// CHECK-IR: store i32 %0, ptr %__pp_specialization_type, align 4
+// CHECK-IR: %pp_head = getelementptr inbounds %struct.__pp_struct_Figure__t0, ptr %ttt, i32 0, i32 0
+// CHECK-IR: %pp_spec_type = getelementptr inbounds %struct.Figure, ptr %pp_head, i32 0, i32 1
+// CHECK-IR: %global_spec_tag = load i32, ptr @__pp_tag___pp_struct_Figure__t0, align 4
+// CHECK-IR: store i32 %global_spec_tag, ptr %pp_spec_type, align 4
     struct Figure.t0 ttt;
 }
 

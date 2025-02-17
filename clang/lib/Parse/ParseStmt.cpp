@@ -1442,34 +1442,6 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 
     if (R.isUsable()) {
       Stmts.push_back(R.get());
-
-      // Check if it is pp variant
-      // TODO: Move to separate function
-      if (isa<DeclStmt>(R.get())) {
-        DeclStmt* DS = cast_or_null<DeclStmt>(R.get());
-        if (DS->isSingleDecl()) {
-          if (VarDecl* VD = cast_or_null<VarDecl>(DS->getSingleDecl())) {
-            if (RecordDecl* RD = VD->getType().getCanonicalType().getTypePtr()->
-                            getAsRecordDecl()) {
-              auto RDType = PPExtGetStructType(RD);
-              if (RDType != PPStructType::Default) {
-                auto AssignmentOpExpr = PPExtInitPPStruct(
-                  PPStructInitDesc{VD, RD, RDType},
-                  nullptr
-                );
-                Stmts.push_back(AssignmentOpExpr.Assign);
-
-                auto FieldsToInit = PPExtGetRDListToInit(RD);
-                for (auto IDesc : FieldsToInit) {
-                  auto ResInit =
-                    PPExtInitPPStruct(IDesc, AssignmentOpExpr.MemberAccess);
-                  Stmts.push_back(ResInit.Assign);
-                }
-              }
-            }
-          }
-        }
-      }// Check if it is pp varian
     }
 
     LastIsError = R.isInvalid();
