@@ -16,12 +16,21 @@ typedef struct Triangle { int a, b, c; } Triangle;
 Figure + < Triangle; >;
 
 struct RectangleCover {
-  struct Figure.Circle fc;       // Интерфей ввода-вывода для прямоугольника
-  struct Figure.Triangle ft;     // Геометрический интефейс прямоугольника
-  Rectangle r;                // Используемый прямоугольник
+  struct Figure.Circle fc;
+  struct Figure.Triangle ft;
+  Rectangle r;
 } <>;
 
+Figure + < struct RectangleCover; >;
+
 struct RectangleCover g_rc;
+struct Figure g_figure;
+struct Figure.Circle g_fc;
+struct Figure.RectangleCover g_fig_rect;
+
+RectangleCover + < Triangle; >;
+
+struct Figure.RectangleCover.Triangle g_fig_rect_trian;
 
 int main() {
     // CHECK-RT: pf_empty tag = 0
@@ -60,6 +69,31 @@ int main() {
     // CHECK-RT: g_rc.fc tag = 2
     printf("g_rc.fc tag = %d\n",
         g_rc.fc.__pp_specialization_type);
+
+    // CHECK-RT: g_figure tag = 0
+    printf("g_figure tag = %d\n",
+        g_figure.__pp_specialization_type);
+
+    // CHECK-RT: g_fc tag = 1
+    printf("g_fc tag = %d\n",
+        g_fc.__pp_specialization_type);
+
+    // CHECK-RT: g_fig_rect tag = 4
+    printf("g_fig_rect tag = %d\n",
+        g_fig_rect.__pp_specialization_type);
+
+    // CHECK-RT: g_fig_rect_trian.@ tag = 1
+    printf("g_fig_rect_trian.@ tag = %d\n",
+        g_fig_rect_trian.@.__pp_specialization_type);
+
+    // CHECK-RT: g_fig_rect_trian.@.fc tag = 1
+    printf("g_fig_rect_trian.@.fc tag = %d\n",
+        g_fig_rect_trian.@.fc.__pp_specialization_type);
+
+    // TODO: Make it work
+    // C~HECK-RT: g_fig_rect_trian.@.ft tag = 3
+    printf("g_fig_rect_trian.@.ft tag = %d\n",
+        g_fig_rect_trian.@.ft.__pp_specialization_type);
 
     struct RectangleCover rc;
     // CHECK-RT: rc tag = 0

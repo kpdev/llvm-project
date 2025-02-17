@@ -6814,25 +6814,7 @@ void CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded(
                       MangledName, &getModule());
     auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", F);
 
-    PPExtInitGenOrSpec(BB, Name, GV);
-
-    auto FieldsToInit = PPExtGetRDListToInit(RecordTy);
-    for (auto& F : FieldsToInit) {
-      llvm::APInt Apint0(32, 0);
-      llvm::APInt ApintIdx(32, F.Idx);
-      auto* Number0 =
-        llvm::ConstantInt::get(
-          getLLVMContext(), Apint0);
-      auto* NumberIdx =
-        llvm::ConstantInt::get(
-          getLLVMContext(), ApintIdx);
-      llvm::Value* FieldIdxs[] = {Number0, NumberIdx};
-      auto Qty = Ty->getCanonicalTypeInternal();
-      auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
-      auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
-        GenRecTy, GV, FieldIdxs, "pp_struct_field_to_init", BB);
-      PPExtInitGenOrSpec(BB, F.RD->getName(), HeadElem);
-    }
+    PPExtInitTypeTagsRecursively(Name, GV, BB);
 
     llvm::ReturnInst::Create(getLLVMContext(), BB);
 
@@ -7199,127 +7181,9 @@ void CodeGenModule::HandlePPExtensionMethods(
           PtrToObjForGEP = MallocRes;
         }
 
-        do {
-          auto Qty = Ty->getCanonicalTypeInternal();
-          auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
-          auto* RecordTy = Ty->getAsRecordDecl();
-          assert(RecordTy);
-          llvm::APInt Apint0(32, 0);
-          llvm::APInt Apint1(32, 1);
-          auto* Number0 =
-            llvm::ConstantInt::get(
-              getLLVMContext(), Apint0);
-          auto* Number1 =
-            llvm::ConstantInt::get(
-              getLLVMContext(), Apint1);
-          llvm::Value* IdxsHead[] = {Number0, Number0};
-          llvm::Value* IdxsTail[] = {Number0, Number1};
-          auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
-            GenRecTy, PtrToObjForGEP, IdxsHead, "pp_head", BB);
-          assert(!RecordTy->fields().empty());
-          auto firstField = *RecordTy->field_begin();
-          auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
-          if (!firstField->getName().equals("__pp_head")) {
-            // It is a generalization
-            HeadRecordTy = RecordTy;
-          }
-
-          int FieldIdx = 0;
-          bool SpecTypeWasFound = false;
-          for (auto* Field : HeadRecordTy->fields()) {
-            if (Field->getName().equals("__pp_specialization_type")) {
-              SpecTypeWasFound = true;
-              break;
-            }
-            ++FieldIdx;
-          }
-          assert(SpecTypeWasFound);
-          llvm::APInt ApintIdx(32, FieldIdx);
-          auto* NumberIdx =
-            llvm::ConstantInt::get(
-              getLLVMContext(), ApintIdx);
-          llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
-          auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
-          auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
-
-          auto* TagElem = llvm::GetElementPtrInst::CreateInBounds(
-            HeadRecTy, HeadElem, IdxsTagField, "pp_spec_type", BB);
-
-          auto genName = std::string("__pp_tag_") +
-            TypeNameExtracted.str();
-
-          auto fourUnderscorePos = TypeNameExtracted.find("____");
-          if (fourUnderscorePos != StringRef::npos) {
-            auto GenName = TypeNameExtracted;
-            char PPStructPrefix[] = "__pp_struct_";
-            auto Sz = sizeof(PPStructPrefix);
-            auto NextPos = GenName.find(PPStructPrefix, Sz);
-            StringRef SpecName("");
-            if (NextPos != StringRef::npos) {
-              auto EndOfTypePos = GenName.find("__", fourUnderscorePos + 4);
-              assert(EndOfTypePos != StringRef::npos);
-              auto StartPos = NextPos + Sz - 1;
-              SpecName = GenName.substr(StartPos,
-                                        EndOfTypePos - StartPos);
-              auto BaseName = GenName.substr(0, fourUnderscorePos);
-              genName = std::string("__pp_tag_") + BaseName.str();
-
-#ifdef PPEXT_DUMP
-              StringRef GN(genName);
-              printf("%s\n", GN.data());
-#endif
-
-              PtrToObjForGEP = llvm::GetElementPtrInst::CreateInBounds(
-                GenRecTy, PtrToObjForGEP, IdxsTail, "pp_tail", BB);
-            }
-          }
-
-          StringRef DbgStr(genName);
-          auto *GV = getModule().getGlobalVariable(genName);
-          auto ASTIntTy = getContext().IntTy;
-          auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-          if (GV) {
-            auto* LoadGlobalTag =
-              new llvm::LoadInst(IntTy, GV,
-                  "global_spec_tag", BB);
-            new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
-          }
-          else {
-            new llvm::StoreInst(
-              llvm::Constant::getNullValue(IntTy), TagElem, BB);
-          }
-
-          // tag for the current struct is inited
-          // next step: init tags for direct fields
-          // TODO: Combine it with
-          //       CodeGenModule::PPExtGenerateInitForGlobVarIfNeeded
-          auto FieldsToInit = PPExtGetRDListToInit(RecordTy);
-          for (auto& F : FieldsToInit) {
-            llvm::APInt Apint0(32, 0);
-            llvm::APInt ApintIdx(32, F.Idx);
-            auto* Number0 =
-              llvm::ConstantInt::get(
-                getLLVMContext(), Apint0);
-            auto* NumberIdx =
-              llvm::ConstantInt::get(
-                getLLVMContext(), ApintIdx);
-            llvm::Value* FieldIdxs[] = {Number0, NumberIdx};
-            auto Qty = Ty->getCanonicalTypeInternal();
-            auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
-            auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
-              GenRecTy, PtrToObjForGEP, FieldIdxs, "pp_struct_field_to_init", BB);
-            PPExtInitGenOrSpec(BB, F.RD->getName(), HeadElem);
-          }
-
-          auto Pos = TypeNameExtracted.find("____");
-          if (Pos != StringRef::npos) {
-            TypeNameExtracted = TypeNameExtracted.substr(Pos + 2);
-            Ty = PPExtGetTypeByName(TypeNameExtracted);
-          } else {
-            Ty = nullptr;
-          }
-
-        } while(Ty);
+        PPExtInitTypeTagsRecursively(TypeNameExtracted,
+                                     PtrToObjForGEP,
+                                     BB);
 
         if (IsInitSpec) {
           llvm::ReturnInst::Create(getLLVMContext(), BB);
@@ -7513,6 +7377,133 @@ void CodeGenModule::HandlePPExtensionMethods(
   llvm::ReturnInst::Create(getLLVMContext(), BBEnd);
   AddGlobalCtor(NewF, 102);
 }
+
+void CodeGenModule::PPExtInitTypeTagsRecursively(
+                                  StringRef NameOfVariable,
+                                  llvm::Value* PtrToObjForGEP,
+                                  llvm::BasicBlock* BB)
+{
+  auto* Ty = PPExtGetTypeByName(NameOfVariable);
+  do {
+    auto Qty = Ty->getCanonicalTypeInternal();
+    auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+    auto* RecordTy = Ty->getAsRecordDecl();
+    assert(RecordTy);
+    llvm::APInt Apint0(32, 0);
+    llvm::APInt Apint1(32, 1);
+    auto* Number0 =
+      llvm::ConstantInt::get(
+        getLLVMContext(), Apint0);
+    auto* Number1 =
+      llvm::ConstantInt::get(
+        getLLVMContext(), Apint1);
+    llvm::Value* IdxsHead[] = {Number0, Number0};
+    llvm::Value* IdxsTail[] = {Number0, Number1};
+    auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+      GenRecTy, PtrToObjForGEP, IdxsHead, "pp_head", BB);
+    assert(!RecordTy->fields().empty());
+    auto firstField = *RecordTy->field_begin();
+    auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
+    if (!firstField->getName().equals("__pp_head")) {
+      // It is a generalization
+      HeadRecordTy = RecordTy;
+    }
+
+    int FieldIdx = 0;
+    bool SpecTypeWasFound = false;
+    for (auto* Field : HeadRecordTy->fields()) {
+      if (Field->getName().equals("__pp_specialization_type")) {
+        SpecTypeWasFound = true;
+        break;
+      }
+      ++FieldIdx;
+    }
+    assert(SpecTypeWasFound);
+    llvm::APInt ApintIdx(32, FieldIdx);
+    auto* NumberIdx =
+      llvm::ConstantInt::get(
+        getLLVMContext(), ApintIdx);
+    llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
+    auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
+    auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
+
+    auto* TagElem = llvm::GetElementPtrInst::CreateInBounds(
+      HeadRecTy, HeadElem, IdxsTagField, "pp_spec_type", BB);
+
+    auto genName = std::string("__pp_tag_") +
+                              NameOfVariable.str();
+
+    auto fourUnderscorePos = NameOfVariable.find("____");
+    if (fourUnderscorePos != StringRef::npos) {
+      auto GenName = NameOfVariable;
+      char PPStructPrefix[] = "__pp_struct_";
+      auto Sz = sizeof(PPStructPrefix);
+      auto NextPos = GenName.find(PPStructPrefix, Sz);
+      StringRef SpecName("");
+      if (NextPos != StringRef::npos) {
+        auto EndOfTypePos = GenName.find("__", fourUnderscorePos + 4);
+        assert(EndOfTypePos != StringRef::npos);
+        auto StartPos = NextPos + Sz - 1;
+        SpecName = GenName.substr(StartPos,
+                                  EndOfTypePos - StartPos);
+        auto BaseName = GenName.substr(0, fourUnderscorePos);
+        genName = std::string("__pp_tag_") + BaseName.str();
+
+#ifdef PPEXT_DUMP
+        StringRef GN(genName);
+        printf("%s\n", GN.data());
+#endif
+
+        PtrToObjForGEP = llvm::GetElementPtrInst::CreateInBounds(
+          GenRecTy, PtrToObjForGEP, IdxsTail, "pp_tail", BB);
+      }
+    }
+
+    StringRef DbgStr(genName);
+    auto *GV = getModule().getGlobalVariable(genName);
+    auto ASTIntTy = getContext().IntTy;
+    auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+    if (GV) {
+      auto* LoadGlobalTag =
+        new llvm::LoadInst(IntTy, GV,
+            "global_spec_tag", BB);
+      new llvm::StoreInst(LoadGlobalTag, TagElem, BB);
+    }
+    else {
+      new llvm::StoreInst(
+        llvm::Constant::getNullValue(IntTy), TagElem, BB);
+    }
+
+    // tag for the current struct is inited
+    // next step: init tags for direct fields
+    auto FieldsToInit = PPExtGetRDListToInit(RecordTy);
+    for (auto& F : FieldsToInit) {
+      llvm::APInt Apint0(32, 0);
+      llvm::APInt ApintIdx(32, F.Idx);
+      auto* Number0 =
+        llvm::ConstantInt::get(
+          getLLVMContext(), Apint0);
+      auto* NumberIdx =
+        llvm::ConstantInt::get(
+          getLLVMContext(), ApintIdx);
+      llvm::Value* FieldIdxs[] = {Number0, NumberIdx};
+      auto Qty = Ty->getCanonicalTypeInternal();
+      auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
+      auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+        GenRecTy, PtrToObjForGEP, FieldIdxs, "pp_struct_field_to_init", BB);
+      PPExtInitGenOrSpec(BB, F.RD->getName(), HeadElem);
+    }
+
+    auto Pos = NameOfVariable.find("____");
+    if (Pos != StringRef::npos) {
+      NameOfVariable = NameOfVariable.substr(Pos + 2);
+      Ty = PPExtGetTypeByName(NameOfVariable);
+    } else {
+      Ty = nullptr;
+    }
+  } while(Ty);
+}
+
 
 llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   llvm::BasicBlock* BB,
