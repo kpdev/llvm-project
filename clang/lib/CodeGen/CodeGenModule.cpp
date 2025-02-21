@@ -7274,8 +7274,10 @@ void CodeGenModule::HandlePPExtensionMethods(
     auto nextGenName = std::string("__pp_tags_")
       + Generalizations.ParamsList[i].RD->getNameAsString();
     auto *nextGV = getModule().getGlobalVariable(nextGenName);
-    auto* LoadNextGV = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
+    auto* LoadNextGVRaw = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
+    auto* LoadNextGV =
+      llvm::BinaryOperator::CreateNSWAdd(LoadNextGVRaw, Int1_Number32, "Increment", BB);
     auto* nextCInstr = llvm::CastInst::Create(
         llvm::Instruction::CastOps::SExt,
         LoadNextGV,
@@ -7708,8 +7710,13 @@ CodeGenModule::PPExtGetIndexForMM(
     auto ASTIntTy = getContext().IntTy;
     auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
     auto TagsCountAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
-    auto* LoadTagsCount0 = new llvm::LoadInst(MyIntTy, TagsCount0, Twine(),
+    auto* LoadTagsCount0Raw = new llvm::LoadInst(MyIntTy, TagsCount0, Twine(),
       false, TagsCountAlignment.getAsAlign(), BB);
+
+    llvm::APInt apint1_32(32, 1);
+    auto Int1_Number32 = llvm::ConstantInt::get(getLLVMContext(), apint1_32);
+    auto* LoadTagsCount0 = llvm::BinaryOperator::CreateNSWAdd(
+      LoadTagsCount0Raw, Int1_Number32, "Increment", BB);
 
     auto* Mul = llvm::BinaryOperator::Create(
       llvm::BinaryOperator::BinaryOps::Mul,
