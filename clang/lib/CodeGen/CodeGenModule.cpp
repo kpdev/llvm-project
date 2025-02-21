@@ -6460,14 +6460,14 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
 
 void CodeGenModule::AddPPSpecialization(
   llvm::Function* F,
-  const std::vector<FunctionDecl::PPMMParam>& Gens)
+  const MMParams& Gens)
 {
   auto FName = F->getName();
-  auto RDName = Gens[0].RD->getNameAsString();
-  if (Gens.size() > 1) {
-    assert(Gens.size() == 2 &&
+  auto RDName = Gens.ParamsList[0].RD->getNameAsString();
+  if (Gens.ParamsList.size() > 1) {
+    assert(Gens.ParamsList.size() == 2 &&
             "Other sizes are not yet supported");
-    RDName += Gens[1].RD->getNameAsString();
+    RDName += Gens.ParamsList[1].RD->getNameAsString();
   }
   auto initArrName = std::string("__pp_mminitarr")
     + FName.substr(0, FName.size()
@@ -6485,53 +6485,10 @@ void CodeGenModule::AddPPSpecialization(
   CreateCallPrintf(
     BB, "[PP-EXT] FRecorder start\n");
 
-  assert((Gens.size() <= 2)
-    && "[PP-EXT] At this moment only 1D MM are supported");
+  assert((Gens.ParamsList.size() <= 2)
+    && "[PP-EXT] At this moment only 1&2D MM are supported");
 
-  auto ASTIntTy = getContext().IntTy;
-  auto ASTLongLongTy = getContext().LongLongTy;
-  auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-  auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
-
-  auto GetTagForType =
-    [&](const FunctionDecl::PPMMParam& g) -> llvm::Value* {
-    auto genName = std::string("__pp_tag_")
-      + g.RD->getNameAsString();
-    StringRef StrRefTagsName(genName);
-    auto *GV = getModule().getGlobalVariable(genName);
-    auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
-    auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
-      false, MyAlignment.getAsAlign(), BB);
-    return LoadGV;
-  };
-
-  auto* DecrementedIdx = GetTagForType(Gens[0]);
-  if (Gens.size() == 2) {
-    auto* DecrementedIdx1 = GetTagForType(Gens[1]);
-
-    // Get tags for #0 parameter
-    auto genName = std::string("__pp_tags_")
-                    + Gens[0].BaseRD->getNameAsString();
-    auto *TagsCount0 = getModule().getGlobalVariable(genName);
-
-    auto ASTIntTy = getContext().IntTy;
-    auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-    auto TagsCountAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
-    auto* LoadTagsCount0 = new llvm::LoadInst(MyIntTy, TagsCount0, Twine(),
-      false, TagsCountAlignment.getAsAlign(), BB);
-
-    // Calculate Index
-    auto* Mul = llvm::BinaryOperator::Create(
-      llvm::BinaryOperator::BinaryOps::Mul,
-      DecrementedIdx1, LoadTagsCount0, "", BB);
-    DecrementedIdx = llvm::BinaryOperator::CreateAdd(
-      DecrementedIdx, Mul, "", BB);
-  }
-
-  auto DecrIdx64 = llvm::CastInst::Create(
-    llvm::Instruction::CastOps::SExt,
-    DecrementedIdx,
-    MyLongLongTy, "", BB);
+  auto* DecrIdx64 = PPExtGetIndexForMM(BB, Gens);
 
   CreateCallPrintf(
     BB,
@@ -6560,8 +6517,6 @@ void CodeGenModule::PPExtInitCreateSpecArray(
 {
   // Create initializer declaration
   std::vector<llvm::Type *> ArgTypes;
-  // auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-  // auto* ResultType = llvm::PointerType::get(PointeeType, 0);
   auto* ResultType = llvm::Type::getVoidTy(getLLVMContext());
   llvm::FunctionType *FnTy =
       llvm::FunctionType::get(ResultType,
@@ -7273,8 +7228,8 @@ void CodeGenModule::HandlePPExtensionMethods(
 #ifdef PPEXT_DUMP
     printf("Found MM Specialization: %s\n", FName.str().c_str());
 #endif
-
-    AddPPSpecialization(F, Generalizations);
+    MMParams GenParams{Generalizations, IsSpecialization};
+    AddPPSpecialization(F, GenParams);
     return;
   }
   else {
@@ -7671,10 +7626,10 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
 
 llvm::Value*
 CodeGenModule::PPExtGetIndexForMM(
-  llvm::Function* F,
+  llvm::BasicBlock* BB,
   const MMParams& Gens)
 {
-  auto* BB = &F->getEntryBlock();
+  assert(BB);
   auto GetIdxForGen =
     [&](const FunctionDecl::PPMMParam& g) -> llvm::Value* {
     auto Qty = g.RD->getTypeForDecl()
@@ -7685,6 +7640,7 @@ CodeGenModule::PPExtGetIndexForMM(
                             GenRecTy->getPointerTo(), 0, "", BB);
     auto CurIdxInt = g.IdxOfTypeTag;
     auto ParamIdxInt = g.ParamIdx;
+    auto* F = BB->getParent();
     auto* GenRecParamPtr = F->getArg(ParamIdxInt);
     new llvm::StoreInst(GenRecParamPtr, GenRecPtr, BB);
 
@@ -7713,11 +7669,47 @@ CodeGenModule::PPExtGetIndexForMM(
     return TypeTag;
   };
 
-  auto* TypeTagIdxExt0 = GetIdxForGen(Gens[0]);
-  if (Gens.size() == 2) {
-    auto TypeTagIdxExt1 = GetIdxForGen(Gens[1]);
+  auto ASTIntTy = getContext().IntTy;
+  auto ASTLongLongTy = getContext().LongLongTy;
+  auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+
+  auto GetTagForType =
+    [&](const FunctionDecl::PPMMParam& g) -> llvm::Value* {
+    auto genName = std::string("__pp_tag_")
+      + g.RD->getNameAsString();
+    StringRef StrRefTagsName(genName);
+    auto *GV = getModule().getGlobalVariable(genName);
+    auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+    auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
+      false, MyAlignment.getAsAlign(), BB);
+    return LoadGV;
+  };
+
+  auto Getter = [&](const FunctionDecl::PPMMParam& g) -> llvm::Value*
+  {
+    // If we have a Recorder for Specialization, then
+    //   we take indexes from typenames
+    //   which are mangled in specialized multimethod name
+    // If we have a default dispatch function, then
+    //   then we take indexes from multimethod's arguments
+    return Gens.IsSpecialization ?
+            GetTagForType(g) :
+            GetIdxForGen(g);
+  };
+
+  auto* TypeTagIdxExt0 = Getter(Gens.ParamsList[0]);
+  if (Gens.ParamsList.size() == 2) {
+    auto TypeTagIdxExt1 = Getter(Gens.ParamsList[1]);
+
+    // If it is default dispatch function, then
+    //   RD == Generalization, BaseRD = NULL
+    // If it is a specialized function, then
+    //   RD = Specialization, BaseRD = Generalization
+    auto BaseRD = Gens.ParamsList[0].BaseRD ?
+                    Gens.ParamsList[0].BaseRD :
+                    Gens.ParamsList[0].RD;
     auto genName = std::string("__pp_tags_")
-                    + Gens[0].RD->getNameAsString();
+                    + BaseRD->getNameAsString();
     auto *TagsCount0 = getModule().getGlobalVariable(genName);
 
     auto ASTIntTy = getContext().IntTy;
@@ -7733,7 +7725,7 @@ CodeGenModule::PPExtGetIndexForMM(
       TypeTagIdxExt0, Mul, "", BB);
   }
 
-  auto ASTLongLongTy = getContext().LongLongTy;
+  // auto ASTLongLongTy = getContext().LongLongTy;
   auto LongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
   auto* TypeTagIdxExt = llvm::CastInst::Create(
       llvm::Instruction::CastOps::SExt,
@@ -7784,7 +7776,17 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         F->setAttributes(PAL);
       }
 
-      auto* TypeTagIdxExt = PPExtGetIndexForMM(F, Gens);
+      bool IsSpecialization =
+        Gens[0].IsSpecialization;
+      for (auto& G : Gens) {
+        // Sanity check
+        // TODO: Make it properly
+        // (maybe on AST level add info about it)
+        assert(IsSpecialization == G.IsSpecialization);
+      }
+
+      MMParams GenParams{Gens, IsSpecialization};
+      auto* TypeTagIdxExt = PPExtGetIndexForMM(&F->getEntryBlock(), GenParams);
       CreateCallPrintf(BB,
         "[PP-EXT] MM TypeTagIdxExt %lld\n",
         TypeTagIdxExt);
