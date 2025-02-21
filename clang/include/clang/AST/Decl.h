@@ -2784,12 +2784,16 @@ public:
     ParmVarDecl* PVD;
     int IdxOfTypeTag; // of __pp_specialization_type
     int ParamIdx; //- index of this parameter
-    bool IsSpecialization; //- is specialization
     RecordDecl* BaseRD; // base of generalization
   };
 
-  std::vector<PPMMParam>
-  getRecordDeclsGenArgsForPPMM() const;
+  struct MMParams
+  {
+    std::vector<PPMMParam> ParamsList;
+    bool IsSpecialization = false;
+  };
+
+  MMParams getRecordDeclsGenArgsForPPMM() const;
 
   static int getNumOfSpecializationsPPMM(StringRef Name);
 

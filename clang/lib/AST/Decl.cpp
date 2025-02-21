@@ -3789,11 +3789,13 @@ int FunctionDecl::getNumOfSpecializationsPPMM(StringRef Name)
   return NumInt;
 }
 
-std::vector<FunctionDecl::PPMMParam>
-FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
+
+auto FunctionDecl::getRecordDeclsGenArgsForPPMM() const -> MMParams
+{
   std::vector<FunctionDecl::PPMMParam> Result;
   int ParamIdx = 0;
   auto NumInt = getNumOfSpecializationsPPMM(getName());
+  bool IsSpec = false;
 
   for (auto p = param_begin();
         (p != param_end()) && (NumInt-- > 0);
@@ -3810,9 +3812,13 @@ FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
       auto RD = PT->getPointeeType().getTypePtr()->getAsRecordDecl();
       if (RD) {
         int Idx = 0;
-        bool IsSpec = false;
+
         if (RD->getName().startswith("__pp_struct_")) {
           IsSpec = true;
+        } else {
+          // If we meet a generalization parameter
+          // then it should not be specialization
+          assert(IsSpec == false);
         }
 
         RecordDecl* BaseRD = nullptr;
@@ -3829,12 +3835,12 @@ FunctionDecl::getRecordDeclsGenArgsForPPMM() const {
               F != RecordToIterate->field_end();
               ++F, ++Idx) {
           if (F->getName().equals("__pp_specialization_type"))
-            Result.push_back({RD, *p, Idx, ParamIdx, IsSpec, BaseRD});
+            Result.push_back({RD, *p, Idx, ParamIdx, BaseRD});
         }
       }
     }
   }
-  return Result;
+  return { Result, IsSpec };
 }
 
 /// getMinRequiredArguments - Returns the minimum number of arguments

@@ -1880,20 +1880,14 @@ private:
   void PPExtInitGenOrSpec(TInsertPoint* IPoint, StringRef Name, llvm::Value* ParentObject);
   void PPExtRecordCreateSpec(llvm::Function* FnCreateSpec, RecordDecl* RDSpec, llvm::Module& Parent);
 
-  struct MMParams
-  {
-    std::vector<FunctionDecl::PPMMParam> ParamsList;
-    bool IsSpecialization = false;
-  };
-
   void AddPPSpecialization(llvm::Function* F,
-                           const MMParams& Gens);
+                           const FunctionDecl::MMParams& Gens);
   void PPExtInitCreateSpecArray(StringRef GenName, llvm::Module& Parent);
   llvm::Function* PPExtCreateMMRecorder(llvm::Function* BaseF);
   llvm::Function* ExtractDefaultPPMMImplementation(llvm::Function* F,
                                                    const clang::FunctionDecl* FD);
   llvm::Value* PPExtGetIndexForMM(llvm::BasicBlock* BB,
-                                  const MMParams& Gens);
+                                  const FunctionDecl::MMParams& Gens);
 
   template <typename TInsertPoint>
   void PPExtInitTypeTagsRecursively(StringRef NameOfVariable,

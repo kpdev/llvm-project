@@ -6460,7 +6460,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
 
 void CodeGenModule::AddPPSpecialization(
   llvm::Function* F,
-  const MMParams& Gens)
+  const FunctionDecl::MMParams& Gens)
 {
   auto FName = F->getName();
   auto RDName = Gens.ParamsList[0].RD->getNameAsString();
@@ -7212,24 +7212,17 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl());
   auto Generalizations = FD->getRecordDeclsGenArgsForPPMM();
 
-  assert(not Generalizations.empty());
+  assert(not Generalizations.ParamsList.empty());
 
   bool IsSpecialization =
-    Generalizations[0].IsSpecialization;
-  for (auto& G : Generalizations) {
-    // Sanity check
-    // TODO: Make it properly
-    // (maybe on AST level add info about it)
-    assert(IsSpecialization == G.IsSpecialization);
-  }
+    Generalizations.IsSpecialization;
 
   if (IsSpecialization) {
 
 #ifdef PPEXT_DUMP
     printf("Found MM Specialization: %s\n", FName.str().c_str());
 #endif
-    MMParams GenParams{Generalizations, IsSpecialization};
-    AddPPSpecialization(F, GenParams);
+    AddPPSpecialization(F, Generalizations);
     return;
   }
   else {
@@ -7253,7 +7246,7 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto* BB = llvm::BasicBlock::Create(getLLVMContext(), "entry", NewF);
   CreateCallPrintf(BB, "[PP-EXT] Allocation start\n");
   auto genName = std::string("__pp_tags_")
-    + Generalizations[0].RD->getNameAsString();
+    + Generalizations.ParamsList[0].RD->getNameAsString();
   auto ASTIntTy = getContext().IntTy;
   auto ASTLongLongTy = getContext().LongLongTy;
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
@@ -7277,9 +7270,9 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto MulInstr = llvm::BinaryOperator::Create(llvm::BinaryOperator::BinaryOps::Mul,
     Int8_Number, CInstr, "", BB);
   // TODO: Make loop starting with i = 0
-  for (auto i = 1UL; i < Generalizations.size(); ++i) {
+  for (auto i = 1UL; i < Generalizations.ParamsList.size(); ++i) {
     auto nextGenName = std::string("__pp_tags_")
-      + Generalizations[i].RD->getNameAsString();
+      + Generalizations.ParamsList[i].RD->getNameAsString();
     auto *nextGV = getModule().getGlobalVariable(nextGenName);
     auto* LoadNextGV = new llvm::LoadInst(MyIntTy, nextGV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
@@ -7627,7 +7620,7 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
 llvm::Value*
 CodeGenModule::PPExtGetIndexForMM(
   llvm::BasicBlock* BB,
-  const MMParams& Gens)
+  const FunctionDecl::MMParams& Gens)
 {
   assert(BB);
   auto GetIdxForGen =
@@ -7754,9 +7747,9 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         getLLVMContext(), "entry", F);
 
     auto Gens = FD->getRecordDeclsGenArgsForPPMM();
-    assert(!Gens.empty());
+    assert(!Gens.ParamsList.empty());
 
-    if (Gens.size() <= 2) {
+    if (Gens.ParamsList.size() <= 2) {
       llvm::AttributeList PAL;
       {
         // Add attributes to parameters
@@ -7776,17 +7769,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         F->setAttributes(PAL);
       }
 
-      bool IsSpecialization =
-        Gens[0].IsSpecialization;
-      for (auto& G : Gens) {
-        // Sanity check
-        // TODO: Make it properly
-        // (maybe on AST level add info about it)
-        assert(IsSpecialization == G.IsSpecialization);
-      }
-
-      MMParams GenParams{Gens, IsSpecialization};
-      auto* TypeTagIdxExt = PPExtGetIndexForMM(&F->getEntryBlock(), GenParams);
+      auto* TypeTagIdxExt = PPExtGetIndexForMM(&F->getEntryBlock(), Gens);
       CreateCallPrintf(BB,
         "[PP-EXT] MM TypeTagIdxExt %lld\n",
         TypeTagIdxExt);
@@ -7847,13 +7830,6 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
         llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
       }
     }
-    // TODO: Implement
-    // else if (Gens.size() == 2) {
-
-    // }
-    // else {
-    //   llvm_unreachable("[PP-EXT] Not yet implemented");
-    // }
 
     if (NewFn->getBasicBlockList().empty()) {
       auto* NewBB = llvm::BasicBlock::Create(
