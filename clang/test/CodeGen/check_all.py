@@ -46,6 +46,14 @@ command_list = [
     "./build/bin/llvm-lit "
         "clang/test/CodeGen/pp-spec-base-types.c "
         "-v"
+    ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-mm-3d.c "
+        "-v"
+    ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-mm-5d.c "
+        "-v"
 ]
 
 idx = 1

@@ -3,12 +3,9 @@
 typedef struct Circle { int r; } Circle;
 struct Figure1D { unsigned color; } < struct Circle; >;
 
-typedef struct Circle { int r; } Circle;
 typedef struct Rectangle { int w, h; } Rectangle;
 struct Figure2D { unsigned color; } < struct Circle; struct Rectangle; >;
 
-typedef struct Circle { int r; } Circle;
-typedef struct Rectangle { int w, h; } Rectangle;
 typedef struct Triangle { int a, b, c; } Triangle;
 struct Figure3D { unsigned color; } < struct Circle; struct Rectangle; struct Triangle; >;
 
@@ -22,14 +19,14 @@ void PrintFigures<struct Figure1D* f1,
 
 void PrintFigures<struct Figure1D.Circle    *f1,
                   struct Figure2D.Rectangle *f2,
-                  struct Figure3D.Triangle  *f2>()
+                  struct Figure3D.Triangle  *f3>()
 {
     printf("circ + rect + trian\n");
 }
 
 void PrintFigures<struct Figure1D.Circle *f1,
                   struct Figure2D.Circle *f2,
-                  struct Figure3D.Circle *f2>()
+                  struct Figure3D.Circle *f3>()
 {
     printf("circ + circ + circ\n");
 }
@@ -43,6 +40,7 @@ int main() {
 
     struct Figure3D.Circle   f3c;
     struct Figure3D.Triangle f3t;
+
     // CHECK-RT: default
     PrintFigures<&f1c, &f2c, &f3t>();
     // CHECK-RT: circ + circ + circ
