@@ -3785,7 +3785,7 @@ void Parser::ParseDeclarationSpecifiers(
               ParsedAttributes Attributes(AttrFactory);
               ConsumeToken();
               auto* II = PPExtGetIdForExistingOrNewlyCreatedGen(
-                TokIdentName, Attributes, false, true);
+                TokIdentName, Attributes, false, true).second;
               Tok.setIdentifierInfo(II);
               auto Kind = tok::kw_struct;
               ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
@@ -8293,8 +8293,15 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       const bool IsArgInSpecNumCount = (SpecNumIter-- > 0);
       if (PVD && IsMultimethod && IsArgInSpecNumCount) {
         auto* ID = PVD->getType().getBaseTypeIdentifier();
-        if (ID &&
-            ID->getName().startswith("__pp_struct"))
+        // If either type is specialization and it starts with "__pp_struct"
+        //   or it is generalization but ends with ".void"
+        //   then it is an argument for multimethod specialization
+        const bool startsWithPPStruct =
+                      (ID && ID->getName().startswith("__pp_struct"));
+        const bool isGenAsSpec = PVD->PPExtIsGenAsSpecIdType();
+        // It cannot be both true at the same time
+        assert(!(startsWithPPStruct && isGenAsSpec));
+        if (startsWithPPStruct || isGenAsSpec)
           IsSpecialization = true;
       }
 
@@ -8320,11 +8327,14 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     std::string strMangled = FuncNameMM.str();
     int SpecNumIter = SpecNum;
     for(auto& PIn : ParamInfo) {
-      strMangled += cast<ParmVarDecl>(
-                      PIn.Param)
-                        ->getType()
-                        .getBaseTypeIdentifier()
-                        ->getName().str();
+      auto PVD = cast<ParmVarDecl>(PIn.Param);
+      auto typeName = PVD->getType()
+                            .getBaseTypeIdentifier()
+                            ->getName().str();
+      const bool IsGenAsSpec = PVD->PPExtIsGenAsSpecIdType();
+      // In case of IsGenAsSpec add 0 to the type
+      //   to mark it as a specialized version of generalization
+      strMangled += (IsGenAsSpec ? "__0" : "") + typeName;
       if (--SpecNumIter <= 0) {
         break;
       }

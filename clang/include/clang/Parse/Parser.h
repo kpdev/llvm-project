@@ -1568,7 +1568,8 @@ private:
 
   RecordDecl* PPExtGetTypeByName(StringRef Name);
 
-  IdentifierInfo* PPExtGetIdForExistingOrNewlyCreatedGen(
+  using PPIdDescription = std::pair<PPExtIdentType, IdentifierInfo*>;
+  PPIdDescription PPExtGetIdForExistingOrNewlyCreatedGen(
     StringRef BaseName,
     ParsedAttributes& PAttrs,
     bool NeedToAddLParen = true,

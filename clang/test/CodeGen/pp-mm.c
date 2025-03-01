@@ -60,6 +60,27 @@ void StaticPrintFigure<struct Figure.Circle *f1>()
     printf("static circ\n");
 }
 
+
+void CheckGenVoid<struct Figure* f1, struct Figure* f2>()
+{
+    printf("Default\n");
+}
+
+void CheckGenVoid<struct Figure.void* f1, struct Figure.Circle* f2>()
+{
+    printf("Figure + Circle\n");
+}
+
+void CheckGenVoid<struct Figure.Rectangle* f1, struct Figure.void* f2>()
+{
+    printf("Rectangle + Figure\n");
+}
+
+void CheckGenVoid<struct Figure.Rectangle* f1, struct Figure.Circle* f2>()
+{
+    printf("Rectangle + Circle\n");
+}
+
 int main() {
     struct Figure.Circle fc;
     struct Figure.Rectangle fr;
@@ -71,6 +92,18 @@ int main() {
     PrintFigures<&fr, &fc>();
     // CHECK-RT: rect + rect
     PrintFigures<&fr, &fr>();
+
+    struct Figure plain_f;
+    // CHECK-RT: Figure + Circle
+    CheckGenVoid<&plain_f, &fc>();
+    // CHECK-RT: Default
+    CheckGenVoid<&plain_f, &fr>();
+    // CHECK-RT: Rectangle + Figure
+    CheckGenVoid<&fr, &plain_f>();
+    // CHECK-RT: Rectangle + Circle
+    CheckGenVoid<&fr, &fc>();
+    // CHECK-RT: Default
+    CheckGenVoid<&fc, &fr>();
 
     struct Figure* fp = get_spec_ptr(Figure, 0);
     // CHECK-RT: default

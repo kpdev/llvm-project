@@ -1713,25 +1713,37 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
 }
 
 
-IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
+auto Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   StringRef BaseName,
   ParsedAttributes& PAttrs,
   bool NeedToAddLParen,
   bool SaveLastIdent
-)
+) -> PPIdDescription
 {
   assert(Tok.is(tok::l_paren) ||
          Tok.is(tok::period));
   ConsumeAnyToken();
   std::vector<NameAndPtr> Names;
-  if (!BaseName.empty())
+  auto BaseNameStr = BaseName.str();
+  if (!BaseName.empty()) {
+    if (Tok.is(tok::kw_void)) {
+      // Meet construction like
+      //   "Generalization.void"
+      //   It is used in multimethods specializations
+      //   to exlicitly set multimethods with
+      //   generalization parameters
+      BaseNameStr = "0" + BaseNameStr;
+      BaseName = BaseNameStr;
+    }
     Names.push_back({BaseName, false});
+  }
 
   assert(Tok.isOneOf(tok::identifier,
                      tok::kw_int,
                      tok::kw_double,
                      tok::kw_float,
-                     tok::kw_char));
+                     tok::kw_char,
+                     tok::kw_void));
 
   if (Tok.isOneOf(tok::identifier,
                   tok::kw_int,
@@ -1794,9 +1806,17 @@ IdentifierInfo* Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
       Names[0].first.str() :
       PPExtConstructGenName(Names, PAttrs);
 
+  PPExtIdentType IdType = PPExtIdentType::Default;
   auto& Tbl = PP.getIdentifierTable();
-  assert(Tbl.find(MangledName) != Tbl.end());
-  return &PP.getIdentifierTable().get(MangledName);
+  StringRef MangledNameRef = MangledName;
+  if (MangledNameRef.startswith("0")) {
+    // It is an explicit generalization parameter
+    //   like "generalization.void"
+    MangledNameRef = MangledNameRef.substr(1);
+    IdType = PPExtIdentType::GenAsSpecForMM;
+  }
+  assert(Tbl.find(MangledNameRef) != Tbl.end());
+  return {IdType, &PP.getIdentifierTable().get(MangledNameRef)};
 }
 
 
@@ -2216,9 +2236,11 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       RecoverFromUndeclaredTemplateName(
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
     } else if (Tok.is(tok::period)) {
-      Name = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
+      auto GenId = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
                                                     attrs,
                                                     ParenCount == 0);
+      DS.PPExtSetIdentType(GenId.first);
+      Name = GenId.second;
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);

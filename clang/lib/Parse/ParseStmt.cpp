@@ -220,7 +220,7 @@ Retry:
       else {
         auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
           "",
-          Attrs);
+          Attrs).second;
         SuffixName = TypeIdent->getName();
       }
 
