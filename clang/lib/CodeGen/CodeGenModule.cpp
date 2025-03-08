@@ -6844,12 +6844,16 @@ void CodeGenModule::PPExtRecordCreateSpec(
       SzPPstruct,
       DoubleUnderscore - SzPPstruct
     );
-  if (SpecName.count("____") != 0) {
-    fprintf(stderr, "[PP-EXT] Decorated generalizations "
-      "are not yet supported for recording get_spec_ptr\n");
-    return;
-  }
+
+  // Check that SpecName is not like Figure.Decor.Figure.Something
+  // because in this fucntion we register create_spec
+  // which will be invoked by get_spec_ptr(Figure, N)
+  // not by get_spec_ptr(Figure.Decor, N), which is not supported
+  // (and maybe do not need at all, it is a research question)
+  assert((SpecName.count("____") == 0) &&
+         "Trying to record decorated struct for get_spec_ptr usage");
   std::string FName = std::string("__pp_record_cs_") + SpecName.str();
+  StringRef FNameRef(FName); // Degub purpose
   auto* FnRecordCSArr =
       llvm::Function::Create(FnTy,
         llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
@@ -7187,7 +7191,13 @@ void CodeGenModule::HandlePPExtensionMethods(
 
         adjustPPLinkage(FSpec);
 
-        PPExtRecordCreateSpec(FSpec, RecordTy, *FSpec->getParent());
+        if (FSpec->getName().count("____") == 0) {
+        // Do not register decorated generalization
+        // Now we support only `get_spec_ptr(Figure, N)`
+        // not `get_spec_ptr(Figure.Decor, N)`
+        // (and maybe we do not need it at all, it is a question for further research)
+          PPExtRecordCreateSpec(FSpec, RecordTy, *FSpec->getParent());
+        }
       }
     }
   }
