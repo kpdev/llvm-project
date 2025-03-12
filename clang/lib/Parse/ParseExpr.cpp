@@ -1301,7 +1301,15 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
           clang::QualType QTT = VD->getType();
           auto Str = QTT.getAsString();
           StringRef SS(Str);
-          auto StructName = SS.split(" ").second;
+          StringRef SpaceRef(" ");
+          auto SSPair = SS.split(SpaceRef);
+          auto StructName = SSPair.second;
+          if (StructName.equals("*")) {
+            StructName = SSPair.first;
+          }
+          else if (StructName.find(SpaceRef) != StringRef::npos) {
+            StructName = StructName.split(SpaceRef).first;
+          }
           auto MangledName = "spec_index_cmp" + StructName.str();
           auto IIMangled = &PP.getIdentifierTable().get(MangledName);
           Name.setIdentifier(IIMangled, ILoc);
