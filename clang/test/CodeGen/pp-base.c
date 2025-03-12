@@ -290,6 +290,14 @@ int main() {
     res_cmp4 = spec_index_cmp(&fr, &fc);
     printf("Rect+Circ cmp: %d\n", res_cmp4);
 
+    // CHECK-RT-NEXT: PtrToCirc+Circ cmp: 1
+    res_cmp4 = spec_index_cmp(created_ptr, &fc);
+    printf("PtrToCirc+Circ cmp: %d\n", res_cmp4);
+
+    // CHECK-RT-NEXT: PtrToCirc+Rect cmp: -1
+    res_cmp4 = spec_index_cmp(created_ptr, &fr);
+    printf("PtrToCirc+Rect cmp: %d\n", res_cmp4);
+
     // CHECK-RT-NEXT: Checked usage spec_index_cmp in condition
     if (spec_index_cmp(&fc, &fc) >= 0) {
         printf("Checked usage spec_index_cmp in condition\n");

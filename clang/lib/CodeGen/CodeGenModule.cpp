@@ -6957,10 +6957,16 @@ void CodeGenModule::HandlePPExtensionMethods(
 
       // TODO: Refactor
       if (IsSpecIdxCmp) {
+        StringRef PPStructPrefix("__pp_struct_");
         TypeNameExtracted = FSpec->getName().substr(sizeof("spec_index_cmp") - 1);
-        TypeNameExtracted = TypeNameExtracted.substr(sizeof("__pp_struct_") - 1);
-        auto Pos = TypeNameExtracted.find("__");
-        TypeNameExtracted = TypeNameExtracted.substr(0, Pos);
+        // TypeNameExtracted should be a name of generalization
+        //   if it is not - then extract it from specialization name
+        if (TypeNameExtracted.startswith(PPStructPrefix)) {
+          TypeNameExtracted = TypeNameExtracted.substr(PPStructPrefix.size());
+          auto Pos = TypeNameExtracted.find("__");
+          TypeNameExtracted = TypeNameExtracted.substr(0, Pos);
+          assert(!TypeNameExtracted.empty());
+        }
         auto* Ty = PPExtGetTypeByName(TypeNameExtracted);
         assert(Ty);
 
