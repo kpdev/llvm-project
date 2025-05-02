@@ -5723,3 +5723,7 @@ llvm::DINode::DIFlags CGDebugInfo::getCallSiteRelatedAttrs() const {
 
   return llvm::DINode::FlagAllCallsDescribed;
 }
+
+void CGDebugInfo::retainPPType(llvm::DIType *Ty) {
+  DBuilder.retainType(Ty);
+}

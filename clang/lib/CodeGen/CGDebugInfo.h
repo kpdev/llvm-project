@@ -383,6 +383,8 @@ public:
 
   void finalize();
 
+  void retainPPType(llvm::DIType *Ty);
+
   /// Remap a given path with the current debug prefix map
   std::string remapDIPath(StringRef) const;
 
