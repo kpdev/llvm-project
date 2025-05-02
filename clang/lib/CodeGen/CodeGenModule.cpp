@@ -6091,9 +6091,11 @@ void CodeGenModule::HandlePPExtensionMethods(
           PtrToObjForGEP = MallocRes;
         }
 
+        bool SaveType = FSpec->getName().startswith("create_spec");
+
         PPExtInitTypeTagsRecursively(TypeNameExtracted,
                                      PtrToObjForGEP,
-                                     BB);
+                                     BB, SaveType);      
 
         if (IsInitSpec) {
           llvm::ReturnInst::Create(getLLVMContext(), BB);
@@ -6294,7 +6296,8 @@ template<typename TInsertPoint>
 void CodeGenModule::PPExtInitTypeTagsRecursively(
                                   StringRef NameOfVariable,
                                   llvm::Value* PtrToObjForGEP,
-                                  TInsertPoint* IPoint)
+                                  TInsertPoint* IPoint,
+                                  bool SaveType)
 {
   auto* Ty = PPExtGetTypeByName(NameOfVariable);
   do {
@@ -6302,6 +6305,18 @@ void CodeGenModule::PPExtInitTypeTagsRecursively(
     auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
     auto* RecordTy = Ty->getAsRecordDecl();
     assert(RecordTy);
+    if (SaveType && RecordTy) {
+      if (CGDebugInfo *DI = getModuleDebugInfo()) {
+        if (RecordTy->isCompleteDefinition() && RecordTy->getIdentifier() &&
+            RecordTy->getName().startswith("__pp_struct")) {
+    
+          QualType QT = getContext().getRecordType(RecordTy);
+
+          auto *Ty = DI->getOrCreateRecordType(QT, RecordTy->getLocation());
+          DI->retainPPType(Ty);
+        }
+      }
+    }
     llvm::APInt Apint0(32, 0);
     llvm::APInt Apint1(32, 1);
     auto* Number0 =

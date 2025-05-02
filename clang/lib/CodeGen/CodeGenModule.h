@@ -1592,7 +1592,8 @@ private:
   template <typename TInsertPoint>
   void PPExtInitTypeTagsRecursively(StringRef NameOfVariable,
                                     llvm::Value* PtrToObjForGEP,
-                                    TInsertPoint* IPoint);
+                                    TInsertPoint* IPoint,
+                                    bool SaveType = false);
 
   llvm::BasicBlock*
   InitPPHandlersArray(llvm::BasicBlock* BB,
