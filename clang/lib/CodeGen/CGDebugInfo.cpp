@@ -5678,6 +5678,24 @@ void CGDebugInfo::finalize() {
     if (auto MD = TypeCache[RT])
       DBuilder.retainType(cast<llvm::DIType>(MD));
 
+  TranslationUnitDecl *TU = CGM.getContext().getTranslationUnitDecl();
+
+  for (Decl *D : TU->decls()) {
+    auto *RD = dyn_cast<RecordDecl>(D);
+    if (!RD || !RD->getIdentifier() || !RD->isCompleteDefinition())
+      continue;
+  
+    StringRef Name = RD->getName();
+    if (!Name.startswith("__pp_struct"))
+      continue;
+  
+    QualType QT = CGM.getContext().getRecordType(RD);
+  
+    auto *Ty = getOrCreateType(QT, getOrCreateFile(RD->getLocation()));
+    if (Ty)
+      DBuilder.retainType(Ty); 
+  }
+
   DBuilder.finalize();
 }
 
