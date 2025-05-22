@@ -2171,7 +2171,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
               tok::r_paren,
               tok::comma,
               tok::minus,
-              tok::plus
+              tok::plus,
+              tok::greater
             ));
             Tok.setKind(tok::period);
           }
@@ -2183,6 +2184,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                 tok::minus,
                 tok::semi,
                 tok::equal,
+                tok::greater,
                 tok::r_paren,
                 tok::comma)) {
             // Return whole variant part
