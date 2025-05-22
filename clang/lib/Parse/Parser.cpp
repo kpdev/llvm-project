@@ -1238,9 +1238,15 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   if (FTI.isKNRPrototype())
     ParseKNRParamDeclarations(D);
 
+  const bool IsPPExtMMDefaultEq0 =
+    (Tok.is(tok::equal) &&
+     D.getIdentifier() &&
+     D.getIdentifier()->getName().startswith("__pp_mm_"));
+
   // We should have either an opening brace or, in a C++ constructor,
   // we may have a colon.
   if (Tok.isNot(tok::l_brace) &&
+      !IsPPExtMMDefaultEq0 &&
       (!getLangOpts().CPlusPlus ||
        (Tok.isNot(tok::colon) && Tok.isNot(tok::kw_try) &&
         Tok.isNot(tok::equal)))) {
@@ -1326,7 +1332,7 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   // ActOnStartOfFunctionDef needs to know whether the function is deleted.
   Sema::FnBodyKind BodyKind = Sema::FnBodyKind::Other;
   SourceLocation KWLoc;
-  if (TryConsumeToken(tok::equal)) {
+  if (!IsPPExtMMDefaultEq0 && TryConsumeToken(tok::equal)) {
     assert(getLangOpts().CPlusPlus && "Only C++ function definitions have '='");
 
     if (TryConsumeToken(tok::kw_delete, KWLoc)) {
@@ -1380,6 +1386,19 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   // Break out of the ParsingDeclSpec context, too.  This const_cast is
   // safe because we're always the sole owner.
   D.getMutableDeclSpec().abort();
+
+  if (IsPPExtMMDefaultEq0) {
+    ConsumeToken();
+    assert(Tok.is(tok::numeric_constant));
+    // TODO PP-EXT: Check if it is 0
+    ConsumeToken();
+    StmtVector Stmts;
+    StmtResult FnBody = Actions.ActOnCompoundStmt(
+      Tok.getLocation(), NextToken().getLocation(), Stmts, false);
+    auto* ResFn = Actions.ActOnFinishFunctionBody(
+      Res, FnBody.get(), false);
+    return ResFn;
+  }
 
   if (BodyKind != Sema::FnBodyKind::Other) {
     Actions.SetFunctionBodyKind(Res, KWLoc, BodyKind);
@@ -1709,6 +1728,9 @@ Parser::TryAnnotateName(CorrectionCandidateCallback *CCC) {
   }
 
   Token Next = NextToken();
+  if (PPExtNextTokIsLParen) {
+    Next.setKind(tok::l_paren);
+  }
 
   // Look up and classify the identifier. We don't perform any typo-correction
   // after a scope specifier, because in general we can't recover from typos

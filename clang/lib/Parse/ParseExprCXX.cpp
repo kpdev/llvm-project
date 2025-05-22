@@ -564,6 +564,12 @@ ExprResult Parser::tryParseCXXIdExpression(CXXScopeSpec &SS,
   case tok::annot_non_type: {
     NamedDecl *ND = getNonTypeAnnotation(Tok);
     SourceLocation Loc = ConsumeAnnotationToken();
+
+    if (PPExtNextTokIsLParen) {
+      Tok.setKind(tok::l_paren);
+      PPExtNextTokIsLParen = false;
+    }
+
     E = Actions.ActOnNameClassifiedAsNonType(getCurScope(), SS, ND, Loc, Tok);
     break;
   }

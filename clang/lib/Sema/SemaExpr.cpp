@@ -2543,6 +2543,87 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                  (Id.getKind() == UnqualifiedIdKind::IK_ImplicitSelfParam)
                      ? LookupObjCImplicitSelfParam
                      : LookupOrdinaryName);
+  if (R.getResultKind() ==
+      clang::LookupResult::NotFound &&
+      (Name.getAsIdentifierInfo()->getName().startswith("create_spec")   ||
+       Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr")  ||
+       Name.getAsIdentifierInfo()->getName().startswith("get_spec_size") ||
+       Name.getAsIdentifierInfo()->getName().startswith("spec_index_cmp") ||
+       Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
+    auto ResTy = Context.VoidPtrTy;
+    std::vector<QualType> tmpvec;
+    const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
+          ->getName().startswith("get_spec_ptr");
+    const bool IsGetSpecSize = Name.getAsIdentifierInfo()
+          ->getName().startswith("get_spec_size");
+    const bool IsSpecIdxCmp = Name.getAsIdentifierInfo()
+          ->getName().startswith("spec_index_cmp");
+    if (IsGetSpecPtr) {
+      tmpvec.push_back(Context.IntTy);
+    }
+    else if (IsGetSpecSize) {
+      ResTy = Context.IntTy;
+    }
+    else if (IsSpecIdxCmp) {
+      ResTy = Context.IntTy;
+      tmpvec.push_back(Context.VoidPtrTy);
+      tmpvec.push_back(Context.VoidPtrTy);
+    }
+    ArrayRef<QualType> ArrTys(tmpvec);
+
+    auto FPI = FunctionProtoType::ExtProtoInfo();
+    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+
+    DeclContext *Parent = Context.getTranslationUnitDecl();
+    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
+                                            Name, QTy,
+                                            /*TInfo=*/nullptr, SC_Extern,
+                                            getCurFPFeatures().isFPConstrained(),
+                                            false, QTy->isFunctionProtoType());
+    SmallVector<ParmVarDecl *, 16> Params;
+    if (IsGetSpecPtr) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.IntTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
+    else if (IsSpecIdxCmp) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl1 = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      ParmVarDecl* PVDecl2 = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl1);
+      Params.push_back(PVDecl2);
+    }
+    NewD->setParams(Params);
+    // TODO: Remove it
+    auto X = DeclRefExpr::Create(Context,
+        NestedNameSpecifierLoc(), SourceLocation(),
+        NewD,
+        false,
+        R.getLookupNameInfo(),
+        NewD->getType(),
+        clang::VK_LValue,
+        NewD);
+    R.addDecl(X->getDecl());
+  }
+
   if (TemplateKWLoc.isValid() || TemplateArgs) {
     // Lookup the template name again to correctly establish the context in
     // which it was found. This is really unfortunate as we already did the

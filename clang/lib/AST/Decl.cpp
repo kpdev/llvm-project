@@ -3461,6 +3461,84 @@ void FunctionDecl::setParams(ASTContext &C,
   }
 }
 
+int FunctionDecl::getNumOfSpecializationsPPMM(StringRef Name)
+{
+  if (!Name.startswith("__pp_mm_")) {
+    return -1;
+  }
+
+  auto PrefixSize = sizeof("__pp_mm_") - 1;
+  auto PosAfterNum = Name.find_first_of("_", PrefixSize);
+  auto NumStr = Name.substr(PrefixSize,
+                            PosAfterNum - PrefixSize);
+  llvm::APInt Num;
+  NumStr.getAsInteger(10, Num);
+  auto NumInt = Num.getSExtValue();
+  return NumInt;
+}
+
+
+auto FunctionDecl::getRecordDeclsGenArgsForPPMM() const -> MMParams
+{
+  std::vector<FunctionDecl::PPMMParam> Result;
+  int ParamIdx = 0;
+  auto NumInt = getNumOfSpecializationsPPMM(getName());
+  bool IsSpec = false;
+
+  for (auto p = param_begin();
+        (p != param_end()) && (NumInt-- > 0);
+        ++p, ++ParamIdx) {
+
+#ifdef PPEXT_DUMP
+    auto Param = *p;
+    Param->dump();
+#endif
+
+    auto PT = dyn_cast_or_null<PointerType>(
+                                  (*p)->getType().getTypePtr());
+    if (PT) {
+      auto RD = PT->getPointeeType().getTypePtr()->getAsRecordDecl();
+      if (RD) {
+        int Idx = 0;
+
+        bool isGenAsSpec = (*p)->PPExtIsGenAsSpecIdType();
+        bool startsWithPPStruct = RD->getName().startswith("__pp_struct_");
+        assert(!(isGenAsSpec && startsWithPPStruct));
+        if (isGenAsSpec || startsWithPPStruct) {
+          IsSpec = true;
+        } else {
+          // If we meet a generalization parameter
+          // then it should not be specialization
+          assert(IsSpec == false);
+        }
+
+        RecordDecl* BaseRD = nullptr;
+        if (IsSpec) {
+          if (isGenAsSpec) {
+            BaseRD = RD;
+          }
+          else {
+            auto F = *RD->field_begin();
+            assert(F->getName().equals("__pp_head"));
+            assert(F->getType().getTypePtr() &&
+                  F->getType().getTypePtr()->getAsRecordDecl());
+            BaseRD = F->getType().getTypePtr()->getAsRecordDecl();
+          }
+        }
+
+        auto RecordToIterate = (IsSpec ? BaseRD : RD);
+        for (auto F = RecordToIterate->field_begin();
+              F != RecordToIterate->field_end();
+              ++F, ++Idx) {
+          if (F->getName().equals("__pp_specialization_type"))
+            Result.push_back({RD, *p, Idx, ParamIdx, BaseRD});
+        }
+      }
+    }
+  }
+  return { Result, IsSpec };
+}
+
 /// getMinRequiredArguments - Returns the minimum number of arguments
 /// needed to call this function. This may be fewer than the number of
 /// function parameters, if some of the parameters have default

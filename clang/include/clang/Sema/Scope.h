@@ -147,10 +147,12 @@ private:
   /// scope.
   Scope *AnyParent;
 
+public:
   /// Flags - This contains a set of ScopeFlags, which indicates how the scope
   /// interrelates with other control flow statements.
   unsigned Flags;
 
+private:
   /// Depth - This is the depth of this scope.  The translation-unit scope has
   /// depth 0.
   unsigned short Depth;
@@ -161,10 +163,12 @@ private:
 
   unsigned short MSCurManglingNumber;
 
+public:
   /// PrototypeDepth - This is the number of function prototype scopes
   /// enclosing this scope, including this scope.
   unsigned short PrototypeDepth;
 
+private:
   /// PrototypeIndex - This is the number of parameters currently
   /// declared in this scope.
   unsigned short PrototypeIndex;

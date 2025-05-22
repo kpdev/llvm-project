@@ -1290,6 +1290,11 @@ public:
     F->setLinkage(getFunctionLinkage(GD));
   }
 
+  // PP-EXT
+  // TODO: Use one method instead of 2
+  void adjustPPLinkage(llvm::Function* F);
+  void adjustPPLinkage(llvm::GlobalVariable* GV);
+
   /// Return the appropriate linkage for the vtable, VTT, and type information
   /// of the given class.
   llvm::GlobalVariable::LinkageTypes getVTableLinkage(const CXXRecordDecl *RD);
@@ -1564,6 +1569,46 @@ private:
 
   void EmitGlobalFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
   void EmitMultiVersionFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
+
+  // PP-Extension
+  clang::Type* PPExtGetTypeByName(StringRef TypeNameExtracted);
+  void HandlePPExtensionMethods(llvm::Function* F, GlobalDecl GD);
+  void PPExtInitGlobVar(llvm::GlobalVariable* GV);
+  void PPExtInitStackAllocatedVars(llvm::Function* F);
+
+  template <typename TInsertPoint>
+  void PPExtInitGenOrSpec(TInsertPoint* IPoint, StringRef Name, llvm::Value* ParentObject);
+  void PPExtRecordCreateSpec(llvm::Function* FnCreateSpec, RecordDecl* RDSpec, llvm::Module& Parent);
+
+  void AddPPSpecialization(llvm::Function* F,
+                           const FunctionDecl::MMParams& Gens);
+  void PPExtInitCreateSpecArray(StringRef GenName, llvm::Module& Parent);
+  llvm::Function* PPExtCreateMMRecorder(llvm::Function* BaseF);
+  llvm::Function* ExtractDefaultPPMMImplementation(llvm::Function* F,
+                                                   const clang::FunctionDecl* FD);
+  llvm::Value* PPExtGetIndexForMM(llvm::BasicBlock* BB,
+                                  const FunctionDecl::MMParams& Gens);
+
+  template <typename TInsertPoint>
+  void PPExtInitTypeTagsRecursively(StringRef NameOfVariable,
+                                    llvm::Value* PtrToObjForGEP,
+                                    TInsertPoint* IPoint);
+
+  llvm::BasicBlock*
+  InitPPHandlersArray(llvm::BasicBlock* BB,
+                      llvm::Value* AllocatedBytes,
+                      llvm::Value* HandlersArray,
+                      llvm::Value* DefaultHandler);
+  enum class InsertPrintfPos {
+    Default,
+    BeforeFirstInstr,
+    BeforeRet
+  };
+  llvm::CallInst* CreateCallPrintf(
+    llvm::BasicBlock* BB,
+    StringRef FormatStr,
+    llvm::Value* Arg = nullptr,
+    InsertPrintfPos Pos = InsertPrintfPos::Default);
 
   void EmitGlobalVarDefinition(const VarDecl *D, bool IsTentative = false);
   void EmitExternalVarDeclaration(const VarDecl *D);

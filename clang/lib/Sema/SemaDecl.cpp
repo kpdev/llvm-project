@@ -881,6 +881,93 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
   LookupResult Result(*this, Name, NameLoc, LookupOrdinaryName);
   LookupParsedName(Result, S, &SS, !CurMethod);
 
+  if (Result.getResultKind() ==
+      clang::LookupResult::NotFound &&
+      (Name->getName().startswith("create_spec")    ||
+       Name->getName().startswith("get_spec_ptr")   ||
+       Name->getName().startswith("get_spec_size")  ||
+       Name->getName().startswith("spec_index_cmp") ||
+       Name->getName().startswith("init_spec"))) {
+    const bool IsInitSpec = Name->getName().startswith("init_spec");
+    const bool IsGetSpecPtr = Name->getName().startswith("get_spec_ptr");
+    const bool IsGetSpecSize = Name->getName().startswith("get_spec_size");
+    const bool IsSpecIdxCmp = Name->getName().startswith("spec_index_cmp");
+
+    auto ResTy = Context.VoidPtrTy;
+    std::vector<QualType> ArrTysVec;
+    if (IsInitSpec) {
+      ArrTysVec.push_back(Context.VoidPtrTy);
+      ResTy = Context.VoidTy;
+    }
+    else if (IsGetSpecPtr) {
+      ArrTysVec.push_back(Context.IntTy);
+    }
+    else if (IsGetSpecSize) {
+      ResTy = Context.IntTy;
+    }
+    else if (IsSpecIdxCmp) {
+      ResTy = Context.IntTy;
+      ArrTysVec.push_back(Context.VoidPtrTy);
+      ArrTysVec.push_back(Context.VoidPtrTy);
+    }
+    ArrayRef<QualType> ArrTys(ArrTysVec);
+
+    auto FPI = FunctionProtoType::ExtProtoInfo();
+    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+
+    DeclContext *Parent = Context.getTranslationUnitDecl();
+    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
+                                            Name, QTy,
+                                            /*TInfo=*/nullptr, SC_Extern,
+                                            getCurFPFeatures().isFPConstrained(),
+                                            false, QTy->isFunctionProtoType());
+    SmallVector<ParmVarDecl *, 16> Params;
+    if (IsInitSpec) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
+    else if (IsSpecIdxCmp) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl* PVDecl1 = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      ParmVarDecl* PVDecl2 = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.VoidPtrTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl1);
+      Params.push_back(PVDecl2);
+    }
+    else if (IsGetSpecPtr) {
+      auto tfi = Context.CreateTypeSourceInfo(Context.IntTy);
+      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
+        Context.getTranslationUnitDecl(),
+        NameLoc, NameLoc, nullptr,
+        Context.IntTy,
+        tfi,
+        clang::StorageClass::SC_None,
+        nullptr);
+      Params.push_back(PVDecl);
+    }
+
+    NewD->setParams(Params);
+    Result.addDecl(NewD);
+  }
+
   if (SS.isInvalid())
     return NameClassification::Error();
 
@@ -962,7 +1049,20 @@ Corrected:
 
     // Perform typo correction to determine if there is another name that is
     // close to this name.
-    if (!SecondTry && CCC) {
+    // PP-EXT TODO: Need to handle this case correctly
+    //              if we have code like
+    //              ```
+    //              struct Figure {} <>;
+    //              void FigureIn<struct Figure* f>() {}
+    //              void foo() {
+    //                struct Figure *sp;
+    //                FigureIn<sp>();
+    //              }
+    //              ```
+    //              then if remove `&& !NextToken.is(tok::less)`
+    //              then parser will throw an error with proposal
+    //              to replace FigureIn with Figure
+    if (!SecondTry && CCC && !NextToken.is(tok::less)) {
       SecondTry = true;
       if (TypoCorrection Corrected =
               CorrectTypo(Result.getLookupNameInfo(), Result.getLookupKind(), S,
@@ -14279,6 +14379,8 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
   ParmVarDecl *New =
       CheckParameter(Context.getTranslationUnitDecl(), D.getBeginLoc(),
                      D.getIdentifierLoc(), II, parmDeclType, TInfo, SC);
+
+  New->PPExtSetIdentType(D.getDeclSpec().PPExtGetIdentType());
 
   if (D.isInvalidType())
     New->setInvalidDecl();

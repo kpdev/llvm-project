@@ -561,6 +561,7 @@ public:
 /// piece of the code, as each occurrence of every identifier goes through
 /// here when lexed.
 class IdentifierTable {
+public:
   // Shark shows that using MallocAllocator is *much* slower than using this
   // BumpPtrAllocator!
   using HashTableTy = llvm::StringMap<IdentifierInfo *, llvm::BumpPtrAllocator>;

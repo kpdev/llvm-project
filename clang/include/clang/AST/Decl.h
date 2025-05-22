@@ -1830,6 +1830,11 @@ public:
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
   static bool classofKind(Kind K) { return K == ParmVar; }
 
+  /// Setter and checker for ident type
+  /// used in multimethods (pp-extension)
+  bool PPExtIsGenAsSpecIdType() const { return identType == PPExtIdentType::GenAsSpecForMM; }
+  void PPExtSetIdentType(PPExtIdentType t) { identType = t; }
+
 private:
   enum { ParameterIndexSentinel = (1 << NumParameterIndexBits) - 1 };
 
@@ -1849,6 +1854,8 @@ private:
 
   void setParameterIndexLarge(unsigned parameterIndex);
   unsigned getParameterIndexLarge() const;
+
+  PPExtIdentType identType = PPExtIdentType::Default;
 };
 
 enum class MultiVersionKind {
@@ -2545,6 +2552,24 @@ public:
   void setParams(ArrayRef<ParmVarDecl *> NewParamInfo) {
     setParams(getASTContext(), NewParamInfo);
   }
+
+  struct PPMMParam {
+    RecordDecl* RD;
+    ParmVarDecl* PVD;
+    int IdxOfTypeTag; // of __pp_specialization_type
+    int ParamIdx; //- index of this parameter
+    RecordDecl* BaseRD; // base of generalization
+  };
+
+  struct MMParams
+  {
+    std::vector<PPMMParam> ParamsList;
+    bool IsSpecialization = false;
+  };
+
+  MMParams getRecordDeclsGenArgsForPPMM() const;
+
+  static int getNumOfSpecializationsPPMM(StringRef Name);
 
   /// Returns the minimum number of arguments needed to call this function. This
   /// may be fewer than the number of function parameters, if some of the

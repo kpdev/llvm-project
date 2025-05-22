@@ -399,6 +399,8 @@ private:
 
   ObjCDeclSpec *ObjCQualifiers;
 
+  PPExtIdentType identType = PPExtIdentType::Default;
+
   static bool isTypeRep(TST T) {
     return (T == TST_typename || T == TST_typeofType ||
             T == TST_underlyingType || T == TST_atomic);
@@ -816,6 +818,11 @@ public:
   ///
   /// Only tag declspecs can stand alone.
   bool isMissingDeclaratorOk();
+
+  /// Setter and getter for ident type
+  /// used in multimethods (pp-extension)
+  PPExtIdentType PPExtGetIdentType() const { return identType; }
+  void PPExtSetIdentType(PPExtIdentType t) { identType = t; }
 };
 
 /// Captures information about "declaration specifiers" specific to

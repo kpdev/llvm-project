@@ -18,6 +18,7 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
+#include "clang/Sema/Lookup.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/STLExtras.h"
@@ -189,7 +190,92 @@ Retry:
     return StmtError();
 
   case tok::identifier: {
+    if (Tok.getIdentifierInfo()
+            ->getName().equals("get_spec_ptr")) {
+      const auto IdentTok = Tok;
+      ConsumeToken();
+      assert(Tok.is(tok::l_paren));
+      // Replace Tok kind to avoid
+      // balancing parens error in parser
+      Tok.setKind(tok::comma);
+      ConsumeToken();
+      assert(Tok.is(tok::identifier));
+      const auto Mangled =
+        IdentTok.getIdentifierInfo()->getName().str()
+        + Tok.getIdentifierInfo()->getName().str();
+      auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+      Tok.setIdentifierInfo(IIMangled);
+      PPExtNextTokIsLParen = true;
+    }
+    else if (Tok.getIdentifierInfo()
+            ->getName().equals("spec_index_cmp")) {
+      auto IdentTok =
+        PP.LookAhead(1).is(tok::identifier) ?
+        PP.LookAhead(1) : PP.LookAhead(2);
+      assert(IdentTok.is(tok::identifier));
+      auto* II = IdentTok.getIdentifierInfo();
+      LookupResult Result(Actions, II, Tok.getLocation(),
+        Sema::LookupOrdinaryName);
+      Actions.LookupName(Result, getCurScope());
+      assert(Result.getResultKind() == LookupResult::Found);
+      auto FD = Result.getFoundDecl();
+      assert(FD);
+      auto VD = cast<clang::VarDecl>(FD);
+      assert(VD);
+      clang::QualType QTT = VD->getType();
+      auto Str = QTT.getAsString();
+      StringRef SS(Str);
+      auto StructName = SS.split(" ").second;
+      auto MangledName = "spec_index_cmp" + StructName.str();
+      auto IIMangled = &PP.getIdentifierTable().get(MangledName);
+      Tok.setIdentifierInfo(IIMangled);
+    }
+    else if (Tok.getIdentifierInfo()
+            ->getName().equals("create_spec")   ||
+        Tok.getIdentifierInfo()
+            ->getName().equals("get_spec_size") ||
+        Tok.getIdentifierInfo()
+            ->getName().equals("init_spec")) {
+
+      const bool IsGSS = Tok.getIdentifierInfo()
+                          ->getName().equals("get_spec_size");
+
+      auto IdentTok = Tok;
+      ParsedAttributes Attrs(AttrFactory);
+      ConsumeToken();
+      assert(Tok.is(tok::l_paren));
+
+      StringRef SuffixName;
+      if (IsGSS) {
+        assert(NextToken().is(tok::identifier));
+        SuffixName = NextToken().getIdentifierInfo()->getName();
+      }
+      else {
+        auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
+          "",
+          Attrs).second;
+        SuffixName = TypeIdent->getName();
+      }
+
+      auto Mangled =
+        IdentTok.getIdentifierInfo()->getName().str()
+        + SuffixName.str();
+      IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+      if (IIMangled->getName().startswith("init_spec")) {
+        ConsumeToken();
+      }
+
+      Tok = IdentTok;
+      Tok.setIdentifierInfo(IIMangled);
+      PPExtNextTokIsLParen = true;
+    }
+
     Token Next = NextToken();
+
+    if (PPExtNextTokIsLParen) {
+      Next.setKind(tok::l_paren);
+    }
+
     if (Next.is(tok::colon)) { // C99 6.8.1: labeled-statement
       // Both C++11 and GNU attributes preceding the label appertain to the
       // label, so put them in a single list to pass on to
@@ -1082,6 +1168,160 @@ StmtResult Parser::handleExprStmt(ExprResult E, ParsedStmtContext StmtCtx) {
   return Actions.ActOnExprStmt(E, /*DiscardedValue=*/!IsStmtExprResult);
 }
 
+Parser::PPStructType
+Parser::PPExtGetStructType(const RecordDecl* RD) const
+{
+  StringRef TagFieldName("__pp_specialization_type");
+  for (auto FieldIter = RD->field_begin();
+            FieldIter != RD->field_end(); ++FieldIter) {
+    if (FieldIter->getName().equals(TagFieldName)) {
+      return PPStructType::Generalization;
+    }
+  }
+
+  if (RD->getName().startswith("__pp_struct")) {
+    return PPStructType::Specialization;
+  }
+
+  return PPStructType::Default;
+}
+
+
+std::vector<Parser::PPStructInitDesc>
+Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
+{
+  std::vector<Parser::PPStructInitDesc> Result;
+  assert(!RD->field_empty());
+  auto HeadElem = *RD->field_begin();
+  auto HeadType = HeadElem->getType();
+  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
+                          getAsRecordDecl();
+
+  if (!RDHead ||
+      !HeadElem->getName().equals("__pp_head")) {
+    RDHead = RD;
+  }
+
+  for (auto FieldIter = RDHead->field_begin();
+            FieldIter != RDHead->field_end(); ++FieldIter) {
+    auto FieldType = FieldIter->getType();
+    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
+                            getAsRecordDecl();
+    if (RDField) {
+      auto StrTy = PPExtGetStructType(RDField);
+      if (StrTy != PPStructType::Default) {
+        Result.emplace_back(
+          PPStructInitDesc{*FieldIter, RDField, StrTy});
+      }
+    }
+  }
+
+  return Result;
+}
+
+
+Parser::PPMemberInitData
+Parser::PPExtInitPPStruct(PPStructInitDesc IDesc, Expr* MemberAccess)
+{
+  auto RDType = PPExtGetStructType(IDesc.RD);
+  auto TName = IDesc.RD->getName();
+  StringRef TagFieldName("__pp_specialization_type");
+  assert(RDType != PPStructType::Default);
+  // Initialize tag
+  CXXScopeSpec SS;
+  UnqualifiedId HeadFieldId;
+  {
+    // setup field name
+    IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
+    HeadFieldId.setIdentifier(Id, SourceLocation());
+  }
+
+  ExprResult ERes;
+  if (MemberAccess == nullptr) {
+    ERes = Actions.ActOnNameClassifiedAsNonType(
+      getCurScope(),
+      SS,
+      IDesc.VD,
+      SourceLocation(),
+      NextToken()
+    );
+  }
+  else {
+    UnqualifiedId CurStructId;
+    CurStructId.setIdentifier(
+      &PP.getIdentifierTable().get(IDesc.VD->getName()),
+      SourceLocation());
+    // Access from head to current struct
+    ERes = Actions.ActOnMemberAccessExpr(getCurScope(),
+              MemberAccess, SourceLocation(),
+              clang::tok::period,
+              SS,
+              SourceLocation(),
+              CurStructId,
+              nullptr);
+  }
+
+  const bool isVariant = (PPStructType::Specialization == RDType);
+  auto HeadField = isVariant ?
+      Actions.ActOnMemberAccessExpr(getCurScope(),
+        ERes.get(), SourceLocation(),
+        clang::tok::period,
+        SS,
+        SourceLocation(),
+        HeadFieldId,
+        nullptr)
+    : ERes;
+
+  IdentifierInfo* Id = &PP.getIdentifierTable().get(TagFieldName);
+  UnqualifiedId TagFieldId;
+  TagFieldId.setIdentifier(Id, SourceLocation());
+  auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
+    HeadField.get(), SourceLocation(),
+    clang::tok::period,
+    SS,
+    SourceLocation(),
+    TagFieldId,
+    nullptr);
+
+  Expr* RHSRes;
+  // Prepare RHS
+  if (isVariant) {
+    std::string TagName = PPExtConstructTagName(TName);
+    IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
+    UnqualifiedId VarName;
+    VarName.setIdentifier(II, SourceLocation());
+    DeclarationNameInfo DNI;
+    DNI.setName(VarName.Identifier);
+    LookupResult R(Actions, DNI,
+      Sema::LookupOrdinaryName);
+    getActions().LookupName(R, getCurScope(), true);
+    auto* D = cast<ValueDecl>(R.getFoundDecl());
+    auto RHSResDeclRef = DeclRefExpr::Create(getActions().Context,
+      NestedNameSpecifierLoc(), SourceLocation(),
+      D,
+      false,
+      R.getLookupNameInfo(),
+      D->getType(),
+      clang::VK_LValue,
+      D);
+    getActions().MarkDeclRefReferenced(RHSResDeclRef);
+    RHSRes = RHSResDeclRef;
+  }
+  else {
+    RHSRes = Actions.ActOnIntegerConstant(Tok.getLocation(), 0).get();
+  }
+
+  ExprResult AssignmentOpExpr =
+    Actions.ActOnBinOp(
+      getCurScope(),
+      SourceLocation(),
+      clang::tok::equal,
+      TagField.get(),
+      RHSRes
+    );
+  return PPMemberInitData{AssignmentOpExpr.get(), HeadField.get()};
+}
+
 /// ParseCompoundStatementBody - Parse a sequence of statements and invoke the
 /// ActOnCompoundStmt action.  This expects the '{' to be the current token, and
 /// consume the '}' at the end of the block.  It does not manipulate the scope
@@ -1196,9 +1436,11 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable())
+    if (R.isUsable()) {
       Stmts.push_back(R.get());
+    }
   }
+
   // Warn the user that using option `-ffp-eval-method=source` on a
   // 32-bit target and feature `sse` disabled, or using
   // `pragma clang fp eval_method=source` and feature `sse` disabled, is not

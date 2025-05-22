@@ -1430,6 +1430,318 @@ bool Parser::isValidAfterTypeSpecifier(bool CouldBeBitfield) {
   return false;
 }
 
+
+std::string Parser::PPExtConstructGenName(
+  StringRef BaseName,
+  NameAndPtr SpecName,
+  bool AddPrefix)
+{
+  return (AddPrefix ? std::string("__pp_struct_") : std::string(""))
+          + BaseName.str()
+          + std::string("__")
+          + SpecName.first.str()
+          + (SpecName.second ? "_pp_ptr" : "");
+}
+
+std::string Parser::PPExtConstructGenName(
+  std::vector<NameAndPtr> Names,
+  ParsedAttributes& PAttrs
+)
+{
+  if (Names.size() < 2) {
+    assert(false
+      && "Wrong number of specialization names");
+    return "<invalid_pp_gen_name>";
+  }
+
+  auto GetTypeNameIfTag = [&](std::string PrevName,
+                              std::string NameToCheck) {
+    auto TypeToCheck = PPExtGetTypeByName(NameToCheck);
+    if (!TypeToCheck) {
+      // Create gen name. It should exist
+      auto GenName =
+        PPExtConstructGenName(PrevName, {NameToCheck, false});
+      auto GenType = PPExtGetTypeByName(GenName);
+      assert(GenType);
+      for (auto f: GenType->fields()) {
+        if (f->getName().equals("__pp_tail")) {
+          auto S = f->getType().getAsString();
+          StringRef SR(S);
+          SR = SR.split(" ").second;
+          NameToCheck = SR.str();
+          TypeToCheck = PPExtGetTypeByName(SR);
+          assert(TypeToCheck);
+          break;
+        }
+      }
+    }
+    return std::make_pair(NameToCheck, TypeToCheck);
+  };
+
+  auto LastIdx = static_cast<int>(Names.size()) - 1;
+  auto CurBaseName = Names[LastIdx - 1].first.str();
+  if (LastIdx > 1) {
+    // Return type name if
+    //        CurBaseName is a tag
+    auto P = GetTypeNameIfTag(Names[LastIdx - 2].first.str(),
+                              CurBaseName);
+    CurBaseName = P.first;
+  }
+  std::string ResName = PPExtConstructGenName(
+                              CurBaseName,
+                              Names[LastIdx]);
+  auto* ResType = PPExtGetTypeByName(ResName);
+  assert(ResType);
+
+  for (int i  = LastIdx - 2; i >= 0; --i) {
+    auto CurBaseHeadName = Names[i].first;
+    auto CurBaseHeadType = PPExtGetTypeByName(CurBaseHeadName);
+    if (i != 0) {
+      // Return type name ifs
+      //        CurBaseName is a tag
+      auto P = GetTypeNameIfTag(Names[i - 1].first.str(),
+                                CurBaseHeadName.str());
+      CurBaseHeadName = P.first;
+      CurBaseHeadType = P.second;
+    }
+    assert(CurBaseHeadType);
+    CurBaseName = PPExtConstructGenName(CurBaseHeadName,
+                                        Names[i + 1]);
+    // Construct new type (or get existing one
+    //           if it is already constructed)
+    auto CurGenName = PPExtConstructGenName(
+                        CurBaseName,
+                        {ResName, false},
+                        false);
+    auto CurGenType = PPExtGetTypeByName(CurGenName);
+    if (!CurGenType) {
+      assert(CurBaseHeadType);
+      CurGenType = PPExtCreateGeneralization(
+                          CurGenName, CurBaseHeadType, ResType,
+                          Tok.getLocation(), PAttrs);
+      assert(CurGenType);
+    }
+    ResType = CurGenType;
+    ResName = CurGenName;
+  }
+
+  assert(ResType);
+  return ResName;
+}
+
+
+RecordDecl* Parser::PPExtCreateGeneralization(
+  StringRef Name,
+  RecordDecl* Head,
+  RecordDecl* Tail,
+  SourceLocation Loc,
+  ParsedAttributes& PAttrs
+) {
+
+    Sema::SkipBodyInfo TestSkipBody;
+    CXXScopeSpec TestSS;
+    MultiTemplateParamsArg TestTParams;
+    bool TestOwned = true;
+    bool TestIsDependent = false;
+
+    ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+    ParsedAttributes Attrs(AttrFactory);
+    auto BaseNameIdentifier = &PP.getIdentifierTable().get(Name);
+
+    ParsingDeclSpec PDS(*this);
+
+    auto ResultDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
+      Loc, TestSS, BaseNameIdentifier, Loc, Attrs, clang::AS_none, Loc,
+      TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+      false, false, &TestSkipBody);
+    Actions.ActOnTagStartDefinition(getCurScope(), ResultDecl);
+
+    SmallVector<Decl *, 32> FieldDecls;
+    FieldGenerator("__pp_head", DeclSpec::TST_struct, Head, false,
+                    Attrs, ResultDecl, FieldDecls);
+    FieldGenerator("__pp_tail", DeclSpec::TST_struct, Tail, false,
+                    Attrs, ResultDecl, FieldDecls);
+    SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(ResultDecl)->fields());
+    Actions.ActOnFields(getCurScope(), Loc, ResultDecl, TestFieldDecls,
+                  SourceLocation(), SourceLocation(), PAttrs);
+
+    StructScope.Exit();
+    Actions.ActOnTagFinishDefinition(getCurScope(), ResultDecl, SourceRange());
+    unsigned DiagID;
+    const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+    const char *PrevSpec = nullptr;
+    PDS.SetTypeSpecType(
+      DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
+      DiagID, ResultDecl, true, Policy);
+
+#ifdef PPEXT_DUMP
+    ResultDecl->dump();
+#endif
+
+    auto* ResultRecordDecl = cast<RecordDecl>(ResultDecl);
+    assert(ResultRecordDecl);
+    return ResultRecordDecl;
+}
+
+RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
+{
+  auto& TypesArr = getActions().getASTContext().getTypes();
+  clang::RecordDecl* ResDecl = nullptr;
+  for (auto* Ty: TypesArr) {
+    if (Ty->isRecordType() &&
+        Ty->getAsRecordDecl()
+          ->getName().equals(Name)) {
+      ResDecl = Ty->getAsRecordDecl();
+      break;
+    }
+  }
+  return ResDecl;
+}
+
+
+auto Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
+  StringRef BaseName,
+  ParsedAttributes& PAttrs,
+  bool NeedToAddLParen,
+  bool SaveLastIdent
+) -> PPIdDescription
+{
+  assert(Tok.is(tok::l_paren) ||
+         Tok.is(tok::period));
+  ConsumeAnyToken();
+  std::vector<NameAndPtr> Names;
+  auto BaseNameStr = BaseName.str();
+  if (!BaseName.empty()) {
+    if (Tok.is(tok::kw_void)) {
+      // Meet construction like
+      //   "Generalization.void"
+      //   It is used in multimethods specializations
+      //   to exlicitly set multimethods with
+      //   generalization parameters
+      BaseNameStr = "0" + BaseNameStr;
+      BaseName = BaseNameStr;
+    }
+    Names.push_back({BaseName, false});
+  }
+
+  assert(Tok.isOneOf(tok::identifier,
+                     tok::kw_int,
+                     tok::kw_double,
+                     tok::kw_float,
+                     tok::kw_char,
+                     tok::kw_void));
+
+  if (Tok.isOneOf(tok::identifier,
+                  tok::kw_int,
+                  tok::kw_double,
+                  tok::kw_float,
+                  tok::kw_char)) {
+    Names.push_back({Tok.getIdentifierInfo()->getName(), false});
+  }
+
+  if (!SaveLastIdent &&
+    (Names.size() != 1 ||
+    !NextToken().is(tok::r_paren))) {
+    ConsumeToken();
+  }
+
+  assert(Tok.isOneOf(
+              tok::r_paren,
+              tok::identifier,
+              tok::period,
+              tok::star));
+
+  while (Tok.is(tok::period)) {
+    assert(NextToken().isOneOf(
+      tok::identifier,
+      tok::kw_int,
+      tok::kw_double,
+      tok::kw_char
+    ));
+    auto IdentTok = NextToken();
+
+    Names.push_back({IdentTok.getIdentifierInfo()->getName(), false});
+
+    const bool IsLastIter =
+      PP.LookAhead(1).isOneOf(tok::r_paren, tok::comma);
+
+    if (!IsLastIter) {
+      ConsumeToken();
+      ConsumeToken();
+    } else {
+      break;
+    }
+  }
+
+  assert(Tok.isOneOf(
+              tok::comma,
+              tok::identifier,
+              tok::period,
+              tok::star,
+              tok::l_paren,
+              tok::r_paren));
+
+  if (NeedToAddLParen &&
+      (Tok.is(tok::comma) ||
+       NextToken().is(tok::r_paren))) {
+    Tok.setKind(tok::l_paren);
+  }
+
+  auto MangledName =
+    Names.size() == 1 ?
+      Names[0].first.str() :
+      PPExtConstructGenName(Names, PAttrs);
+
+  PPExtIdentType IdType = PPExtIdentType::Default;
+  auto& Tbl = PP.getIdentifierTable();
+  StringRef MangledNameRef = MangledName;
+  if (MangledNameRef.startswith("0")) {
+    // It is an explicit generalization parameter
+    //   like "generalization.void"
+    MangledNameRef = MangledNameRef.substr(1);
+    IdType = PPExtIdentType::GenAsSpecForMM;
+  }
+  assert(Tbl.find(MangledNameRef) != Tbl.end());
+  return {IdType, &PP.getIdentifierTable().get(MangledNameRef)};
+}
+
+
+std::string Parser::PPExtConstructTagName(StringRef GenName)
+{
+  char PPStructPrefix[] = "__pp_struct_";
+  auto Sz = sizeof(PPStructPrefix);
+  auto NextPos = GenName.find(PPStructPrefix, Sz);
+  // 'NextPos-2' because there are 4 underscores
+  return std::string("__pp_tag_")
+          + GenName.substr(0, NextPos - 2).str();
+}
+
+DeclSpec::TST Parser::PPExtGetFieldTypeByTokKind(tok::TokenKind TK)
+{
+  auto Res = DeclSpec::TST::TST_struct;
+  switch (TK) {
+    case tok::kw_int:
+      Res = DeclSpec::TST::TST_int;
+      break;
+    case tok::kw_char:
+      Res = DeclSpec::TST::TST_char;
+      break;
+    case tok::kw_double:
+      Res = DeclSpec::TST::TST_double;
+      break;
+    case tok::kw_float:
+      Res = DeclSpec::TST::TST_float;
+      break;
+    case tok::kw_void:
+      Res = DeclSpec::TST::TST_void;
+      break;
+    default:
+      ;
+  }
+
+  return Res;
+}
+
 /// ParseClassSpecifier - Parse a C++ class-specifier [C++ class] or
 /// elaborated-type-specifier [C++ dcl.type.elab]; we can't tell which
 /// until we reach the start of a definition or see a token that
@@ -1648,6 +1960,151 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     Name = Tok.getIdentifierInfo();
     NameLoc = ConsumeToken();
 
+    // PP-EXT
+    if (Tok.is(tok::plus)) {
+      ConsumeToken();
+      assert(Tok.is(tok::less));
+      auto CurLoc = ConsumeToken();
+      if (Tok.is(tok::kw_struct)) {
+        // PP-EXT TODO: If kw_struct is not used,
+        //              then check if identifier is typedef
+        CurLoc = ConsumeToken();
+      }
+      assert(Tok.isOneOf(tok::identifier,
+                         tok::kw_int,
+                         tok::kw_double,
+                         tok::kw_char));
+      StringRef TagName;
+      if (NextToken().is(tok::colon)) {
+        TagName = Tok.getIdentifierInfo()->getName();
+        ConsumeToken();
+        ConsumeToken();
+        assert(Tok.isOneOf(tok::identifier,
+                           tok::kw_void,
+                           tok::kw_int,
+                           tok::kw_char,
+                           tok::kw_double,
+                           tok::kw_float));
+      }
+#ifdef PPEXT_DUMP
+      printf("!!! [%s] %s\n",
+        TagName.data(),
+        Tok.getIdentifierInfo()->getNameStart());
+#endif
+
+      // Add struct
+      {
+        // TODO: Use functions for this functionality
+        //       together with ParseDecl.cpp:5038
+#ifdef PPEXT_DUMP
+        printf("\n[!!!] TODO: Refactoring: reuse PPCreateGen\n");
+#endif
+        Sema::SkipBodyInfo TestSkipBody;
+        CXXScopeSpec TestSS;
+        MultiTemplateParamsArg TestTParams;
+        bool TestOwned = true;
+        bool TestIsDependent = false;
+
+        ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+        ParsedAttributes TestAttrs(AttrFactory);
+        auto VariantName = Tok.getIdentifierInfo()->getName().str();
+        auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
+        const bool IsPtr = NextToken().is(tok::star);
+        auto TestNameStr = std::string("__pp_struct_") + Name->getName().str()
+                            + "__"
+                            + (TagName.empty() ?
+                                VariantName + (IsPtr ? "_pp_ptr" : "") :
+                                TagName.str());
+        auto TestName = &PP.getIdentifierTable().get(TestNameStr);
+
+        SmallVector<StringRef, 8> Parts;
+        auto MainFileID = Actions.getSourceManager().getMainFileID();
+        auto FullFileName = Actions.getSourceManager().getFileEntryForID(MainFileID)->getName();
+        FullFileName.split(Parts, '/');
+        auto ExactFileName = Parts.back();
+        Parts.clear();
+        ExactFileName.split(Parts, '.');
+        auto OnlyFileName = Parts.front().str();
+        const bool NeedCtorsDefinitions = true;
+#ifdef PPEXT_DUMP
+        printf("!!! FullFilename:[%s], OnlyFileName:[%s], Name:[%s]\n",
+          FullFileName.str().c_str(),
+          OnlyFileName.c_str(),
+          Name->getName().str().c_str());
+        printf("[+] Test name: %s, Variant Name: %s\n", TestName->getNameStart(), VariantName.c_str());
+#endif
+        auto TestLocation = SourceLocation();
+
+        PPMangledNames ppMNames;
+        ppMNames.setBaseName(Name->getName().str());
+        ppMNames.addVariantName(TestName->getName().str());
+        ParsingDeclSpec PDS(*this);
+
+        auto BaseDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+          TestLocation, TestSS, Name, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
+          TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
+          TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
+          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
+          false, false, &TestSkipBody);
+        Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
+
+        const DeclSpec::TST FieldType = PPExtGetFieldTypeByTokKind(Tok.getKind());
+        // TODO PP-EXT: VariantDecl should not be casted to RecordDecl
+        auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
+        auto BaseRecordDecl = cast<RecordDecl>(BaseDecl);
+        SmallVector<Decl *, 32> FieldDecls;
+        FieldGenerator("__pp_head", DeclSpec::TST_struct, BaseRecordDecl, false,
+                        TestAttrs, TestDecl, FieldDecls);
+        FieldGenerator("__pp_tail",
+                       FieldType,
+                       VariantRecordDecl, IsPtr,
+                       TestAttrs, TestDecl, FieldDecls);
+        SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
+        Actions.ActOnFields(getCurScope(), CurLoc, TestDecl, TestFieldDecls,
+                      CurLoc, CurLoc, attrs);
+
+        StructScope.Exit();
+        Actions.ActOnTagFinishDefinition(getCurScope(), TestDecl, SourceRange());
+        unsigned DiagID;
+        const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+        const char *PrevSpec = nullptr;
+        PDS.SetTypeSpecType(
+          DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
+          DiagID, TestDecl, true, Policy);
+
+#ifdef PPEXT_DUMP
+        TestDecl->dump();
+#endif
+
+        std::string GVarName = std::string("__pp_tag_") + TestNameStr;
+        m_PPGlobalVars.push_back(VarGenerate(GVarName));
+
+        auto& V = ppMNames.VariantStructNames.back();
+        if (NeedCtorsDefinitions) {
+          AddFunc(V.VariantCreateSpecFuncName,
+            PPFuncMode::CreateSpec,
+            V.VariantTagVariableName, ppMNames);
+          AddFunc(V.VariantInitFuncName,
+            PPFuncMode::Init,
+            V.VariantTagVariableName, ppMNames);
+        }
+      }
+      ConsumeToken();
+      if (Tok.is(tok::star)) {
+        ConsumeToken();
+      }
+      assert(Tok.is(tok::semi));
+      ConsumeToken();
+      assert(Tok.is(tok::greater));
+      ConsumeToken();
+      assert(Tok.is(tok::semi));
+    }
     if (Tok.is(tok::less) && getLangOpts().CPlusPlus) {
       // The name was supposed to refer to a template, but didn't.
       // Eat the template argument list and try to continue parsing this as
@@ -1662,6 +2119,12 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       }
       RecoverFromUndeclaredTemplateName(
           Name, NameLoc, SourceRange(LAngleLoc, RAngleLoc), false);
+    } else if (Tok.is(tok::period)) {
+      auto GenId = PPExtGetIdForExistingOrNewlyCreatedGen(Name->getName(),
+                                                    attrs,
+                                                    ParenCount == 0);
+      DS.PPExtSetIdentType(GenId.first);
+      Name = GenId.second;
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);

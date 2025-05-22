@@ -390,6 +390,22 @@ namespace clang {
     }
     llvm_unreachable("Unknown AccessSpecifier");
   }
+
+  // PP-EXT
+  // Enum describes ppstruct identifier type
+  enum class PPExtIdentType
+  {
+    // Default ident type - generalization
+    //  or any specialization
+    //  (including recursive ones)
+    Default,
+    // Special ident type - generalization with ".void" postfix
+    //  It is used in multimethod specializations
+    //  to show that this method should be specialized
+    //  for generalization (instead of one of specializations)
+    GenAsSpecForMM
+  };
+
 } // end namespace clang
 
 #endif // LLVM_CLANG_BASIC_SPECIFIERS_H

@@ -120,3 +120,19 @@ Join [LLVM Discourse forums](https://discourse.llvm.org/), [discord chat](https:
 
 The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
 participants to all modes of communication within the project.
+
+## Build Procedural-Parametric Extension
+
+It is not differs from mainstream llvm build.
+But you can use the recommended command line for debug build
+```
+cmake -DCMAKE_BUILD_TYPE:STRING=Debug -DBUILD_SHARED_LIBS:STRING=ON "-DLLVM_TARGETS_TO_BUILD:STRING=X86" -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE "-DLLVM_ENABLE_PROJECTS:STRING=clang" -DLLVM_OPTIMIZED_TABLEGEN:STRING=ON -DLLVM_CCACHE_BUILD:STRING=ON -DCMAKE_C_COMPILER:FILEPATH=<path-to-c-compiler> -DCMAKE_CXX_COMPILER:FILEPATH=<path-to-cpp-compiler> -S<source-path> -B<build-path> -G Ninja
+```
+After that it is needed to build clang:
+```
+cmake --build <build-path> --config Debug --target all --
+```
+And check if it is actually works:
+```
+<build-path>/bin/llvm-lit <source-path>/clang/test/CodeGen/pp-linked.c
+```

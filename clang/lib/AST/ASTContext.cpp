@@ -11588,6 +11588,13 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return true;
 
   if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
+
+    if (FD->getName().startswith("__pp_mm_")) {
+      // PP-EXT: Always emit bodies for multimethods
+      // even if they are marked as `static`
+      return true;
+    }
+
     // Forward declarations aren't required.
     if (!FD->doesThisDeclarationHaveABody())
       return FD->doesDeclarationForceExternallyVisibleDefinition();
