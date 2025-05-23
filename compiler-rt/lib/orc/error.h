@@ -91,7 +91,8 @@ private:
   Error() = default;
 
   Error(std::unique_ptr<ErrorInfoBase> ErrInfo) {
-    auto RawErrPtr = reinterpret_cast<uintptr_t>(ErrInfo.release());
+    //!!! auto RawErrPtr = reinterpret_cast<uintptr_t>(ErrInfo.release());
+    auto RawErrPtr = reinterpret_cast<__intptr_t>(ErrInfo.release());
     assert((RawErrPtr & 0x1) == 0 && "ErrorInfo is insufficiently aligned");
     ErrPtr = RawErrPtr | 0x1;
   }
@@ -104,16 +105,21 @@ private:
   }
 
   template <typename ErrT = ErrorInfoBase> ErrT *getPtr() const {
-    return reinterpret_cast<ErrT *>(ErrPtr & ~uintptr_t(1));
+    // return reinterpret_cast<ErrT *>(ErrPtr & ~uintptr_t(1));
+    return reinterpret_cast<ErrT *>(ErrPtr & ~__intptr_t(1));
   }
 
   void setPtr(ErrorInfoBase *Ptr) {
-    ErrPtr = (reinterpret_cast<uintptr_t>(Ptr) & ~uintptr_t(1)) | (ErrPtr & 1);
+    //!!! ErrPtr = (reinterpret_cast<uintptr_t>(Ptr) & ~uintptr_t(1)) | (ErrPtr & 1);
+    ErrPtr = (reinterpret_cast<__intptr_t>(Ptr) & ~__intptr_t(1)) | (ErrPtr & 1);
   }
 
   bool isChecked() const { return ErrPtr & 0x1; }
 
-  void setChecked(bool Checked) { ErrPtr = (ErrPtr & ~uintptr_t(1)) | Checked; }
+  void setChecked(bool Checked) {
+    //!!! ErrPtr = (ErrPtr & ~uintptr_t(1)) | Checked;
+    ErrPtr = (ErrPtr & ~__intptr_t(1)) | Checked;
+  }
 
   template <typename ErrT = ErrorInfoBase> std::unique_ptr<ErrT> takePayload() {
     static_assert(std::is_base_of<ErrorInfoBase, ErrT>::value,
@@ -124,7 +130,8 @@ private:
     return Tmp;
   }
 
-  uintptr_t ErrPtr = 0;
+  //!!! uintptr_t ErrPtr = 0;
+  __intptr_t ErrPtr = 0;
 };
 
 /// Construct an error of ErrT with the given arguments.

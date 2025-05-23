@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <cstdint>
 
 namespace llvm {
 class formatted_raw_ostream;

@@ -1322,7 +1322,8 @@ static pid_t ExecDeathTestSpawnChild(char* const* argv, int close_fd) {
         (stack_grows_down ? stack_size - kMaxStackAlignment : 0);
     GTEST_DEATH_TEST_CHECK_(
         static_cast<size_t>(stack_size) > kMaxStackAlignment &&
-        reinterpret_cast<uintptr_t>(stack_top) % kMaxStackAlignment == 0);
+        // reinterpret_cast<uintptr_t>(stack_top) % kMaxStackAlignment == 0);
+        reinterpret_cast<intptr_t>(stack_top) % kMaxStackAlignment == 0);
 
     child_pid = clone(&ExecDeathTestChildMain, stack_top, SIGCHLD, &args);
 
