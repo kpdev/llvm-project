@@ -2123,7 +2123,22 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 
         ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
         ParsedAttributes TestAttrs(AttrFactory);
-        auto VariantName = Tok.getIdentifierInfo()->getName().str();
+        // Check next token. If it is a tok::period, then we have the following:
+        // Figure + <tag: Gen.Spec>
+        // Now it is supported only for using with tags
+        // TODO: Support it for non-tag case: "Figure + <Gen.Spec>"
+        const bool IsSpec = NextToken().is(tok::period);
+        std::vector<NameAndPtr> VarTypeNames;
+        VarTypeNames.push_back({Tok.getIdentifierInfo()->getName().str(), false});
+        while(NextToken().is(tok::period)) {
+          ConsumeToken();
+          ConsumeToken();
+          assert(Tok.is(tok::identifier));
+          VarTypeNames.push_back({Tok.getIdentifierInfo()->getName().str(), false});
+        }
+        ParsedAttributes Attrs(AttrFactory);
+        auto VariantName = IsSpec ? PPExtConstructGenName(VarTypeNames, attrs) :
+                                    VarTypeNames[0].first.str();
         auto VariantNameIdentifier = &PP.getIdentifierTable().get(VariantName);
         const bool IsPtr = NextToken().is(tok::star);
         auto TestNameStr = std::string("__pp_struct_") + Name->getName().str()

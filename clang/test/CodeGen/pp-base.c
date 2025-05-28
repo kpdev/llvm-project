@@ -140,6 +140,11 @@ struct RectangleCover {
   Rectangle r;
 } <>;
 
+typedef struct AnyAnimal{}<dog: int> AnyAnimal;
+AnyAnimal + <elephant: float;>;
+typedef struct MammalGroup{}<> MammalGroup;
+MammalGroup + <elephant: AnyAnimal.elephant;>;
+
 int main() {
     struct Figure f;
     // CHECK-RT:      [foo_test] f->__pp_specialization_type = 0
@@ -302,6 +307,12 @@ int main() {
     if (spec_index_cmp(&fc, &fc) >= 0) {
         printf("Checked usage spec_index_cmp in condition\n");
     }
+
+    struct MammalGroup.elephant mammal_elephant;
+    // CHECK-RT-NEXT: mammal_elephant [1]
+    printf("mammal_elephant [%d]\n", mammal_elephant.__pp_specialization_type);
+    // CHECK-RT-NEXT: mammal_elephant inner [2]
+    printf("mammal_elephant inner [%d]\n", mammal_elephant.@.__pp_specialization_type);
 }
 
 // This code just checking comilation

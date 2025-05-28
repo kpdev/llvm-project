@@ -7504,6 +7504,23 @@ void CodeGenModule::PPExtInitTypeTagsRecursively(
       Ty = PPExtGetTypeByName(NameOfVariable);
     } else {
       Ty = nullptr;
+      auto FieldIter = RecordTy->field_begin();
+      FieldIter++;
+      PPStructType TailStructType = PPStructType::Default;
+      // Check case with
+      // Figure + <tag: AnyShape.rectangle;>;
+      if (FieldIter != RecordTy->field_end()) {
+        auto TailType = FieldIter->getType()->getAsRecordDecl();
+        if (TailType) {
+          TailStructType = PPExtGetStructType(TailType);
+          if (TailStructType != PPStructType::Default) {
+            NameOfVariable = TailType->getName();
+            Ty = PPExtGetTypeByName(NameOfVariable);
+            PtrToObjForGEP = llvm::GetElementPtrInst::CreateInBounds(
+              GenRecTy, PtrToObjForGEP, IdxsTail, "pp_tail", IPoint);
+          }
+        }
+      }
     }
   } while(Ty);
 }
