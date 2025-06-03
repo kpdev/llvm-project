@@ -1,3 +1,14 @@
+
+Проект компилятора языка С с поддержкой процедурно-параметрического расширения
+
+Описание процедурно-параметрического подхода: https://www.mais-journal.ru/jour/article/view/1766
+
+Проект с тестами сравнения производительности данного подхода с другими: https://gitverse.ru/kpdev/multimethod-benchmarks
+
+Проект с описанием паттернов программирования для процедурно-параметрического подхода: https://github.com/kreofil/evo-situations/
+
+-----------------------------------
+
 # The LLVM Compiler Infrastructure
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)
