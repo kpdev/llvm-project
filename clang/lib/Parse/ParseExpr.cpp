@@ -1061,7 +1061,8 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           assert(FD);
           auto VD = cast<clang::VarDecl>(FD);
           assert(VD);
-          clang::QualType QTT = VD->getType();
+          const auto& ATSCtx = getActions().getASTContext();
+          const auto QTT = VD->getType().getDesugaredType(ATSCtx);
           auto Str = QTT.getAsString();
           StringRef SS(Str);
           StringRef SpaceRef(" ");
