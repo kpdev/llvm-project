@@ -6854,7 +6854,12 @@ void CodeGenModule::PPExtRecordCreateSpec(
          "Trying to record decorated struct for get_spec_ptr usage");
   std::string FName = std::string("__pp_record_cs_") + SpecName.str();
   StringRef FNameRef(FName); // Degub purpose
-  auto* FnRecordCSArr =
+  auto* FnRecordCSArr = Parent.getFunction(FNameRef);
+  if (FnRecordCSArr != nullptr) {
+    return;
+  }
+
+  FnRecordCSArr =
       llvm::Function::Create(FnTy,
         llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
         0, // AddressSpace
