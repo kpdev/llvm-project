@@ -2129,7 +2129,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         // TODO: Support it for non-tag case: "Figure + <Gen.Spec>"
         const bool IsSpec = NextToken().is(tok::period);
         std::vector<NameAndPtr> VarTypeNames;
-        VarTypeNames.push_back({Tok.getIdentifierInfo()->getName().str(), false});
+        VarTypeNames.push_back({Tok.getIdentifierInfo()->getName(), false});
         while(NextToken().is(tok::period)) {
           ConsumeToken();
           ConsumeToken();
