@@ -222,6 +222,10 @@ int main() {
     struct Figure.Rectangle fr2;
     struct Figure.Triangle ft2;
 
+    struct Figure.Triangle *pft2 = &ft2;
+    (*pft2).@a = 1;
+    pft2->@b = 1;
+
     // CHECK-RT-NEXT: fc2.__pp_specialization_type = 1
     // CHECK-RT-NEXT: fr2.__pp_specialization_type = 2
     // CHECK-RT-NEXT: ft2.__pp_specialization_type = 3

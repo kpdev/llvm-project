@@ -1784,27 +1784,25 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   // parsed, see if there are any postfix-expression pieces here.
   SourceLocation Loc;
   auto SavedType = PreferredType;
-  bool IsNextVariantField = false;
-  auto IsGeneralization = [](Expr* E, bool IsNextVariant) {
+  auto IsGeneralization = [](Expr* E) {
     assert(E);
     if (!isa<DeclRefExpr>(E) && !isa<ValueStmt>(E))
       return false;
 
-    if (isa<MemberExpr>(E) || isa<DeclRefExpr>(E)) {
-        if (auto TypeID = E->getType()
-                          .getCanonicalType()
-                          .getBaseTypeIdentifier()) {
-          auto TypeName = TypeID->getName();
-          return TypeName.startswith("__pp_struct");
-        }
-        return false;
-    }
+    auto IsPPType = [](Expr* E) {
+      if (auto TypeID = E->getType()
+                        .getCanonicalType()
+                        .getBaseTypeIdentifier()) {
+        auto TypeName = TypeID->getName();
+        return TypeName.startswith("__pp_struct");
+      }
+      return false;
+    };
 
-    if (isa<ValueStmt>(E)) {
-      return IsNextVariant;
-    }
-
-    return false;
+    return (isa<MemberExpr>(E)
+              || isa<DeclRefExpr>(E)
+              || isa<ValueStmt>(E))
+            && IsPPType(E);
   };
 
   auto* E = LHS.get();
@@ -1834,8 +1832,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     PreferredType = SavedType;
     switch (Tok.getKind()) {
     case tok::at:
-      if (!LHS.isInvalid() && IsGeneralization(LHS.get(), IsNextVariantField)) {
-        IsNextVariantField = false;
+      if (!LHS.isInvalid() && IsGeneralization(LHS.get())) {
         Tok.startToken();
         Tok.clearFlag(Token::NeedsCleaning);
         Tok.setIdentifierInfo(nullptr);
@@ -2129,10 +2126,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     case tok::period: {
       {
         Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
-        if (IsGeneralization(OrigLHS, IsNextVariantField)) {
-          // PP-EXT TODO: Handle IsNextVariantField
-          IsNextVariantField = false;
-
+        if (IsGeneralization(OrigLHS)) {
           auto OldTok = Tok;
           const char* pp_field_name = "__pp_head";
           if (NextToken().is(tok::at)) {
