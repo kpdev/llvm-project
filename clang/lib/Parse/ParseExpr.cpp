@@ -1786,8 +1786,6 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   auto SavedType = PreferredType;
   auto IsGeneralization = [](Expr* E) {
     assert(E);
-    if (!isa<DeclRefExpr>(E) && !isa<ValueStmt>(E))
-      return false;
 
     auto IsPPType = [](Expr* E) {
       if (auto TypeID = E->getType()
@@ -1801,7 +1799,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
 
     return (isa<MemberExpr>(E)
               || isa<DeclRefExpr>(E)
-              || isa<ValueStmt>(E))
+              || isa<ParenExpr>(E))
             && IsPPType(E);
   };
 
@@ -2149,9 +2147,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
           LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(),
                                     SourceLocation(),
-                                    OldTok.is(tok::period) ?
-                                      tok::identifier :
-                                      tok::arrow,
+                                    OldTok.getKind(),
                                     SS, SourceLocation(), Name, nullptr);
 
           auto& NTok = NextToken();
