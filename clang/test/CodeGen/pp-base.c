@@ -360,3 +360,10 @@ int not_called_foo() {
 void foo_check_cast(void* ptr) {
     struct Figure.Circle* fc = (struct Figure.Circle*)ptr;
 }
+
+void compile_check(FILE *fd) {
+    // Check if '<' sign is handled correctly
+    if(close(fd) < 0) {
+        printf("Can\'t close file\n");
+    }
+}

@@ -1804,10 +1804,12 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   };
 
   auto* E = LHS.get();
-  bool IsFunction = false;
-  if (E && isa<DeclRefExpr>(E)) {
+  if (!IsInPPMM && E && isa<DeclRefExpr>(E)) {
     if (auto X = cast_or_null<DeclRefExpr>(E)) {
-      IsFunction = X->getType().getTypePtr()->isFunctionType();
+      IsInPPMM = X->getType().getTypePtr()->isFunctionType() && Tok.is(tok::less);
+      if (IsInPPMM) {
+        Tok.setKind(tok::l_paren);
+      }
     }
   }
 
@@ -1821,10 +1823,6 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       else {
         Tok.setKind(tok::comma);
       }
-    }
-    else if (IsFunction && Tok.is(tok::less)) {
-      Tok.setKind(tok::l_paren);
-      IsInPPMM = true;
     }
     // Each iteration relies on preferred type for the whole expression.
     PreferredType = SavedType;
