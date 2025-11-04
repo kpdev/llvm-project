@@ -367,3 +367,5 @@ void compile_check(FILE *fd) {
         printf("Can\'t close file\n");
     }
 }
+
+extern int check_parsing_of_anonymous_func_as_arg (int, int (*)(void *, int));

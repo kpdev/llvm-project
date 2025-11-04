@@ -8275,7 +8275,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   // surrounding context.
   SmallVector<NamedDecl *, 0> DeclsInPrototype;
   bool IsSpecialization = false;
-  StringRef FuncNameMM = D.getIdentifier()->getName();
+  StringRef FuncNameMM = D.getIdentifier() ? D.getIdentifier()->getName() : "";
   const int SpecNum =
     FunctionDecl::getNumOfSpecializationsPPMM(FuncNameMM);
 
