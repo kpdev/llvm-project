@@ -6669,6 +6669,7 @@ clang::Type*
 CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
   clang::Type* Result = nullptr;
   auto& Ts = Context.getTypes();
+  // PP-EXT TODO: Optimize
   for (auto Ty : Ts) {
     if (Ty->isRecordType() &&
         Ty->getAsRecordDecl()
@@ -6750,7 +6751,11 @@ void CodeGenModule::PPExtInitStackAllocatedVars(llvm::Function* F)
       if (!ATy->isStructTy()) {
         continue;
       }
-      auto ATyName = ATy->getStructName();
+      auto* AStructTy = cast<llvm::StructType>(ATy);
+      if (!AStructTy->hasName()) {
+        continue;
+      }
+      auto ATyName = AStructTy->getName();
       StringRef Name = ATyName.split(".").second;
       auto* Ty = PPExtGetTypeByName(Name);
       if (!Ty) {
