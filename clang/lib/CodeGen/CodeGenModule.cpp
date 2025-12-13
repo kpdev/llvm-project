@@ -6628,10 +6628,9 @@ void CodeGenModule::PPExtInitCreateSpecArray(
     InitArrPtr = new llvm::GlobalVariable(getModule(),
       FnPtrType,
       false,
-      llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+      llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage,
       nullptr, arrName);
     InitArrPtr->setAlignment(llvm::MaybeAlign(8));
-    InitArrPtr->setDSOLocal(true);
     InitArrPtr->setInitializer(
                 llvm::Constant::getNullValue(FnPtrType));
   }
@@ -6914,10 +6913,9 @@ void CodeGenModule::PPExtRecordCreateSpec(
     InitArrPtr = new llvm::GlobalVariable(getModule(),
       FnPtrType,
       false,
-      llvm::GlobalValue::LinkageTypes::WeakAnyLinkage,
+      llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage,
       nullptr, initArrName);
     InitArrPtr->setAlignment(llvm::MaybeAlign(8));
-    InitArrPtr->setDSOLocal(true);
     InitArrPtr->setInitializer(
                 llvm::Constant::getNullValue(FnPtrType));
   }
