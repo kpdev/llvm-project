@@ -6954,6 +6954,8 @@ void CodeGenModule::HandlePPExtensionMethods(
     const bool IsGetSpecSize = FSpec->getName().startswith("get_spec_size");
     const bool IsSpecIdxCmp = FSpec->getName().startswith("spec_index_cmp");
 
+    adjustPPLinkage(FSpec);
+
     if(FSpec->getBasicBlockList().empty()) {
       auto TypeNameExtracted = IsInitSpec ?
         FSpec->getName().substr(sizeof("init_spec") - 1) :
