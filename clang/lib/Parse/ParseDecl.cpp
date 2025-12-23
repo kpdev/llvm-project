@@ -7040,6 +7040,7 @@ bool Parser::isConstructorDeclarator(bool IsUnqualified, bool DeductionGuide,
 
 void Parser::FinalizePPArgsParsing()
 {
+  assert(IsInPPMultimethod);
   IsInPPMultimethod = false;
   ConsumeToken();
   assert(Tok.is(tok::l_paren));
@@ -7062,7 +7063,7 @@ void Parser::ParseTypeQualifierListOpt(
 
   SourceLocation EndLoc;
 
-  if (Tok.is(tok::greater)) {
+  if (Tok.is(tok::greater) && IsInPPMultimethod) {
     FinalizePPArgsParsing();
   }
 
@@ -7751,7 +7752,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
   if (D.hasName() && !D.getNumTypeObjects())
     MaybeParseCXX11Attributes(D);
 
-  if (Tok.is(tok::less)) {
+  if (Tok.is(tok::less) && D.hasName() && D.getIdentifier()) {
     Tok.setKind(tok::l_paren);
     IsInPPMultimethod = true;
     NumberOfPPSpecilizations = 0;
@@ -8267,8 +8268,8 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   }
 
   const bool IsMultimethod =
-    (D.getName().Identifier &&
-     D.getName().Identifier->getName().startswith("__pp_mm_"));
+    (D.hasName() && D.getIdentifier() &&
+     D.getIdentifier()->getName().startswith("__pp_mm_"));
   // Collect non-parameter declarations from the prototype if this is a function
   // declaration. They will be moved into the scope of the function. Only do
   // this in C and not C++, where the decls will continue to live in the
@@ -8289,7 +8290,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     int SpecNumIter = SpecNum;
     for (Decl *D : getCurScope()->decls()) {
       NamedDecl *ND = dyn_cast<NamedDecl>(D);
-      auto PVD = cast<ParmVarDecl>(ND);
+      auto PVD = dyn_cast<ParmVarDecl>(ND);
       const bool IsArgInSpecNumCount = (SpecNumIter-- > 0);
       if (PVD && IsMultimethod && IsArgInSpecNumCount) {
         auto* ID = PVD->getType().getBaseTypeIdentifier();

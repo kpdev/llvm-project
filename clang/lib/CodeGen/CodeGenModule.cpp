@@ -4154,7 +4154,7 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     if (!FD->doesThisDeclarationHaveABody()) {
       if (!FD->doesDeclarationForceExternallyVisibleDefinition() &&
           (!FD->isMultiVersion() || !getTarget().getTriple().isAArch64())) {
-        if (FD->getName().startswith("create_spec")) {
+        if (StringRef(FD->getDeclName().getAsString()).startswith("create_spec")) {
           // PP-EXT: It is an empty-generated create_spec
           // Compute the function info and LLVM type.
           // TODO: Avoid it by moving declaration of create_spec
@@ -6782,8 +6782,14 @@ void CodeGenModule::PPExtInitGlobVar(llvm::GlobalVariable* GV)
     return;
   }
 
-  auto VTyName = VTy->getStructName();
-  StringRef Name = VTyName.split(".").second;
+  auto *STy = cast<llvm::StructType>(VTy);
+  if (STy->isLiteral()) {
+    // Anonimous type
+    return;
+  }
+
+  auto STyName = STy->getName();
+  StringRef Name = STyName.split(".").second;
   auto* Ty = PPExtGetTypeByName(Name);
   if (!Ty) {
     // Anonimous type

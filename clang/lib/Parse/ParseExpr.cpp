@@ -1129,7 +1129,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       if (R.getResultKind() == LookupResult::NotFound) {
         auto AheadTok = PP.LookAhead(0);
         int count = 1;
-        for (int i = 0; AheadTok.isNot(tok::greater); ++i) {
+        for (int i = 0; AheadTok.isNot(tok::eof) && AheadTok.isNot(tok::greater); ++i) {
           if (AheadTok.is(tok::comma)) {
             ++count;
           } else if (AheadTok.is(tok::semi)) {
@@ -2122,7 +2122,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     case tok::period: {
       {
         Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
-        if (IsGeneralization(OrigLHS)) {
+        if (OrigLHS && IsGeneralization(OrigLHS)) {
           auto OldTok = Tok;
           const char* pp_field_name = "__pp_head";
           if (NextToken().is(tok::at)) {

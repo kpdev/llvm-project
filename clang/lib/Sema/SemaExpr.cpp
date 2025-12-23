@@ -61,6 +61,7 @@
 #include "clang/Sema/Template.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/TimeProfiler.h"
@@ -2765,13 +2766,19 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
                  (Id.getKind() == UnqualifiedIdKind::IK_ImplicitSelfParam)
                      ? LookupObjCImplicitSelfParam
                      : LookupOrdinaryName);
+  bool isPPext = false;
+  {
+    auto name = Name.getAsString();
+    auto sName = llvm::StringRef(name);
+    isPPext = sName.startswith("create_spec")   ||
+              sName.startswith("get_spec_ptr")  ||
+              sName.startswith("get_spec_size") ||
+              sName.startswith("spec_index_cmp") ||
+              sName.startswith("init_spec");
+  }
   if (R.getResultKind() ==
       clang::LookupResult::NotFound &&
-      (Name.getAsIdentifierInfo()->getName().startswith("create_spec")   ||
-       Name.getAsIdentifierInfo()->getName().startswith("get_spec_ptr")  ||
-       Name.getAsIdentifierInfo()->getName().startswith("get_spec_size") ||
-       Name.getAsIdentifierInfo()->getName().startswith("spec_index_cmp") ||
-       Name.getAsIdentifierInfo()->getName().startswith("init_spec"))) {
+      isPPext) {
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> tmpvec;
     const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
