@@ -895,17 +895,16 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
   LookupParsedName(Result, S, &SS, /*ObjectType=*/QualType(),
                    /*AllowBuiltinCreation=*/!CurMethod);
 
-  if (Result.getResultKind() ==
-      clang::LookupResult::NotFound &&
-      (Name->getName().startswith("create_spec")    ||
-       Name->getName().startswith("get_spec_ptr")   ||
-       Name->getName().startswith("get_spec_size")  ||
-       Name->getName().startswith("spec_index_cmp") ||
-       Name->getName().startswith("init_spec"))) {
-    const bool IsInitSpec = Name->getName().startswith("init_spec");
-    const bool IsGetSpecPtr = Name->getName().startswith("get_spec_ptr");
-    const bool IsGetSpecSize = Name->getName().startswith("get_spec_size");
-    const bool IsSpecIdxCmp = Name->getName().startswith("spec_index_cmp");
+  if (Result.getResultKind() == clang::LookupResultKind::NotFound &&
+      (Name->getName().starts_with("create_spec") ||
+       Name->getName().starts_with("get_spec_ptr") ||
+       Name->getName().starts_with("get_spec_size") ||
+       Name->getName().starts_with("spec_index_cmp") ||
+       Name->getName().starts_with("init_spec"))) {
+    const bool IsInitSpec = Name->getName().starts_with("init_spec");
+    const bool IsGetSpecPtr = Name->getName().starts_with("get_spec_ptr");
+    const bool IsGetSpecSize = Name->getName().starts_with("get_spec_size");
+    const bool IsSpecIdxCmp = Name->getName().starts_with("spec_index_cmp");
 
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> ArrTysVec;

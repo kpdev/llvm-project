@@ -129,12 +129,12 @@ PPExtGetStructType(const RecordDecl* RD)
   StringRef TagFieldName("__pp_specialization_type");
   for (auto FieldIter = RD->field_begin();
             FieldIter != RD->field_end(); ++FieldIter) {
-    if (FieldIter->getName().equals(TagFieldName)) {
+    if (FieldIter->getName() == TagFieldName) {
       return PPStructType::Generalization;
     }
   }
 
-  if (RD->getName().startswith("__pp_struct")) {
+  if (RD->getName().starts_with("__pp_struct")) {
     return PPStructType::Specialization;
   }
 
@@ -152,8 +152,7 @@ PPExtGetRDListToInit(const RecordDecl* RD)
   const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
                           getAsRecordDecl();
 
-  if (!RDHead ||
-      !HeadElem->getName().equals("__pp_head")) {
+  if (!RDHead || HeadElem->getName() != "__pp_head") {
     RDHead = RD;
   }
 
@@ -1994,19 +1993,19 @@ void CodeGenModule::setDLLImportDLLExport(llvm::GlobalValue *GV,
 
 void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
   StringRef FName = F->getName();
-  if (FName.startswith("__pp_") ||
-      FName.startswith("create_spec") ||
-      FName.startswith("get_spec_ptr") ||
-      FName.startswith("get_spec_size") ||
-      FName.startswith("spec_index_cmp") ||
-      FName.startswith("init_spec")) {
+  if (FName.starts_with("__pp_") ||
+      FName.starts_with("create_spec") ||
+      FName.starts_with("get_spec_ptr") ||
+      FName.starts_with("get_spec_size") ||
+      FName.starts_with("spec_index_cmp") ||
+      FName.starts_with("init_spec")) {
     F->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
 }
 
 void CodeGenModule::adjustPPLinkage(llvm::GlobalVariable* GV) {
   StringRef GVName = GV->getName();
-  if (GVName.startswith("__pp_")) {
+  if (GVName.starts_with("__pp_")) {
     GV->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
   }
 }
@@ -4154,7 +4153,8 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     if (!FD->doesThisDeclarationHaveABody()) {
       if (!FD->doesDeclarationForceExternallyVisibleDefinition() &&
           (!FD->isMultiVersion() || !getTarget().getTriple().isAArch64())) {
-        if (StringRef(FD->getDeclName().getAsString()).startswith("create_spec")) {
+        if (StringRef(FD->getDeclName().getAsString())
+                .starts_with("create_spec")) {
           // PP-EXT: It is an empty-generated create_spec
           // Compute the function info and LLVM type.
           // TODO: Avoid it by moving declaration of create_spec
@@ -5101,11 +5101,11 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
   }
 
-  if (F->getName().startswith("create_spec")   ||
-      F->getName().startswith("get_spec_ptr")  ||
-      F->getName().startswith("get_spec_size") ||
-      F->getName().startswith("spec_index_cmp") ||
-      F->getName().startswith("init_spec")) {
+  if (F->getName().starts_with("create_spec")   ||
+      F->getName().starts_with("get_spec_ptr")  ||
+      F->getName().starts_with("get_spec_size") ||
+      F->getName().starts_with("spec_index_cmp") ||
+      F->getName().starts_with("init_spec")) {
     PPCreateSpecsToDefine.push_back(F);
   }
 
@@ -6494,8 +6494,8 @@ void CodeGenModule::AddPPSpecialization(
     "[PP-EXT] FRecorder. Will write to index %lld\n",
     DecrIdx64);
 
-  auto* FnTy = F->getFunctionType()->getPointerTo();
-  auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+  auto* FnTy = VoidPtrTy;
+  auto* FnPtrType = VoidPtrTy;
   auto* InitArrPtr =
     getModule().getOrInsertGlobal(Nm, FnPtrType);
   auto* LoadInitArr = new llvm::LoadInst(
@@ -6520,12 +6520,6 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   llvm::FunctionType *FnTy =
       llvm::FunctionType::get(ResultType,
                               ArgTypes, false);
-  llvm::FunctionType *FnCSTy =
-      llvm::FunctionType::get(
-        llvm::PointerType::get(
-          llvm::Type::getInt8Ty(getLLVMContext()), 0),
-        ArgTypes, false
-      );
   std::string FName = std::string("__pp_init_cs_arr_") + GenName.str();
   auto* FnInitCSArr =
       llvm::Function::Create(FnTy,
@@ -6546,7 +6540,7 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   auto ASTLongLongTy = getContext().LongLongTy;
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
   auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
-  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy, nullptr);
   auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
     false, MyAlignment.getAsAlign(), BB);
 
@@ -6573,10 +6567,8 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   StringRef MallocName = "malloc";
   llvm::Function *FnMalloc = getModule().getFunction(MallocName);
   if (!FnMalloc) {
-    auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-    auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
-    auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
-                      static_cast<unsigned>(64));
+    auto* MallocResultType = Int8PtrTy;
+    auto *Arg1Type = Int64Ty;
     SmallVector<llvm::Type*, 8> ArgTypes(1);
     ArgTypes[0] = Arg1Type;
     auto* FTy = llvm::FunctionType::get(MallocResultType,
@@ -6586,7 +6578,7 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   }
   llvm::AttrBuilder FuncAttrs(getLLVMContext());
   llvm::AttrBuilder RetAttrs(getLLVMContext());
-  Optional<unsigned> NumElemsParam;
+  std::optional<unsigned> NumElemsParam;
   FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
   getDefaultFunctionAttributes(MallocName, false, false, FuncAttrs);
   std::vector<std::string> Features;
@@ -6621,7 +6613,7 @@ void CodeGenModule::PPExtInitCreateSpecArray(
   // Get array
   auto arrName = std::string("__pp_cs_arr_") + GenName.str();
   StringRef TmpDbg(arrName);
-  auto* FnPtrType = llvm::PointerType::get(FnCSTy, 0);
+  auto* FnPtrType = VoidPtrTy;
   auto* InitArrPtr =
     getModule().getGlobalVariable(arrName);
   if (!InitArrPtr) {
@@ -6671,8 +6663,7 @@ CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
   // PP-EXT TODO: Optimize
   for (auto Ty : Ts) {
     if (Ty->isRecordType() &&
-        Ty->getAsRecordDecl()
-          ->getName().equals(TypeNameExtracted)) {
+        Ty->getAsRecordDecl()->getName() == TypeNameExtracted) {
       Result = Ty;
       break;
     }
@@ -6680,70 +6671,58 @@ CodeGenModule::PPExtGetTypeByName(StringRef TypeNameExtracted) {
   return Result;
 }
 
-template<typename TInsertPoint>
-void CodeGenModule::PPExtInitGenOrSpec(
-  TInsertPoint* IPoint,
-  StringRef Name,
-  llvm::Value* ParentObject)
-{
-    const bool IsFullGeneralization = Name.startswith("__pp_struct");
-    std::string TagPrefix =
-      IsFullGeneralization ?
-        "__pp_tag_" : "__pp_tags_";
-    auto* GVTag = getModule().getGlobalVariable(
-      TagPrefix + Name.str());
+void CodeGenModule::PPExtInitGenOrSpec(llvm::InsertPosition IPoint,
+                                       StringRef Name,
+                                       llvm::Value *ParentObject) {
+  const bool IsFullGeneralization = Name.starts_with("__pp_struct");
+  std::string TagPrefix = IsFullGeneralization ? "__pp_tag_" : "__pp_tags_";
+  auto *GVTag = getModule().getGlobalVariable(TagPrefix + Name.str());
 
-    // Load ptr to tag field
-    auto* Ty = PPExtGetTypeByName(Name);
-    assert(Ty);
-    auto Qty = Ty->getCanonicalTypeInternal();
-    auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
-    llvm::APInt Apint0(32, 0);
-    auto* Number0 =
-      llvm::ConstantInt::get(
-        getLLVMContext(), Apint0);
-    llvm::Value* IdxsHead[] = {Number0, Number0};
-    auto* HeadElem = llvm::GetElementPtrInst::CreateInBounds(
+  // Load ptr to tag field
+  auto *Ty = PPExtGetTypeByName(Name);
+  assert(Ty);
+  auto Qty = Ty->getCanonicalTypeInternal();
+  auto *GenRecTy = getTypes().ConvertTypeForMem(Qty);
+  llvm::APInt Apint0(32, 0);
+  auto *Number0 = llvm::ConstantInt::get(getLLVMContext(), Apint0);
+  llvm::Value *IdxsHead[] = {Number0, Number0};
+  auto *HeadElem = llvm::GetElementPtrInst::CreateInBounds(
       GenRecTy, ParentObject, IdxsHead, "pp_head", IPoint);
-    auto* RecordTy = Ty->getAsRecordDecl();
-    assert(RecordTy);
-    auto HeadRecordTy = IsFullGeneralization ?
-      RecordTy->field_begin()->getType()->getAsRecordDecl() :
-      RecordTy;
-    int FieldIdx = 0;
-    for (auto* Field : HeadRecordTy->fields()) {
-      if (Field->getName().equals("__pp_specialization_type")) {
-        break;
-      }
-      ++FieldIdx;
+  auto *RecordTy = Ty->getAsRecordDecl();
+  assert(RecordTy);
+  auto HeadRecordTy =
+      IsFullGeneralization
+          ? RecordTy->field_begin()->getType()->getAsRecordDecl()
+          : RecordTy;
+  int FieldIdx = 0;
+  for (auto *Field : HeadRecordTy->fields()) {
+    if (Field->getName() == "__pp_specialization_type") {
+      break;
     }
-    llvm::APInt ApintIdx(32, FieldIdx);
-    auto* NumberIdx =
-      llvm::ConstantInt::get(
-        getLLVMContext(), ApintIdx);
-    llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
-    auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
-    auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
+    ++FieldIdx;
+  }
+  llvm::APInt ApintIdx(32, FieldIdx);
+  auto *NumberIdx = llvm::ConstantInt::get(getLLVMContext(), ApintIdx);
+  llvm::Value *IdxsTagField[] = {Number0, NumberIdx};
+  auto HeadQTy = HeadRecordTy->getTypeForDecl()->getCanonicalTypeInternal();
+  auto *HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
 
-    auto* SpecTypeField = llvm::GetElementPtrInst::CreateInBounds(
+  auto *SpecTypeField = llvm::GetElementPtrInst::CreateInBounds(
       HeadRecTy, HeadElem, IdxsTagField, "pp_spec_type", IPoint);
 
-    // Store tag
-    auto ASTIntTy = getContext().IntTy;
-    auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
-    llvm::Value* InitVal =
-      IsFullGeneralization ?
-        (llvm::Value*)new llvm::LoadInst(IntTy, GVTag, "", IPoint) :
-        (llvm::Value*)llvm::Constant::getNullValue(IntTy);
-    new llvm::StoreInst(InitVal, SpecTypeField, IPoint);
+  // Store tag
+  auto ASTIntTy = getContext().IntTy;
+  auto IntTy = getTypes().ConvertTypeForMem(ASTIntTy);
+  llvm::Value *InitVal =
+      IsFullGeneralization
+          ? (llvm::Value *)new llvm::LoadInst(IntTy, GVTag, "", IPoint)
+          : (llvm::Value *)llvm::Constant::getNullValue(IntTy);
+  new llvm::StoreInst(InitVal, SpecTypeField, IPoint);
 }
 
 void CodeGenModule::PPExtInitStackAllocatedVars(llvm::Function* F)
 {
-  for (llvm::inst_iterator I = llvm::inst_begin(F),
-                           E = llvm::inst_end(F); I != E; ++I)
-  {
-    auto& Inst = *I;
+  for (auto &Inst : instructions(F)) {
     if (isa<llvm::AllocaInst>(Inst)) {
       auto AInst = dyn_cast<llvm::AllocaInst>(&Inst);
       auto ATy = AInst->getAllocatedType();
@@ -6768,9 +6747,7 @@ void CodeGenModule::PPExtInitStackAllocatedVars(llvm::Function* F)
         continue;
       }
 
-      auto TmpIter = I;
-      auto NextInstr = &*(++TmpIter);
-      PPExtInitTypeTagsRecursively(Name, AInst, NextInstr);
+      PPExtInitTypeTagsRecursively(Name, AInst, ++Inst.getIterator());
     }
   }
 }
@@ -6836,12 +6813,6 @@ void CodeGenModule::PPExtRecordCreateSpec(
   llvm::FunctionType *FnTy =
       llvm::FunctionType::get(ResultType,
                               ArgTypes, false);
-  llvm::FunctionType *FnCSTy =
-      llvm::FunctionType::get(
-        llvm::PointerType::get(
-          llvm::Type::getInt8Ty(getLLVMContext()), 0),
-        ArgTypes, false
-      );
 
   // Extract generalization name
   auto SpecName = RDSpec->getName();
@@ -6890,7 +6861,7 @@ void CodeGenModule::PPExtRecordCreateSpec(
   llvm::Value* SpecTagPtr =
     getModule().getGlobalVariable(specTagName);
 
-  auto CGAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto CGAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy, nullptr);
   llvm::Value* LoadGV;
   if (IsGeneralization) {
     LoadGV = llvm::Constant::getNullValue(CGIntTy);
@@ -6914,7 +6885,7 @@ void CodeGenModule::PPExtRecordCreateSpec(
   StringRef TmpDbg(initArrName);
   auto* InitArrPtr =
     getModule().getGlobalVariable(initArrName);
-  auto* FnPtrType = llvm::PointerType::get(FnCSTy, 0);
+  auto* FnPtrType = VoidPtrTy;
   if (!InitArrPtr) {
     InitArrPtr = new llvm::GlobalVariable(getModule(),
       FnPtrType,
@@ -6948,21 +6919,21 @@ void CodeGenModule::HandlePPExtensionMethods(
 {
   PPExtInitStackAllocatedVars(F);
 
-  if (F->getName().startswith("__pp_inc_tags")) {
+  if (F->getName().starts_with("__pp_inc_tags")) {
     StringRef GenName(F->getName().substr(sizeof("__pp_inc_tags")));
     PPExtInitCreateSpecArray(GenName, *F->getParent());
     return;
   }
 
   for (auto* FSpec : PPCreateSpecsToDefine) {
-    const bool IsInitSpec = FSpec->getName().startswith("init_spec");
-    const bool IsGetSpecPtr = FSpec->getName().startswith("get_spec_ptr");
-    const bool IsGetSpecSize = FSpec->getName().startswith("get_spec_size");
-    const bool IsSpecIdxCmp = FSpec->getName().startswith("spec_index_cmp");
+    const bool IsInitSpec = FSpec->getName().starts_with("init_spec");
+    const bool IsGetSpecPtr = FSpec->getName().starts_with("get_spec_ptr");
+    const bool IsGetSpecSize = FSpec->getName().starts_with("get_spec_size");
+    const bool IsSpecIdxCmp = FSpec->getName().starts_with("spec_index_cmp");
 
     adjustPPLinkage(FSpec);
 
-    if(FSpec->getBasicBlockList().empty()) {
+    if (FSpec->empty()) {
       auto TypeNameExtracted = IsInitSpec ?
         FSpec->getName().substr(sizeof("init_spec") - 1) :
         (IsGetSpecPtr ?
@@ -6977,7 +6948,7 @@ void CodeGenModule::HandlePPExtensionMethods(
         TypeNameExtracted = FSpec->getName().substr(sizeof("spec_index_cmp") - 1);
         // TypeNameExtracted should be a name of generalization
         //   if it is not - then extract it from specialization name
-        if (TypeNameExtracted.startswith(PPStructPrefix)) {
+        if (TypeNameExtracted.starts_with(PPStructPrefix)) {
           TypeNameExtracted = TypeNameExtracted.substr(PPStructPrefix.size());
           auto Pos = TypeNameExtracted.find("__");
           TypeNameExtracted = TypeNameExtracted.substr(0, Pos);
@@ -6991,23 +6962,15 @@ void CodeGenModule::HandlePPExtensionMethods(
 
         int FieldIdx = 0;
         for (auto* Field : RecordTy->fields()) {
-          if (Field->getName().equals("__pp_specialization_type")) {
+          if (Field->getName() == "__pp_specialization_type") {
             break;
           }
           ++FieldIdx;
         }
-        llvm::APInt ApintIdx(32, FieldIdx);
-        auto* NumberIdx =
-          llvm::ConstantInt::get(
-            getLLVMContext(), ApintIdx);
-        llvm::APInt Apint0(32, 0);
-        llvm::APInt ApintM1(32, -1);
-        auto* Number0 =
-          llvm::ConstantInt::get(
-            getLLVMContext(), Apint0);
-        auto* NumberM1 =
-          llvm::ConstantInt::get(
-            getLLVMContext(), ApintM1);
+        // TODO: replace APInt's in other places to better API like here
+        auto *NumberIdx = llvm::ConstantInt::get(Int32Ty, FieldIdx);
+        auto *Number0 = llvm::ConstantInt::get(Int32Ty, 0);
+        auto *NumberM1 = llvm::ConstantInt::get(Int32Ty, -1);
         llvm::Value* IdxsTagField[] = {Number0, NumberIdx};
         auto HeadQTy = RecordTy->getTypeForDecl()->getCanonicalTypeInternal();
         auto* HeadRecTy = getTypes().ConvertTypeForMem(HeadQTy);
@@ -7074,12 +7037,12 @@ void CodeGenModule::HandlePPExtensionMethods(
         auto arrName = std::string("__pp_cs_arr_") + GenName.str();
         auto* InitArr = getModule().getGlobalVariable(arrName);
         std::vector<llvm::Type *> ArgTypes;
-        auto* ResultType = llvm::Type::getInt8PtrTy(getLLVMContext());
+        auto *ResultType = Int8PtrTy;
         llvm::FunctionType *FnTy =
             llvm::FunctionType::get(ResultType,
                                     ArgTypes, false);
 
-        auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+        auto *FnPtrType = VoidPtrTy;
 
         // Extend parameter to i64
         // TODO PP-EXT: Change type in function signature
@@ -7100,9 +7063,7 @@ void CodeGenModule::HandlePPExtensionMethods(
         auto* Elem = llvm::GetElementPtrInst::CreateInBounds(
           FnPtrType,
           LoadInitArr, TypeTagsIdxs, "", BB);
-        auto LoadElem = new llvm::LoadInst(
-          FnTy->getPointerTo(),
-          Elem, "", BB);
+        auto LoadElem = new llvm::LoadInst(FnPtrType, Elem, "", BB);
 
         // Execute create_spec
         SmallVector<llvm::Value*> VecArgs;
@@ -7141,10 +7102,8 @@ void CodeGenModule::HandlePPExtensionMethods(
           StringRef MangledName = "malloc";
           llvm::Function *F = getModule().getFunction(MangledName);
           if (!F) {
-            auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-            auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
-            auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
-                              static_cast<unsigned>(64));
+            auto* MallocResultType = Int8PtrTy;
+            auto* Arg1Type = Int64Ty;
             SmallVector<llvm::Type*, 8> ArgTypes(1);
             ArgTypes[0] = Arg1Type;
             auto* FTy = llvm::FunctionType::get(MallocResultType,
@@ -7155,7 +7114,7 @@ void CodeGenModule::HandlePPExtensionMethods(
 
           llvm::AttrBuilder FuncAttrs(getLLVMContext());
           llvm::AttrBuilder RetAttrs(getLLVMContext());
-          Optional<unsigned> NumElemsParam;
+          std::optional<unsigned> NumElemsParam;
           FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
           getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
           std::vector<std::string> Features;
@@ -7226,8 +7185,8 @@ void CodeGenModule::HandlePPExtensionMethods(
 
   auto FName = F->getName();
 
-  if (not FName.startswith("__pp_mm")) {
-    if (FName.equals("main")) {
+  if (not FName.starts_with("__pp_mm")) {
+    if (FName == "main") {
       auto& BB = F->getEntryBlock();
       CreateCallPrintf(
         &BB, "[PP-EXT] === main start ===\n",
@@ -7283,7 +7242,7 @@ void CodeGenModule::HandlePPExtensionMethods(
   auto MyIntTy = getTypes().ConvertTypeForMem(ASTIntTy);
   auto MyLongLongTy = getTypes().ConvertTypeForMem(ASTLongLongTy);
   auto *GV = getModule().getGlobalVariable(genName);
-  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+  auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy, nullptr);
   auto* LoadGVDef = new llvm::LoadInst(MyIntTy, GV, Twine(),
     false, MyAlignment.getAsAlign(), BB);
 
@@ -7325,10 +7284,8 @@ void CodeGenModule::HandlePPExtensionMethods(
     StringRef MangledName = "malloc";
     llvm::Function *F = getModule().getFunction(MangledName);
     if (!F) {
-      auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-      auto* MallocResultType = llvm::PointerType::get(PointeeType, 0);
-      auto* Arg1Type = llvm::IntegerType::get(getLLVMContext(),
-                        static_cast<unsigned>(64));
+      auto* MallocResultType = Int8PtrTy;
+      auto* Arg1Type = Int64Ty;
       SmallVector<llvm::Type*, 8> ArgTypes(1);
       ArgTypes[0] = Arg1Type;
       auto* FTy = llvm::FunctionType::get(MallocResultType,
@@ -7339,7 +7296,7 @@ void CodeGenModule::HandlePPExtensionMethods(
 
     llvm::AttrBuilder FuncAttrs(getLLVMContext());
     llvm::AttrBuilder RetAttrs(getLLVMContext());
-    Optional<unsigned> NumElemsParam;
+    std::optional<unsigned> NumElemsParam;
     FuncAttrs.addAllocSizeAttr(0, NumElemsParam);
     getDefaultFunctionAttributes(MangledName, false, false, FuncAttrs);
     std::vector<std::string> Features;
@@ -7397,12 +7354,9 @@ void CodeGenModule::HandlePPExtensionMethods(
   AddGlobalCtor(NewF, 102);
 }
 
-template<typename TInsertPoint>
-void CodeGenModule::PPExtInitTypeTagsRecursively(
-                                  StringRef NameOfVariable,
-                                  llvm::Value* PtrToObjForGEP,
-                                  TInsertPoint* IPoint)
-{
+void CodeGenModule::PPExtInitTypeTagsRecursively(StringRef NameOfVariable,
+                                                 llvm::Value *PtrToObjForGEP,
+                                                 llvm::InsertPosition IPoint) {
   auto* Ty = PPExtGetTypeByName(NameOfVariable);
   do {
     auto Qty = Ty->getCanonicalTypeInternal();
@@ -7424,7 +7378,7 @@ void CodeGenModule::PPExtInitTypeTagsRecursively(
     assert(!RecordTy->fields().empty());
     auto firstField = *RecordTy->field_begin();
     auto HeadRecordTy = RecordTy->field_begin()->getType()->getAsRecordDecl();
-    if (!firstField->getName().equals("__pp_head")) {
+    if (firstField->getName() != "__pp_head") {
       // It is a generalization
       HeadRecordTy = RecordTy;
     }
@@ -7432,7 +7386,7 @@ void CodeGenModule::PPExtInitTypeTagsRecursively(
     int FieldIdx = 0;
     bool SpecTypeWasFound = false;
     for (auto* Field : HeadRecordTy->fields()) {
-      if (Field->getName().equals("__pp_specialization_type")) {
+      if (Field->getName() == "__pp_specialization_type") {
         SpecTypeWasFound = true;
         break;
       }
@@ -7541,7 +7495,6 @@ void CodeGenModule::PPExtInitTypeTagsRecursively(
   } while(Ty);
 }
 
-
 llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   llvm::BasicBlock* BB,
   llvm::Value* AllocatedBytes,
@@ -7615,9 +7568,6 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
                            CurCmp, BBCond);
 
   // Body BB
-  auto* FnTy = cast<llvm::Function>(DefaultHandler)
-                    ->getFunctionType();
-
   auto* ArrayPtr = HandlersArray;
   auto* CurIdx = new llvm::LoadInst(
                               LongLongTy,
@@ -7625,7 +7575,7 @@ llvm::BasicBlock* CodeGenModule::InitPPHandlersArray(
   CreateCallPrintf(BBBody,
     "[PP-EXT] InitPPHandlersArray CurIdx %lld\n",
     CurIdx);
-  auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+  auto* FnPtrType = VoidPtrTy;
   auto* LoadInitArr = new llvm::LoadInst(
                             FnPtrType,
                             ArrayPtr, "", BBBody);
@@ -7680,8 +7630,7 @@ CodeGenModule::PPExtGetIndexForMM(
                               ->getCanonicalTypeInternal();
     auto* GenRecTy = getTypes().ConvertTypeForMem(Qty);
 
-    auto* GenRecPtr = new llvm::AllocaInst(
-                            GenRecTy->getPointerTo(), 0, "", BB);
+    auto *GenRecPtr = new llvm::AllocaInst(VoidPtrTy, 0, "", BB);
     auto CurIdxInt = g.IdxOfTypeTag;
     auto ParamIdxInt = g.ParamIdx;
     auto* F = BB->getParent();
@@ -7726,7 +7675,7 @@ CodeGenModule::PPExtGetIndexForMM(
       + g.RD->getNameAsString();
     StringRef StrRefTagsName(genName);
     auto *GV = getModule().getGlobalVariable(genName);
-    auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+    auto MyAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy, nullptr);
     auto* LoadGV = new llvm::LoadInst(MyIntTy, GV, Twine(),
       false, MyAlignment.getAsAlign(), BB);
     return LoadGV;
@@ -7771,7 +7720,7 @@ CodeGenModule::PPExtGetIndexForMM(
     auto *TagsCount = getModule().getGlobalVariable(genName);
 
     // Increment tags number
-    auto TagsCountAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy);
+    auto TagsCountAlignment = getContext().getAlignOfGlobalVarInChars(ASTIntTy, nullptr);
     auto* LoadTagsCountRaw = new llvm::LoadInst(MyIntTy, TagsCount, Twine(),
       false, TagsCountAlignment.getAsAlign(), BB);
     auto* LoadTagsCount = llvm::BinaryOperator::CreateNSWAdd(
@@ -7842,7 +7791,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
   auto initArrName = std::string("__pp_mminitarr") + FName.str();
   StringRef initArrNameRef(initArrName); // For debug purpose
   auto* InitArr = getModule().getGlobalVariable(initArrName);
-  auto* FnPtrType = llvm::PointerType::get(FnTy, 0);
+  auto *FnPtrType = VoidPtrTy;
   if (!InitArr) {
     InitArr = new llvm::GlobalVariable(getModule(),
       FnPtrType,
@@ -7872,9 +7821,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
   CreateCallPrintf(BB,
     "[PP-EXT] MM InitArr elem %p\n",
     Elem);
-  auto LoadElem = new llvm::LoadInst(
-    FnTy->getPointerTo(),
-    Elem, "", BB);
+  auto LoadElem = new llvm::LoadInst(FnPtrType, Elem, "", BB);
   CreateCallPrintf(BB,
     "[PP-EXT] MM InitArr LoadElem (to be executed): %p\n",
     LoadElem);
@@ -7894,7 +7841,7 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
   }
 
-  if (NewFn->getBasicBlockList().empty()) {
+  if (NewFn->empty()) {
     auto* NewBB = llvm::BasicBlock::Create(
         getLLVMContext(), "entry", NewFn);
     CreateCallPrintf(NewBB, "[PP-EXT] Default handler executed\n");
@@ -8393,9 +8340,8 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
   StringRef MangledName = "printf";
   llvm::Function *F = getModule().getFunction(MangledName);
   if (!F) {
-    auto* IntType = llvm::Type::getInt32Ty(getLLVMContext());
-    auto* PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-    auto* StrType = llvm::PointerType::get(PointeeType, 0);
+    auto* IntType = Int32Ty;
+    auto* StrType = Int8PtrTy;
     SmallVector<llvm::Type*, 8> ArgTypes(1);
     ArgTypes[0] = StrType;
     auto* FTy = llvm::FunctionType::get(IntType,
@@ -8448,21 +8394,19 @@ CodeGenModule::CreateCallPrintf(llvm::BasicBlock* BB,
   IRCallArgs[0] = GV;
   if (Arg) IRCallArgs[1] = Arg;
 
-  llvm::CallInst* CI = nullptr;
+  llvm::CallInst *CI = nullptr;
   if (Pos == InsertPrintfPos::BeforeFirstInstr) {
-    assert(not BB->getInstList().empty());
-    auto* I = &*BB->getInstList().begin();
-    CI = llvm::CallInst::Create(F->getFunctionType(),
-      F, IRCallArgs, "call_printf", I);
-  }
-  else if (Pos == InsertPrintfPos::BeforeRet) {
-    auto* I = &BB->getInstList().back();
-    CI = llvm::CallInst::Create(F->getFunctionType(),
-      F, IRCallArgs, "call_printf", I);
-  }
-  else {
-    CI = llvm::CallInst::Create(F->getFunctionType(),
-      F, IRCallArgs, "call_printf", BB);
+    assert(!BB->empty());
+    auto I = BB->begin();
+    CI = llvm::CallInst::Create(F->getFunctionType(), F, IRCallArgs,
+                                "call_printf", I);
+  } else if (Pos == InsertPrintfPos::BeforeRet) {
+    auto I = --BB->end();
+    CI = llvm::CallInst::Create(F->getFunctionType(), F, IRCallArgs,
+                                "call_printf", I);
+  } else {
+    CI = llvm::CallInst::Create(F->getFunctionType(), F, IRCallArgs,
+                                "call_printf", BB);
   }
 
   CI->setAttributes(PAL);

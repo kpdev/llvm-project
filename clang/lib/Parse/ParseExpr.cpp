@@ -1016,23 +1016,22 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     Name.setIdentifier(&II, ILoc);
 
     // Check create_spec
-    if (Name.Identifier->getName().equals("create_spec")   ||
-        Name.Identifier->getName().equals("get_spec_ptr")  ||
-        Name.Identifier->getName().equals("get_spec_size") ||
-        Name.Identifier->getName().equals("spec_index_cmp") ||
-        Name.Identifier->getName().equals("init_spec")) {
+    if (Name.Identifier->getName() == "create_spec" ||
+        Name.Identifier->getName() == "get_spec_ptr" ||
+        Name.Identifier->getName() == "get_spec_size" ||
+        Name.Identifier->getName() == "spec_index_cmp" ||
+        Name.Identifier->getName() == "init_spec") {
       assert(Tok.is(tok::l_paren) &&
              "[PP-EXT] Expected l_paren after create_spec & init_spec");
     }
     if (Tok.is(tok::l_paren)) {
-      if (Name.Identifier->getName().equals("create_spec")   ||
-          Name.Identifier->getName().equals("get_spec_ptr")  ||
-          Name.Identifier->getName().equals("get_spec_size") ||
-          Name.Identifier->getName().equals("spec_index_cmp") ||
-          Name.Identifier->getName().equals("init_spec")) {
+      if (Name.Identifier->getName() == "create_spec" ||
+          Name.Identifier->getName() == "get_spec_ptr" ||
+          Name.Identifier->getName() == "get_spec_size" ||
+          Name.Identifier->getName() == "spec_index_cmp" ||
+          Name.Identifier->getName() == "init_spec") {
 
-        if (Name.Identifier
-            ->getName().equals("get_spec_size")) {
+        if (Name.Identifier->getName() == "get_spec_size") {
           assert(NextToken().is(tok::identifier));
           const auto Mangled =
             Name.Identifier->getName().str()
@@ -1045,9 +1044,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           ConsumeToken();
           assert(NextToken().is(tok::r_paren));
           Tok.setKind(tok::l_paren);
-        }
-        else if (Name.Identifier
-            ->getName().equals("spec_index_cmp")) {
+        } else if (Name.Identifier->getName() == "spec_index_cmp") {
           auto IdentTok =
             PP.LookAhead(0).is(tok::identifier) ?
             PP.LookAhead(0) : PP.LookAhead(1);
@@ -1056,7 +1053,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           LookupResult Result(Actions, II, Tok.getLocation(),
             Sema::LookupOrdinaryName);
           Actions.LookupName(Result, getCurScope());
-          assert(Result.getResultKind() == LookupResult::Found);
+          assert(Result.getResultKind() == LookupResultKind::Found);
           auto FD = Result.getFoundDecl();
           assert(FD);
           auto VD = cast<clang::VarDecl>(FD);
@@ -1068,18 +1065,15 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           StringRef SpaceRef(" ");
           auto SSPair = SS.split(SpaceRef);
           auto StructName = SSPair.second;
-          if (StructName.equals("*")) {
+          if (StructName == "*") {
             StructName = SSPair.first;
-          }
-          else if (StructName.find(SpaceRef) != StringRef::npos) {
+          } else if (StructName.find(SpaceRef) != StringRef::npos) {
             StructName = StructName.split(SpaceRef).first;
           }
           auto MangledName = "spec_index_cmp" + StructName.str();
           auto IIMangled = &PP.getIdentifierTable().get(MangledName);
           Name.setIdentifier(IIMangled, ILoc);
-        }
-        else if (Name.Identifier
-            ->getName().equals("get_spec_ptr")) {
+        } else if (Name.Identifier->getName() == "get_spec_ptr") {
           // Replace Tok kind to avoid
           // balancing parens error in parser
           Tok.setKind(tok::comma);
@@ -1094,8 +1088,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           ConsumeToken();
           assert(Tok.is(tok::comma));
           Tok.setKind(tok::l_paren);
-        }
-        else {
+        } else {
           ParsedAttributes attrs(AttrFactory);
           auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs).second;
           auto S = Name.Identifier->getName().str()
@@ -1126,7 +1119,7 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
       const TemplateArgumentListInfo* SomeInfo = nullptr;
       Actions.DecomposeUnqualifiedId(Name, TALI, DNI, SomeInfo);
       LookupResult R(Actions, DNI, Sema::LookupAnyName);
-      if (R.getResultKind() == LookupResult::NotFound) {
+      if (R.getResultKind() == LookupResultKind::NotFound) {
         auto AheadTok = PP.LookAhead(0);
         int count = 1;
         for (int i = 0; AheadTok.isNot(tok::eof) && AheadTok.isNot(tok::greater); ++i) {
@@ -1792,7 +1785,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                         .getCanonicalType()
                         .getBaseTypeIdentifier()) {
         auto TypeName = TypeID->getName();
-        return TypeName.startswith("__pp_struct");
+        return TypeName.starts_with("__pp_struct");
       }
       return false;
     };

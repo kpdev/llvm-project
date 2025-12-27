@@ -1876,8 +1876,8 @@ private:
   void PPExtInitGlobVar(llvm::GlobalVariable* GV);
   void PPExtInitStackAllocatedVars(llvm::Function* F);
 
-  template <typename TInsertPoint>
-  void PPExtInitGenOrSpec(TInsertPoint* IPoint, StringRef Name, llvm::Value* ParentObject);
+  void PPExtInitGenOrSpec(llvm::InsertPosition IPoint, StringRef Name,
+                          llvm::Value *ParentObject);
   void PPExtRecordCreateSpec(llvm::Function* FnCreateSpec, RecordDecl* RDSpec, llvm::Module& Parent);
 
   void AddPPSpecialization(llvm::Function* F,
@@ -1889,10 +1889,9 @@ private:
   llvm::Value* PPExtGetIndexForMM(llvm::BasicBlock* BB,
                                   const FunctionDecl::MMParams& Gens);
 
-  template <typename TInsertPoint>
   void PPExtInitTypeTagsRecursively(StringRef NameOfVariable,
-                                    llvm::Value* PtrToObjForGEP,
-                                    TInsertPoint* IPoint);
+                                    llvm::Value *PtrToObjForGEP,
+                                    llvm::InsertPosition IPoint);
 
   llvm::BasicBlock*
   InitPPHandlersArray(llvm::BasicBlock* BB,

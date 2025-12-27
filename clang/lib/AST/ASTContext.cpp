@@ -12976,7 +12976,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
 
   if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
 
-    if (StringRef(FD->getDeclName().getAsString()).startswith("__pp_mm_")) {
+    if (StringRef(FD->getDeclName().getAsString()).starts_with("__pp_mm_")) {
       // PP-EXT: Always emit bodies for multimethods
       // even if they are marked as `static`
       return true;

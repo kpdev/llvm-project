@@ -157,8 +157,7 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
-    if (Tok.getIdentifierInfo()
-            ->getName().equals("get_spec_ptr")) {
+    if (Tok.getIdentifierInfo()->getName() == "get_spec_ptr") {
       const auto IdentTok = Tok;
       ConsumeToken();
       assert(Tok.is(tok::l_paren));
@@ -173,9 +172,7 @@ Retry:
       auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
       Tok.setIdentifierInfo(IIMangled);
       PPExtNextTokIsLParen = true;
-    }
-    else if (Tok.getIdentifierInfo()
-            ->getName().equals("spec_index_cmp")) {
+    } else if (Tok.getIdentifierInfo()->getName() == "spec_index_cmp") {
       auto IdentTok =
         PP.LookAhead(1).is(tok::identifier) ?
         PP.LookAhead(1) : PP.LookAhead(2);
@@ -184,7 +181,7 @@ Retry:
       LookupResult Result(Actions, II, Tok.getLocation(),
         Sema::LookupOrdinaryName);
       Actions.LookupName(Result, getCurScope());
-      assert(Result.getResultKind() == LookupResult::Found);
+      assert(Result.getResultKind() == LookupResultKind::Found);
       auto FD = Result.getFoundDecl();
       assert(FD);
       auto VD = cast<clang::VarDecl>(FD);
@@ -196,16 +193,11 @@ Retry:
       auto MangledName = "spec_index_cmp" + StructName.str();
       auto IIMangled = &PP.getIdentifierTable().get(MangledName);
       Tok.setIdentifierInfo(IIMangled);
-    }
-    else if (Tok.getIdentifierInfo()
-            ->getName().equals("create_spec")   ||
-        Tok.getIdentifierInfo()
-            ->getName().equals("get_spec_size") ||
-        Tok.getIdentifierInfo()
-            ->getName().equals("init_spec")) {
+    } else if (Tok.getIdentifierInfo()->getName() == "create_spec" ||
+               Tok.getIdentifierInfo()->getName() == "get_spec_size" ||
+               Tok.getIdentifierInfo()->getName() == "init_spec") {
 
-      const bool IsGSS = Tok.getIdentifierInfo()
-                          ->getName().equals("get_spec_size");
+      const bool IsGSS = Tok.getIdentifierInfo()->getName() == "get_spec_size";
 
       auto IdentTok = Tok;
       ParsedAttributes Attrs(AttrFactory);
@@ -228,7 +220,7 @@ Retry:
         IdentTok.getIdentifierInfo()->getName().str()
         + SuffixName.str();
       IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
-      if (IIMangled->getName().startswith("init_spec")) {
+      if (IIMangled->getName().starts_with("init_spec")) {
         ConsumeToken();
       }
 
@@ -1181,12 +1173,12 @@ Parser::PPExtGetStructType(const RecordDecl* RD) const
   StringRef TagFieldName("__pp_specialization_type");
   for (auto FieldIter = RD->field_begin();
             FieldIter != RD->field_end(); ++FieldIter) {
-    if (FieldIter->getName().equals(TagFieldName)) {
+    if (FieldIter->getName() == TagFieldName) {
       return PPStructType::Generalization;
     }
   }
 
-  if (RD->getName().startswith("__pp_struct")) {
+  if (RD->getName().starts_with("__pp_struct")) {
     return PPStructType::Specialization;
   }
 
@@ -1204,8 +1196,7 @@ Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
   const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
                           getAsRecordDecl();
 
-  if (!RDHead ||
-      !HeadElem->getName().equals("__pp_head")) {
+  if (!RDHead || HeadElem->getName() != "__pp_head") {
     RDHead = RD;
   }
 

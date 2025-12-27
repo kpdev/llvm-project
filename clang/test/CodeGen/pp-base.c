@@ -77,6 +77,7 @@
 // ftype* my_ptr;
 
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct Circle { int r; } Circle;
 typedef struct Rectangle { int w, h; } Rectangle;
@@ -363,7 +364,7 @@ void foo_check_cast(void* ptr) {
 
 void compile_check(FILE *fd) {
     // Check if '<' sign is handled correctly
-    if(close(fd) < 0) {
+    if (fclose(fd) < 0) {
         printf("Can\'t close file\n");
     }
 }

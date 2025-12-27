@@ -2212,9 +2212,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
     // TODO PP-EXT: Pass this variable to
     //              Parser::ParseFunctionDefinition
     const bool IsPPExtMMDefaultEq0 =
-      (Tok.is(tok::equal) &&
-      D.getIdentifier() &&
-      D.getIdentifier()->getName().startswith("__pp_mm_"));
+        (Tok.is(tok::equal) && D.getIdentifier() &&
+         D.getIdentifier()->getName().starts_with("__pp_mm_"));
 
     // Look at the next token to make sure that this isn't a function
     // declaration.  We have to check this because __attribute__ might be the
@@ -4950,15 +4949,13 @@ void Parser::AddStmts(StmtVector& Stmts,
                         SourceLocation(), false, Actions.CurFPFeatureOverrides());
 
     Stmts.push_back(ResPreInc);
-  }
-  else if (Mode == PPFuncMode::Init) {
+  } else if (Mode == PPFuncMode::Init) {
     StmtVector IfStmts;
     IdentifierInfo* II =
       &PP.getIdentifierTable().get(ppMNames.BaseIncFuncName);
     LookupResult Result(getActions(), II, SourceLocation(),
       clang::Sema::LookupOrdinaryName);
-    CXXScopeSpec CSS;
-    getActions().LookupParsedName(Result, getCurScope(), &CSS, true);
+    getActions().LookupName(Result, getCurScope(), true);
     Decl* D = Result.getFoundDecl();
     ValueDecl* VD = cast<ValueDecl>(D);
     auto& Actions = getActions();
@@ -5087,9 +5084,8 @@ void Parser::AddStmts(StmtVector& Stmts,
   }
 }
 
-
-Optional<Parser::SpecsVec> Parser::TryParsePPExt(Decl *TagDecl,
-                                       SmallVector<Decl *, 32>& FieldDecls) {
+std::optional<Parser::SpecsVec>
+Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
   if (Tok.isNot(clang::tok::less)) {
     return {};
   }
@@ -5208,9 +5204,8 @@ void Parser::PPExtAddAlign8Attr(ParsedAttributes &Attrs)
   auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
   ArgExprs.push_back(Expr);
 
-  Attrs.addNew(II,SourceRange(), nullptr, SourceLocation(),
-    ArgExprs.data(), ArgExprs.size(),
-    ParsedAttr::Syntax::AS_GNU);
+  Attrs.addNew(II, SourceRange(), AttributeScopeInfo(), ArgExprs.data(),
+               ArgExprs.size(), ParsedAttr::Form::GNU());
 }
 
 void Parser::AddFunc(std::string FuncName,
@@ -5244,8 +5239,6 @@ void Parser::AddFunc(std::string FuncName,
     auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
     ArgExprs.push_back(Expr);
   }
-
-  IdentifierInfo* ScopeId = nullptr;
 
   DS.Finish(Actions, Policy);
 
@@ -5299,8 +5292,8 @@ void Parser::AddFunc(std::string FuncName,
     D.AddTypeInfo(DCh, std::move(FnAttrs), EndLoc);
 
     if (isCtor) {
-      Attrs.addNew(AttrName, SourceRange(), ScopeId, SourceLocation(),
-        ArgExprs.data(), ArgExprs.size(), clang::AttributeCommonInfo::AS_GNU);
+      Attrs.addNew(AttrName, SourceRange(), AttributeScopeInfo(),
+                   ArgExprs.data(), ArgExprs.size(), ParsedAttr::Form::GNU());
     }
 
     Actions.ActOnFinishFunctionDeclarationDeclarator(D);
@@ -5315,7 +5308,7 @@ void Parser::AddFunc(std::string FuncName,
                                 std::move(DSPtr.getAttributes()), SourceLocation());
     }
 
-    Sema::SkipBodyInfo SkipBody;
+    SkipBodyInfo SkipBody;
     Sema::FnBodyKind BodyKind = Sema::FnBodyKind::Other;
     ParseScope BodyScope(this, Scope::FnScope | Scope::DeclScope |
                               Scope::CompoundStmtScope);
@@ -5532,7 +5525,7 @@ Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName,
                         SourceLocation(),
                         clang::Sema::LookupOrdinaryName);
     Actions.LookupName(Result, getCurScope());
-    assert(Result.getResultKind() == LookupResult::Found);
+    assert(Result.getResultKind() == LookupResultKind::Found);
     NamedDecl* IIDecl = Result.getFoundDecl();
     TypeDecl* TD = dyn_cast<TypeDecl>(IIDecl);
     auto T = Actions.Context.getTypeDeclType(TD);
@@ -5756,7 +5749,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
   SmallVector<Decl *, 32> FieldDecls(TagDecl->fields());
 
-  Optional<SpecsVec> PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls);
+  std::optional<SpecsVec> PPExtSpecs = TryParsePPExt(TagDecl, FieldDecls);
   if (PPExtSpecs) {
     PPExtAddAlign8Attr(attrs);
   }
@@ -5794,7 +5787,7 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       ppMNames.BaseStructName, ppMNames);
 
     for (auto S : *PPExtSpecs) {
-      Sema::SkipBodyInfo TestSkipBody;
+      SkipBodyInfo TestSkipBody;
       CXXScopeSpec TestSS;
       MultiTemplateParamsArg TestTParams;
       bool TestOwned = true;
@@ -5812,16 +5805,28 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       ParsingDeclSpec PDS(*this);
       assert((!IsVariantVoid && VariantNameIdentifier) ||
             (IsVariantVoid && !VariantNameIdentifier));
-      auto VariantDecl = IsVariantVoid ?
-                          nullptr :
-                          Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
-                            TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-                            TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-                            false, false, &TestSkipBody);
-      auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
-        TestLocation, TestSS, S.FullNameIInfo, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-        TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-        false, false, &TestSkipBody);
+      auto VariantDecl =
+          IsVariantVoid
+              ? nullptr
+              : Actions
+                    .ActOnTag(getCurScope(), clang::TST_struct,
+                              TagUseKind::Reference, TestLocation, TestSS,
+                              VariantNameIdentifier, TestLocation, TestAttrs,
+                              clang::AS_none, TestLocation, TestTParams,
+                              TestOwned, TestIsDependent, SourceLocation(),
+                              false, clang::TypeResult(), false, false,
+                              OffsetOfState, &TestSkipBody)
+                    .get();
+      auto TestDecl =
+          Actions
+              .ActOnTag(getCurScope(), clang::TST_struct,
+                        TagUseKind::Definition, TestLocation, TestSS,
+                        S.FullNameIInfo, TestLocation, TestAttrs,
+                        clang::AS_none, TestLocation, TestTParams, TestOwned,
+                        TestIsDependent, SourceLocation(), false,
+                        clang::TypeResult(), false, false, OffsetOfState,
+                        &TestSkipBody)
+              .get();
       Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
       FieldGenerator("__pp_head", DeclSpec::TST_struct, TagDecl, false,
@@ -5837,20 +5842,17 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
         //    then full name does not have "_pp_ptr" in the end (it is not needed),
         //    instead Parser::SpecsDescr::IsPtr has this information
         const bool IsPtr =
-          (S.FullNameIInfo->getName().endswith("_pp_ptr") || S.IsPtr);
+          (S.FullNameIInfo->getName().ends_with("_pp_ptr") || S.IsPtr);
 
         auto GetTST = [](StringRef VarName) {
           auto Result = DeclSpec::TST::TST_struct;
-          if (VarName.equals("int")) {
+          if (VarName == "int") {
             Result = DeclSpec::TST::TST_int;
-          }
-          else if (VarName.equals("double")) {
+          } else if (VarName == "double") {
             Result = DeclSpec::TST::TST_double;
-          }
-          else if (VarName.equals("float")) {
+          } else if (VarName == "float") {
             Result = DeclSpec::TST::TST_float;
-          }
-          else if (VarName.equals("char")) {
+          } else if (VarName == "char") {
             Result = DeclSpec::TST::TST_char;
           }
 
@@ -8268,8 +8270,8 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   }
 
   const bool IsMultimethod =
-    (D.hasName() && D.getIdentifier() &&
-     D.getIdentifier()->getName().startswith("__pp_mm_"));
+      (D.hasName() && D.getIdentifier() &&
+       D.getIdentifier()->getName().starts_with("__pp_mm_"));
   // Collect non-parameter declarations from the prototype if this is a function
   // declaration. They will be moved into the scope of the function. Only do
   // this in C and not C++, where the decls will continue to live in the
@@ -8298,7 +8300,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
         //   or it is generalization but ends with ".void"
         //   then it is an argument for multimethod specialization
         const bool startsWithPPStruct =
-                      (ID && ID->getName().startswith("__pp_struct"));
+            (ID && ID->getName().starts_with("__pp_struct"));
         const bool isGenAsSpec = PVD->PPExtIsGenAsSpecIdType();
         // It cannot be both true at the same time
         assert(!(startsWithPPStruct && isGenAsSpec));
@@ -8309,7 +8311,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       if (!ND || isa<ParmVarDecl>(ND))
         continue;
       if (IsMultimethod && IsArgInSpecNumCount &&
-          ND->getName().startswith("__pp_struct"))
+          ND->getName().starts_with("__pp_struct"))
         IsSpecialization = true;
       DeclsInPrototype.push_back(ND);
     }

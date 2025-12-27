@@ -1247,7 +1247,7 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   const bool IsPPExtMMDefaultEq0 =
     (Tok.is(tok::equal) &&
      D.getIdentifier() &&
-     D.getIdentifier()->getName().startswith("__pp_mm_"));
+     D.getIdentifier()->getName().starts_with("__pp_mm_"));
 
   // We should have either an opening brace or, in a C++ constructor,
   // we may have a colon.

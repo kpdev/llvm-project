@@ -3775,7 +3775,7 @@ void FunctionDecl::setParams(ASTContext &C,
 
 int FunctionDecl::getNumOfSpecializationsPPMM(StringRef Name)
 {
-  if (!Name.startswith("__pp_mm_")) {
+  if (!Name.starts_with("__pp_mm_")) {
     return -1;
   }
 
@@ -3814,7 +3814,7 @@ auto FunctionDecl::getRecordDeclsGenArgsForPPMM() const -> MMParams
         int Idx = 0;
 
         bool isGenAsSpec = (*p)->PPExtIsGenAsSpecIdType();
-        bool startsWithPPStruct = RD->getName().startswith("__pp_struct_");
+        bool startsWithPPStruct = RD->getName().starts_with("__pp_struct_");
         assert(!(isGenAsSpec && startsWithPPStruct));
         if (isGenAsSpec || startsWithPPStruct) {
           IsSpec = true;
@@ -3831,7 +3831,7 @@ auto FunctionDecl::getRecordDeclsGenArgsForPPMM() const -> MMParams
           }
           else {
             auto F = *RD->field_begin();
-            assert(F->getName().equals("__pp_head"));
+            assert(F->getName() == "__pp_head");
             assert(F->getType().getTypePtr() &&
                   F->getType().getTypePtr()->getAsRecordDecl());
             BaseRD = F->getType().getTypePtr()->getAsRecordDecl();
@@ -3842,7 +3842,7 @@ auto FunctionDecl::getRecordDeclsGenArgsForPPMM() const -> MMParams
         for (auto F = RecordToIterate->field_begin();
               F != RecordToIterate->field_end();
               ++F, ++Idx) {
-          if (F->getName().equals("__pp_specialization_type"))
+          if (F->getName() == "__pp_specialization_type")
             Result.push_back({RD, *p, Idx, ParamIdx, BaseRD});
         }
       }

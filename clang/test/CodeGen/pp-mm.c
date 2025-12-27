@@ -1,5 +1,6 @@
 // RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
 
+#include <stdio.h>
 
 typedef struct Circle { int r; } Circle;
 typedef struct Rectangle { int w, h; } Rectangle;

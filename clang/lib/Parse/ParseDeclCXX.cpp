@@ -1578,7 +1578,7 @@ std::string Parser::PPExtConstructGenName(
       auto GenType = PPExtGetTypeByName(GenName);
       assert(GenType);
       for (auto f: GenType->fields()) {
-        if (f->getName().equals("__pp_tail")) {
+        if (f->getName() == "__pp_tail") {
           auto S = f->getType().getAsString();
           StringRef SR(S);
           SR = SR.split(" ").second;
@@ -1652,7 +1652,7 @@ RecordDecl* Parser::PPExtCreateGeneralization(
   ParsedAttributes& PAttrs
 ) {
 
-    Sema::SkipBodyInfo TestSkipBody;
+    SkipBodyInfo TestSkipBody;
     CXXScopeSpec TestSS;
     MultiTemplateParamsArg TestTParams;
     bool TestOwned = true;
@@ -1664,35 +1664,38 @@ RecordDecl* Parser::PPExtCreateGeneralization(
 
     ParsingDeclSpec PDS(*this);
 
-    auto ResultDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
-      Loc, TestSS, BaseNameIdentifier, Loc, Attrs, clang::AS_none, Loc,
-      TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-      false, false, &TestSkipBody);
-    Actions.ActOnTagStartDefinition(getCurScope(), ResultDecl);
+    auto ResultDecl = Actions.ActOnTag(
+        getCurScope(), clang::TST_struct, TagUseKind::Definition, Loc, TestSS,
+        BaseNameIdentifier, Loc, Attrs, clang::AS_none, Loc, TestTParams,
+        TestOwned, TestIsDependent, SourceLocation(), false,
+        clang::TypeResult(), false, false, OffsetOfState, &TestSkipBody);
+    Actions.ActOnTagStartDefinition(getCurScope(), ResultDecl.get());
 
     SmallVector<Decl *, 32> FieldDecls;
-    FieldGenerator("__pp_head", DeclSpec::TST_struct, Head, false,
-                    Attrs, ResultDecl, FieldDecls);
-    FieldGenerator("__pp_tail", DeclSpec::TST_struct, Tail, false,
-                    Attrs, ResultDecl, FieldDecls);
-    SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(ResultDecl)->fields());
-    Actions.ActOnFields(getCurScope(), Loc, ResultDecl, TestFieldDecls,
-                  SourceLocation(), SourceLocation(), PAttrs);
+    FieldGenerator("__pp_head", DeclSpec::TST_struct, Head, false, Attrs,
+                   ResultDecl.get(), FieldDecls);
+    FieldGenerator("__pp_tail", DeclSpec::TST_struct, Tail, false, Attrs,
+                   ResultDecl.get(), FieldDecls);
+    SmallVector<Decl *, 32> TestFieldDecls(
+        cast<RecordDecl>(ResultDecl.get())->fields());
+    Actions.ActOnFields(getCurScope(), Loc, ResultDecl.get(), TestFieldDecls,
+                        SourceLocation(), SourceLocation(), PAttrs);
 
     StructScope.Exit();
-    Actions.ActOnTagFinishDefinition(getCurScope(), ResultDecl, SourceRange());
+    Actions.ActOnTagFinishDefinition(getCurScope(), ResultDecl.get(),
+                                     SourceRange());
     unsigned DiagID;
     const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
     const char *PrevSpec = nullptr;
-    PDS.SetTypeSpecType(
-      DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
-      DiagID, ResultDecl, true, Policy);
+    PDS.SetTypeSpecType(DeclSpec::TST_struct, SourceLocation(),
+                        SourceLocation(), PrevSpec, DiagID, ResultDecl.get(),
+                        true, Policy);
 
 #ifdef PPEXT_DUMP
     ResultDecl->dump();
 #endif
 
-    auto* ResultRecordDecl = cast<RecordDecl>(ResultDecl);
+    auto* ResultRecordDecl = cast<RecordDecl>(ResultDecl.get());
     assert(ResultRecordDecl);
     return ResultRecordDecl;
 }
@@ -1702,9 +1705,7 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
   auto& TypesArr = getActions().getASTContext().getTypes();
   clang::RecordDecl* ResDecl = nullptr;
   for (auto* Ty: TypesArr) {
-    if (Ty->isRecordType() &&
-        Ty->getAsRecordDecl()
-          ->getName().equals(Name)) {
+    if (Ty->isRecordType() && Ty->getAsRecordDecl()->getName() == Name) {
       ResDecl = Ty->getAsRecordDecl();
       break;
     }
@@ -1809,7 +1810,7 @@ auto Parser::PPExtGetIdForExistingOrNewlyCreatedGen(
   PPExtIdentType IdType = PPExtIdentType::Default;
   auto& Tbl = PP.getIdentifierTable();
   StringRef MangledNameRef = MangledName;
-  if (MangledNameRef.startswith("0")) {
+  if (MangledNameRef.starts_with("0")) {
     // It is an explicit generalization parameter
     //   like "generalization.void"
     MangledNameRef = MangledNameRef.substr(1);
@@ -2115,7 +2116,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 #ifdef PPEXT_DUMP
         printf("\n[!!!] TODO: Refactoring: reuse PPCreateGen\n");
 #endif
-        Sema::SkipBodyInfo TestSkipBody;
+        SkipBodyInfo TestSkipBody;
         CXXScopeSpec TestSS;
         MultiTemplateParamsArg TestTParams;
         bool TestOwned = true;
@@ -2150,7 +2151,8 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
 
         SmallVector<StringRef, 8> Parts;
         auto MainFileID = Actions.getSourceManager().getMainFileID();
-        auto FullFileName = Actions.getSourceManager().getFileEntryForID(MainFileID)->getName();
+        auto FullFileName =
+            *Actions.getSourceManager().getNonBuiltinFilenameForID(MainFileID);
         FullFileName.split(Parts, '/');
         auto ExactFileName = Parts.back();
         Parts.clear();
@@ -2171,18 +2173,34 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         ppMNames.addVariantName(TestName->getName().str());
         ParsingDeclSpec PDS(*this);
 
-        auto BaseDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
-          TestLocation, TestSS, Name, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-          false, false, &TestSkipBody);
-        auto VariantDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Reference,
-          TestLocation, TestSS, VariantNameIdentifier, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-          false, false, &TestSkipBody);
-        auto TestDecl = Actions.ActOnTag(getCurScope(), clang::TST_struct, clang::Sema::TUK_Definition,
-          TestLocation, TestSS, TestName, TestLocation, TestAttrs, clang::AS_none, TestLocation,
-          TestTParams, TestOwned, TestIsDependent, SourceLocation(), false, clang::TypeResult(),
-          false, false, &TestSkipBody);
+        auto BaseDecl =
+            Actions
+                .ActOnTag(getCurScope(), clang::TST_struct,
+                          TagUseKind::Reference, TestLocation, TestSS, Name,
+                          TestLocation, TestAttrs, clang::AS_none, TestLocation,
+                          TestTParams, TestOwned, TestIsDependent,
+                          SourceLocation(), false, clang::TypeResult(), false,
+                          false, OffsetOfState, &TestSkipBody)
+                .get();
+        auto VariantDecl =
+            Actions
+                .ActOnTag(getCurScope(), clang::TST_struct,
+                          TagUseKind::Reference, TestLocation, TestSS,
+                          VariantNameIdentifier, TestLocation, TestAttrs,
+                          clang::AS_none, TestLocation, TestTParams, TestOwned,
+                          TestIsDependent, SourceLocation(), false,
+                          clang::TypeResult(), false, false, OffsetOfState,
+                          &TestSkipBody)
+                .get();
+        auto TestDecl =
+            Actions
+                .ActOnTag(getCurScope(), clang::TST_struct,
+                          TagUseKind::Definition, TestLocation, TestSS,
+                          TestName, TestLocation, TestAttrs, clang::AS_none,
+                          TestLocation, TestTParams, TestOwned, TestIsDependent,
+                          SourceLocation(), false, clang::TypeResult(), false,
+                          false, OffsetOfState, &TestSkipBody)
+                .get();
         Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
         const DeclSpec::TST FieldType = PPExtGetFieldTypeByTokKind(Tok.getKind());

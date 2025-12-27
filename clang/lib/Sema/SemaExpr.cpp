@@ -2770,23 +2770,21 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
   {
     auto name = Name.getAsString();
     auto sName = llvm::StringRef(name);
-    isPPext = sName.startswith("create_spec")   ||
-              sName.startswith("get_spec_ptr")  ||
-              sName.startswith("get_spec_size") ||
-              sName.startswith("spec_index_cmp") ||
-              sName.startswith("init_spec");
+    isPPext = sName.starts_with("create_spec")   ||
+              sName.starts_with("get_spec_ptr")  ||
+              sName.starts_with("get_spec_size") ||
+              sName.starts_with("spec_index_cmp") ||
+              sName.starts_with("init_spec");
   }
-  if (R.getResultKind() ==
-      clang::LookupResult::NotFound &&
-      isPPext) {
+  if (R.getResultKind() == clang::LookupResultKind::NotFound && isPPext) {
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> tmpvec;
     const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
-          ->getName().startswith("get_spec_ptr");
+          ->getName().starts_with("get_spec_ptr");
     const bool IsGetSpecSize = Name.getAsIdentifierInfo()
-          ->getName().startswith("get_spec_size");
+          ->getName().starts_with("get_spec_size");
     const bool IsSpecIdxCmp = Name.getAsIdentifierInfo()
-          ->getName().startswith("spec_index_cmp");
+          ->getName().starts_with("spec_index_cmp");
     if (IsGetSpecPtr) {
       tmpvec.push_back(Context.IntTy);
     }

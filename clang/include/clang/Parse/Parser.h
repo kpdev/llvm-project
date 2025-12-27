@@ -1538,6 +1538,11 @@ private:
                             CachedTokens &Toks, bool StopAtSemi = true,
                             bool ConsumeFinalToken = true);
 
+public:
+  /// A SmallVector of statements.
+  typedef SmallVector<Stmt *, 24> StmtVector;
+
+private:
 //===--------------------------------------------------------------------===//
   // Procedural-parametric extension
 
@@ -1609,8 +1614,8 @@ private:
     bool IsPtr = false;
   };
   using SpecsVec = SmallVector<SpecsDescr>;
-  Optional<SpecsVec> TryParsePPExt(Decl *TagDecl,
-                         SmallVector<Decl *, 32>& FieldDecls);
+  std::optional<SpecsVec> TryParsePPExt(Decl *TagDecl,
+                                        SmallVector<Decl *, 32> &FieldDecls);
 
   void PPExtAddAlign8Attr(ParsedAttributes &Attrs);
 
@@ -7334,9 +7339,6 @@ private:
   ///@{
 
 public:
-  /// A SmallVector of statements.
-  typedef SmallVector<Stmt *, 24> StmtVector;
-
   /// The location of the first statement inside an else that might
   /// have a missleading indentation. If there is no
   /// MisleadingIndentationChecker on an else active, this location is invalid.
