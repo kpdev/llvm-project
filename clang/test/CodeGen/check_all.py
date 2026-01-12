@@ -58,6 +58,10 @@ command_list = [
     "./build/bin/llvm-lit "
         "clang/test/CodeGen/pp-compilation.c "
         "-v"
+    ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-shared-main.c "
+        "-v"
 ]
 
 idx = 1
