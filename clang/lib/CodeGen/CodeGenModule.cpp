@@ -2006,7 +2006,7 @@ void CodeGenModule::adjustPPLinkage(llvm::Function* F) {
 void CodeGenModule::adjustPPLinkage(llvm::GlobalVariable* GV) {
   StringRef GVName = GV->getName();
   if (GVName.starts_with("__pp_")) {
-    GV->setLinkage(llvm::GlobalValue::LinkageTypes::LinkOnceODRLinkage);
+    GV->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
   }
 }
 
