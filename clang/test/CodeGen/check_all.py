@@ -4,7 +4,7 @@ import os
 
 cur_dir = os.getcwd()
 bin_dir = "/build/bin/"
-path_to_clang = cur_dir + bin_dir + "clang-15"
+path_to_clang = cur_dir + bin_dir + "clang-21"
 
 if not os.path.isfile(path_to_clang):
     print("[ERROR] Clang not found: " + path_to_clang)
