@@ -1627,7 +1627,6 @@ private:
                           const ParsedAttributes& Attrs,
                           bool IsPointer);
   enum class PPFuncMode {
-    Ctor,
     Init,
     Increment,
     CreateSpec,
@@ -1644,7 +1643,6 @@ private:
 
     std::string BaseStructName;
     std::string BaseTagVariableName;
-    std::string BaseCtorName;
     std::string BaseIncFuncName;
     std::vector<PPVariant> VariantStructNames;
 

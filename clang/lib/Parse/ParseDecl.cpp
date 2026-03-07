@@ -5394,7 +5394,6 @@ void Parser::PPMangledNames::setBaseName(std::string BaseName)
 {
   BaseStructName = "__pp_struct_" + BaseName;
   BaseTagVariableName = "__pp_tags_" + BaseName;
-  BaseCtorName = "__pp_ctor_" + BaseName;
   BaseIncFuncName = "__pp_inc_tags_" + BaseName;
 }
 
@@ -5424,12 +5423,10 @@ void Parser::PPMangledNames::dump() {
   fprintf(stderr, "=== ppmnames ===\n"
   "BaseStructName = %s\n"
   "BaseTagVariableName = %s\n"
-  "BaseCtorName = %s\n"
   "BaseIncFuncName = %s\n"
   "VariantStructNames size: %d\n",
   BaseStructName.c_str(),
   BaseTagVariableName.c_str(),
-  BaseCtorName.c_str(),
   BaseIncFuncName.c_str(),
   (int)VariantStructNames.size());
   int i = 0;
@@ -5771,7 +5768,6 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
     m_PPGlobalVars.push_back(VarGenerate(ppMNames.BaseTagVariableName));
     
-    AddFunc(ppMNames.BaseCtorName, PPFuncMode::Ctor, "", ppMNames);
     AddFunc(ppMNames.BaseIncFuncName, PPFuncMode::Increment,
             ppMNames.BaseTagVariableName, ppMNames);
 
