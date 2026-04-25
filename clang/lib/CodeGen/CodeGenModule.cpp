@@ -6796,6 +6796,7 @@ void CodeGenModule::PPExtInitGlobVar(llvm::GlobalVariable* GV)
 
     // PPEXT TODO: Check priority value
     AddGlobalCtor(F, 104);
+    adjustPPLinkage(F);
   }
 }
 
