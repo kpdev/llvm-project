@@ -2,9 +2,9 @@
 
 import os
 
-cur_dir = os.getcwd()
+cur_dir = "/home/as/projects/llvm-project"
 bin_dir = "/build/bin/"
-path_to_clang = cur_dir + bin_dir + "clang-21"
+path_to_clang = cur_dir + bin_dir + "clang"
 
 if not os.path.isfile(path_to_clang):
     print("[ERROR] Clang not found: " + path_to_clang)
@@ -61,6 +61,10 @@ command_list = [
     ,
     "./build/bin/llvm-lit "
         "clang/test/CodeGen/pp-shared-main.c "
+        "-v"
+    ,
+    "./build/bin/llvm-lit "
+        "clang/test/CodeGen/pp-ext-gvinit-linkage.c "
         "-v"
 ]
 
