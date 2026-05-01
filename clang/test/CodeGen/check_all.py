@@ -2,7 +2,7 @@
 
 import os
 
-cur_dir = "/home/as/projects/llvm-project"
+cur_dir = os.getcwd()
 bin_dir = "/build/bin/"
 path_to_clang = cur_dir + bin_dir + "clang"
 
