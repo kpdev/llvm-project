@@ -69,7 +69,8 @@ def main():
         "pp-compilation.c",
         "pp-shared-main.c",
         "pp-ext-gvinit-linkage.c",
-        "pp-mm-default-eq0.c"
+        "pp-mm-default-eq0.c",
+        "pp-mm-default-eq0-perimeter.c"
     ]
 
     # Convert to full commands
