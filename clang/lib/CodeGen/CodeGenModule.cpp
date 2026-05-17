@@ -7842,12 +7842,115 @@ CodeGenModule::ExtractDefaultPPMMImplementation(
     llvm::ReturnInst::Create(getLLVMContext(), CI, BB);
   }
 
-  if (NewFn->empty()) {
-    auto* NewBB = llvm::BasicBlock::Create(
-        getLLVMContext(), "entry", NewFn);
-    CreateCallPrintf(NewBB, "[PP-EXT] Default handler executed\n");
-    llvm::ReturnInst::Create(getLLVMContext(), NewBB);
+  bool IsDefaultEq0 = false;
+  if (FD && FD->getBody()) {
+    if (auto* CS = dyn_cast<CompoundStmt>(FD->getBody())) {
+      if (CS->body_empty()) {
+        IsDefaultEq0 = true;
+      }
+    }
   }
+
+  if (IsDefaultEq0) {
+    // It is a Method<Ceneralization*> = 0
+    // Create default body:
+    //    fflush(stdout);
+    //    fprintf(stderr, "Error. Called default handler for method %s\n", MethodName);
+    //    exit(1);
+    NewFn->deleteBody();
+    auto* NewBB = llvm::BasicBlock::Create(
+            getLLVMContext(), "entry", NewFn);
+    auto FnName = NewFn->getName();
+    auto DefaultPrefix = StringRef("__pp_default__pp_mm_");
+    StringRef MethodName = FnName;
+    if (FnName.starts_with(DefaultPrefix)) {
+      MethodName = FnName.substr(DefaultPrefix.size());
+      auto UnderscorePos = MethodName.find('_');
+      assert(UnderscorePos != StringRef::npos);
+      MethodName = MethodName.substr(UnderscorePos + 1);
+    }
+
+    std::string ErrMsg = "Error. Called default handler for method " +
+                          MethodName.str() + "\n";
+    auto* IntType = Int32Ty;
+    auto* StrType = Int8PtrTy;
+    auto* FILEPtrType = llvm::PointerType::get(getLLVMContext(), 0);
+
+    SmallString<128> Str(ErrMsg);
+    Str.push_back('\0');
+    auto* C = llvm::ConstantDataArray::getString(getLLVMContext(), Str, true);
+    auto* StrGV = new llvm::GlobalVariable(getModule(), C->getType(), true,
+        llvm::GlobalValue::PrivateLinkage, C, ".pp_mm_err_msg");
+    StrGV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    StrGV->setAlignment(llvm::MaybeAlign(1));
+    SmallVector<llvm::Constant*, 2> IdxList;
+    IdxList.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+    IdxList.push_back(llvm::ConstantInt::get(Int32Ty, 0));
+    auto* StrPtr = llvm::ConstantExpr::getInBoundsGetElementPtr(
+      C->getType(), StrGV, IdxList);
+
+    auto* fflushFn = getModule().getFunction("fflush");
+    if (!fflushFn) {
+      SmallVector<llvm::Type*, 1> fflushTypeArgs(1, FILEPtrType);
+      auto* fflushFnTy = llvm::FunctionType::get(Int32Ty, fflushTypeArgs, false);
+      fflushFn = llvm::Function::Create(fflushFnTy,
+          llvm::GlobalValue::ExternalLinkage, "fflush", getModule());
+    }
+
+    auto* stdoutGV = getModule().getGlobalVariable("stdout");
+    if (!stdoutGV) {
+      stdoutGV = new llvm::GlobalVariable(getModule(), FILEPtrType, false,
+          llvm::GlobalValue::ExternalLinkage, nullptr, "stdout");
+      stdoutGV->setAlignment(llvm::MaybeAlign(8));
+    }
+
+    auto* stdoutPtr = new llvm::LoadInst(FILEPtrType, stdoutGV, "", NewBB);
+    SmallVector<llvm::Value*, 1> fflushArgs;
+    fflushArgs.push_back(stdoutPtr);
+    llvm::CallInst::Create(fflushFn->getFunctionType(), fflushFn,
+      fflushArgs, "", NewBB);
+
+    auto* stderrGV = getModule().getGlobalVariable("stderr");
+    if (!stderrGV) {
+      stderrGV = new llvm::GlobalVariable(getModule(), FILEPtrType, false,
+          llvm::GlobalValue::ExternalLinkage, nullptr, "stderr");
+      stderrGV->setAlignment(llvm::MaybeAlign(8));
+    }
+    auto* stderrPtr = new llvm::LoadInst(FILEPtrType, stderrGV, "", NewBB);
+
+    auto* fprintfFn = getModule().getFunction("fprintf");
+    if (!fprintfFn) {
+      SmallVector<llvm::Type*, 2> fprintfArgTypes;
+      fprintfArgTypes.push_back(FILEPtrType);
+      fprintfArgTypes.push_back(StrType);
+      auto* fprintfFTy = llvm::FunctionType::get(IntType, fprintfArgTypes, true);
+      fprintfFn = llvm::Function::Create(fprintfFTy,
+          llvm::GlobalValue::ExternalLinkage, "fprintf", getModule());
+    }
+
+    SmallVector<llvm::Value*, 2> fprintfArgs;
+    fprintfArgs.push_back(stderrPtr);
+    fprintfArgs.push_back(StrPtr),
+    llvm::CallInst::Create(fprintfFn->getFunctionType(), fprintfFn,
+      fprintfArgs, "", NewBB);
+
+    auto* exitFn = getModule().getFunction("exit");
+    if (!exitFn) {
+      SmallVector<llvm::Type*, 1> exitArgTypes(1, IntType);
+      auto* exitFTy = llvm::FunctionType::get(
+        llvm::Type::getVoidTy(getLLVMContext()), exitArgTypes, false);
+      exitFn = llvm::Function::Create(exitFTy,
+          llvm::GlobalValue::ExternalLinkage, "exit", getModule()); // TOD CHECK &
+    }
+
+    SmallVector<llvm::Value*, 1> exitArgs;
+    exitArgs.push_back(llvm::ConstantInt::get(Int32Ty, 1));
+    llvm::CallInst::Create(exitFn->getFunctionType(), exitFn,
+      exitArgs, "", NewBB);
+
+    new llvm::UnreachableInst(getLLVMContext(), NewBB);
+  }
+
   return NewFn;
 }
 
