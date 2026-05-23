@@ -6669,8 +6669,21 @@ bool Parser::isDeclarationSpecifier(
       return true;
     if (TryAnnotateTypeConstraint())
       return true;
-    if (Tok.is(tok::identifier))
+    if (Tok.is(tok::identifier)) {
+      if (NextToken().is(tok::period) ||
+          (NextToken().is(tok::plus) &&
+            PP.LookAhead(1).is(tok::less))) {
+        auto TokIdentName = Tok.getIdentifierInfo()->getName();
+        auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+        if (IdentRDecl) {
+          auto RDType = PPExtGetStructType(IdentRDecl);
+          if (RDType == PPStructType::Generalization) {
+            return true;
+          }
+        }
+      }
       return false;
+    }
 
     // If we're in Objective-C and we have an Objective-C class type followed
     // by an identifier and then either ':' or ']', in a place where an

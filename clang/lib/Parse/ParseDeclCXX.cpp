@@ -1709,6 +1709,21 @@ RecordDecl* Parser::PPExtGetTypeByName(StringRef Name)
       ResDecl = Ty->getAsRecordDecl();
       break;
     }
+    if (!ResDecl) {
+      auto& IdR = getActions().IdResolver;
+      auto* II = PP.getIdentifierInfo(Name);
+      if (II) {
+        for (auto* D : IdR.decls(II)) {
+          if (auto* TND = dyn_cast<TypedefNameDecl>(D)) {
+            auto* UT = TND->getUnderlyingType().getTypePtrOrNull();
+            if (UT && UT->isRecordType()) {
+              ResDecl = UT->getAsRecordDecl();
+              break;
+            }
+          }
+        }
+      }
+    }
   }
   return ResDecl;
 }
@@ -2083,9 +2098,14 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       assert(Tok.is(tok::less));
       auto CurLoc = ConsumeToken();
       if (Tok.is(tok::kw_struct)) {
-        // PP-EXT TODO: If kw_struct is not used,
-        //              then check if identifier is typedef
         CurLoc = ConsumeToken();
+      } else {
+        auto TokIdentName = Tok.getIdentifierInfo()->getName();
+        auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+        if (IdentRDecl && TokIdentName != IdentRDecl->getName()) {
+          auto * II = &PP.getIdentifierTable().get(IdentRDecl->getName());
+          Tok.setIdentifierInfo(II);
+        }
       }
       assert(Tok.isOneOf(tok::identifier,
                          tok::kw_int,

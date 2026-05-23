@@ -70,7 +70,8 @@ def main():
         "pp-shared-main.c",
         "pp-ext-gvinit-linkage.c",
         "pp-mm-default-eq0.c",
-        "pp-mm-default-eq0-perimeter.c"
+        "pp-mm-default-eq0-perimeter.c",
+        "pp-typedef.c"
     ]
 
     # Convert to full commands

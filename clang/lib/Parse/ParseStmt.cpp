@@ -157,6 +157,21 @@ Retry:
 
   case tok::identifier:
   ParseIdentifier: {
+    if (PP.LookAhead(0).is(tok::period) ||
+        (PP.LookAhead(0).is(tok::plus) &&
+         PP.LookAhead(1).is(tok::less))){
+      auto TokIdentName = Tok.getIdentifierInfo()->getName();
+      auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+      if (IdentRDecl &&
+          PPExtGetStructType(IdentRDecl) == PPStructType::Generalization) {
+        SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
+        ParsedAttributes DeclAttrs(AttrFactory);
+        ParsedAttributes DeclSpecAttrs(AttrFactory);
+        DeclGroupPtrTy Decl = ParseDeclaration(DeclaratorContext::Block,
+                                DeclEnd, DeclAttrs, DeclSpecAttrs);
+        return Actions.ActOnDeclStmt(Decl, DeclStart, DeclEnd);
+      }
+    }
     if (Tok.getIdentifierInfo()->getName() == "get_spec_ptr") {
       const auto IdentTok = Tok;
       ConsumeToken();
