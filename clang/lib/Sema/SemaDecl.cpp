@@ -16444,7 +16444,10 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
       // warning is emitted in C89 mode.
       if ((FD->hasImplicitReturnZero() &&
            (getLangOpts().CPlusPlus || getLangOpts().C99 || !FD->isMain())) ||
-          FD->hasAttr<NakedAttr>())
+          FD->hasAttr<NakedAttr>() ||
+          (FD->getIdentifier() && FD->getIdentifier()->getName().starts_with("__pp_mm_") &&
+           isa_and_nonnull<CompoundStmt>(FD->getBody()) &&
+           cast<CompoundStmt>(FD->getBody())->body_empty()))
         WP.disableCheckFallThrough();
 
       // MSVC permits the use of pure specifier (=0) on function definition,

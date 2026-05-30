@@ -3727,6 +3727,30 @@ void Parser::ParseDeclarationSpecifiers(
       if (DS.hasTypeSpecifier() && DS.hasTagDefinition())
         goto DoneWithDeclSpec;
 
+      if (NextToken().is(tok::period) &&
+          PP.LookAhead(1).is(tok::identifier)) {
+        auto T = getTypeAnnotation(Tok);
+        if (T.isUsable()) {
+          QualType QT = T.get().get();
+          auto* RD = QT->getAsRecordDecl();
+          if (RD && PPExtGetStructType(RD) == PPStructType::Generalization) {
+            StringRef StructName = RD->getName();
+            Tok.setKind(tok::identifier);
+            auto* II = &PP.getIdentifierTable().get(StructName);
+            Tok.setIdentifierInfo(II);
+            ParsedAttributes Attributes(AttrFactory);
+            ConsumeToken();
+            auto* GenII = PPExtGetIdForExistingOrNewlyCreatedGen(
+              StructName, Attributes, false, true).second;
+            Tok.setIdentifierInfo(GenII);
+            auto Kind = tok::kw_struct;
+            ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
+                                EnteringContext, DSContext, Attributes);
+            continue;
+          }
+        }
+      }
+
       TypeResult T = getTypeAnnotation(Tok);
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
                                      DiagID, T, Policy);
@@ -3781,10 +3805,11 @@ void Parser::ParseDeclarationSpecifiers(
           if (IdentRDecl) {
             auto RDType = PPExtGetStructType(IdentRDecl);
             if (RDType == PPStructType::Generalization) {
+              StringRef StructName = IdentRDecl->getName();
               ParsedAttributes Attributes(AttrFactory);
               ConsumeToken();
               auto* II = PPExtGetIdForExistingOrNewlyCreatedGen(
-                TokIdentName, Attributes, false, true).second;
+                StructName, Attributes, false, true).second;
               Tok.setIdentifierInfo(II);
               auto Kind = tok::kw_struct;
               ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
@@ -6478,8 +6503,32 @@ bool Parser::isTypeSpecifierQualifier() {
     // recurse to handle whatever we get.
     if (TryAnnotateTypeOrScopeToken())
       return true;
-    if (Tok.is(tok::identifier))
+    if (Tok.is(tok::annot_typename)) {
+      if (NextToken().is(tok::period)) {
+        auto T = getTypeAnnotation(Tok);
+        if (T.isUsable()) {
+          QualType QT = T.get().get();
+          auto* RD = QT->getAsRecordDecl();
+          if (RD &&
+              PPExtGetStructType(RD) == PPStructType::Generalization) {
+            return true;
+          }
+        }
+      }
+      return isTypeSpecifierQualifier();
+    }
+    if (Tok.is(tok::identifier)) {
+      if (NextToken().is(tok::period)) {
+        auto TokIdentName = Tok.getIdentifierInfo()->getName();
+        auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+        if (IdentRDecl &&
+            PPExtGetStructType(IdentRDecl) == PPStructType::Generalization) {
+          return true;
+        }
+      }
       return false;
+    }
+
     return isTypeSpecifierQualifier();
 
   case tok::coloncolon:   // ::foo::bar

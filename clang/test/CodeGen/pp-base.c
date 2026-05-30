@@ -318,6 +318,12 @@ int main() {
     printf("mammal_elephant [%d]\n", mammal_elephant.__pp_specialization_type);
     // CHECK-RT-NEXT: mammal_elephant inner [2]
     printf("mammal_elephant inner [%d]\n", mammal_elephant.@.__pp_specialization_type);
+
+    // Check typedefs usage (compilation only)
+    MammalGroup.elephant mammal_elephant2;
+    int res = (int)sizeof(MammalGroup.elephant);
+    MammalGroup.elephant* mammal_elephant_ptr = (MammalGroup.elephant*)&mammal_elephant2;
+    return res;
 }
 
 // This code just checking comilation
