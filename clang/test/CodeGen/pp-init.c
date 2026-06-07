@@ -1,5 +1,5 @@
 
-// RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
+// RUN: %clang %s -o %t.out && %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 #include <stdio.h>
 
@@ -90,7 +90,7 @@ int main() {
     printf("g_fig_rect_trian.@.fc tag = %d\n",
         g_fig_rect_trian.@.fc.__pp_specialization_type);
 
-    // TODO: Make it work
+    // PP-EXT TODO: Make it work
     // C~HECK-RT: g_fig_rect_trian.@.ft tag = 3
     printf("g_fig_rect_trian.@.ft tag = %d\n",
         g_fig_rect_trian.@.ft.__pp_specialization_type);

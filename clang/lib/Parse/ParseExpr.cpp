@@ -24,6 +24,7 @@
 #include "clang/AST/Availability.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/LocInfoType.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Parse/Parser.h"
@@ -1016,27 +1017,19 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     Name.setIdentifier(&II, ILoc);
 
     // Check create_spec
-    if (Name.Identifier->getName() == "create_spec" ||
-        Name.Identifier->getName() == "get_spec_ptr" ||
-        Name.Identifier->getName() == "get_spec_size" ||
-        Name.Identifier->getName() == "spec_index_cmp" ||
-        Name.Identifier->getName() == "init_spec") {
+    if (IsPPSpecFunctionToken(Name.Identifier->getName())) {
       assert(Tok.is(tok::l_paren) &&
              "[PP-EXT] Expected l_paren after create_spec & init_spec");
     }
     if (Tok.is(tok::l_paren)) {
-      if (Name.Identifier->getName() == "create_spec" ||
-          Name.Identifier->getName() == "get_spec_ptr" ||
-          Name.Identifier->getName() == "get_spec_size" ||
-          Name.Identifier->getName() == "spec_index_cmp" ||
-          Name.Identifier->getName() == "init_spec") {
-
-        if (Name.Identifier->getName() == "get_spec_size") {
+      if (auto SpecKind = GetPPSpecFuncKind(Name.Identifier->getName())) {
+        switch (*SpecKind) {
+        case PPSpecFuncKind::GetSpecSize: {
           assert(NextToken().is(tok::identifier));
           const auto Mangled =
-            Name.Identifier->getName().str()
-            + NextToken().getIdentifierInfo()->getName().str();
-          auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+              ManglePPSpecFunction(PPSpecFuncKind::GetSpecSize,
+                                   NextToken().getIdentifierInfo()->getName());
+          auto *IIMangled = &PP.getIdentifierTable().get(Mangled);
           Name.setIdentifier(IIMangled, ILoc);
           // Replace Tok kind to avoid
           // balancing parens error in parser
@@ -1044,21 +1037,22 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           ConsumeToken();
           assert(NextToken().is(tok::r_paren));
           Tok.setKind(tok::l_paren);
-        } else if (Name.Identifier->getName() == "spec_index_cmp") {
-          auto IdentTok =
-            PP.LookAhead(0).is(tok::identifier) ?
-            PP.LookAhead(0) : PP.LookAhead(1);
+          break;
+        }
+        case PPSpecFuncKind::SpecIndexCmp: {
+          auto IdentTok = PP.LookAhead(0).is(tok::identifier) ? PP.LookAhead(0)
+                                                              : PP.LookAhead(1);
           assert(IdentTok.is(tok::identifier));
-          auto* II = IdentTok.getIdentifierInfo();
+          auto *II = IdentTok.getIdentifierInfo();
           LookupResult Result(Actions, II, Tok.getLocation(),
-            Sema::LookupOrdinaryName);
+                              Sema::LookupOrdinaryName);
           Actions.LookupName(Result, getCurScope());
           assert(Result.getResultKind() == LookupResultKind::Found);
           auto FD = Result.getFoundDecl();
           assert(FD);
           auto VD = cast<clang::VarDecl>(FD);
           assert(VD);
-          const auto& ATSCtx = getActions().getASTContext();
+          const auto &ATSCtx = getActions().getASTContext();
           const auto QTT = VD->getType().getDesugaredType(ATSCtx);
           auto Str = QTT.getAsString();
           StringRef SS(Str);
@@ -1070,44 +1064,45 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
           } else if (StructName.find(SpaceRef) != StringRef::npos) {
             StructName = StructName.split(SpaceRef).first;
           }
-          auto MangledName = "spec_index_cmp" + StructName.str();
+          auto MangledName = ManglePPSpecFunction(PPSpecFuncKind::SpecIndexCmp,
+                                                  StructName.str());
           auto IIMangled = &PP.getIdentifierTable().get(MangledName);
           Name.setIdentifier(IIMangled, ILoc);
-        } else if (Name.Identifier->getName() == "get_spec_ptr") {
+          break;
+        }
+        case PPSpecFuncKind::GetSpecPtr: {
           // Replace Tok kind to avoid
           // balancing parens error in parser
           Tok.setKind(tok::comma);
           ConsumeToken();
           assert(Tok.is(tok::identifier));
-          const auto Mangled =
-            Name.Identifier->getName().str()
-            + Tok.getIdentifierInfo()->getName().str();
-          auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          const auto Mangled = ManglePPSpecFunction(
+              PPSpecFuncKind::GetSpecPtr, Tok.getIdentifierInfo()->getName());
+          auto *IIMangled = &PP.getIdentifierTable().get(Mangled);
           // Tok = IdentTok;
           Name.setIdentifier(IIMangled, ILoc);
           ConsumeToken();
           assert(Tok.is(tok::comma));
           Tok.setKind(tok::l_paren);
-        } else {
+          break;
+        }
+        case PPSpecFuncKind::CreateSpec:
+        case PPSpecFuncKind::InitSpec: {
           ParsedAttributes attrs(AttrFactory);
-          auto* Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs).second;
-          auto S = Name.Identifier->getName().str()
-                    + Id->getName().str();
+          auto *Id = PPExtGetIdForExistingOrNewlyCreatedGen("", attrs).second;
+          auto S = Name.Identifier->getName().str() + Id->getName().str();
           StringRef Mangled(S);
-          IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+          IdentifierInfo *IIMangled = &PP.getIdentifierTable().get(Mangled);
           Name.setIdentifier(IIMangled, ILoc);
-          assert(Tok.is(tok::period)
-                  || Tok.is(tok::l_paren));
+          assert(Tok.is(tok::period) || Tok.is(tok::l_paren));
           if (!Tok.is(tok::l_paren)) {
             ConsumeToken();
-            assert(Tok.isOneOf(
-              tok::identifier,
-              tok::kw_int,
-              tok::kw_double,
-              tok::kw_char
-            ));
+            assert(Tok.isOneOf(tok::identifier, tok::kw_int, tok::kw_double,
+                               tok::kw_char));
             Tok.setKind(tok::l_paren);
           }
+          break;
+        }
         }
       }
     }
@@ -1116,13 +1111,14 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
     if (Tok.is(tok::less)) {
       TemplateArgumentListInfo TALI;
       DeclarationNameInfo DNI;
-      const TemplateArgumentListInfo* SomeInfo = nullptr;
+      const TemplateArgumentListInfo *SomeInfo = nullptr;
       Actions.DecomposeUnqualifiedId(Name, TALI, DNI, SomeInfo);
       LookupResult R(Actions, DNI, Sema::LookupAnyName);
       if (R.getResultKind() == LookupResultKind::NotFound) {
         auto AheadTok = PP.LookAhead(0);
         int count = 1;
-        for (int i = 0; AheadTok.isNot(tok::eof) && AheadTok.isNot(tok::greater); ++i) {
+        for (int i = 0;
+             AheadTok.isNot(tok::eof) && AheadTok.isNot(tok::greater); ++i) {
           if (AheadTok.is(tok::comma)) {
             ++count;
           } else if (AheadTok.is(tok::semi)) {
@@ -1133,15 +1129,11 @@ Parser::ParseCastExpression(CastParseKind ParseKind, bool isAddressOfOperand,
         }
 
         if (count > 0) {
-          std::string S("__pp_mm_");
-          S += std::to_string(count);
-          S.push_back('_');
-          S += II.getName().str();
-          StringRef Mangled(S);
-          auto& IDTbl = PP.getIdentifierTable();
+          auto Mangled = ManglePPMM(II.getName(), count);
+          auto &IDTbl = PP.getIdentifierTable();
 
           if (IDTbl.find(Mangled) != IDTbl.end()) {
-            IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
+            IdentifierInfo *IIMangled = &PP.getIdentifierTable().get(Mangled);
             Tok.setIdentifierInfo(IIMangled);
             Name.setIdentifier(IIMangled, ILoc);
           }
@@ -1777,29 +1769,27 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
   // parsed, see if there are any postfix-expression pieces here.
   SourceLocation Loc;
   auto SavedType = PreferredType;
-  auto IsGeneralization = [](Expr* E) {
+  auto IsGeneralization = [](Expr *E) {
     assert(E);
 
-    auto IsPPType = [](Expr* E) {
-      if (auto TypeID = E->getType()
-                        .getCanonicalType()
-                        .getBaseTypeIdentifier()) {
+    auto IsPPType = [](Expr *E) {
+      if (auto TypeID =
+              E->getType().getCanonicalType().getBaseTypeIdentifier()) {
         auto TypeName = TypeID->getName();
-        return TypeName.starts_with("__pp_struct");
+        return IsPPStructIdentifier(TypeName);
       }
       return false;
     };
 
-    return (isa<MemberExpr>(E)
-              || isa<DeclRefExpr>(E)
-              || isa<ParenExpr>(E))
-            && IsPPType(E);
+    return (isa<MemberExpr>(E) || isa<DeclRefExpr>(E) || isa<ParenExpr>(E)) &&
+           IsPPType(E);
   };
 
-  auto* E = LHS.get();
+  auto *E = LHS.get();
   if (!IsInPPMM && E && isa<DeclRefExpr>(E)) {
     if (auto X = cast_or_null<DeclRefExpr>(E)) {
-      IsInPPMM = X->getType().getTypePtr()->isFunctionType() && Tok.is(tok::less);
+      IsInPPMM =
+          X->getType().getTypePtr()->isFunctionType() && Tok.is(tok::less);
       if (IsInPPMM) {
         Tok.setKind(tok::l_paren);
       }
@@ -1812,8 +1802,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       ConsumeToken();
       if (NextToken().is(tok::r_paren)) {
         ConsumeAnyToken();
-      }
-      else {
+      } else {
         Tok.setKind(tok::comma);
       }
     }
@@ -1825,22 +1814,22 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         Tok.startToken();
         Tok.clearFlag(Token::NeedsCleaning);
         Tok.setIdentifierInfo(nullptr);
-        const char* pp_tail_name = "__pp_tail";
-        Tok.setLength(strlen(pp_tail_name));
+        StringRef pp_tail_name = kPPTailFieldName;
+        Tok.setLength(pp_tail_name.size());
         Tok.setLocation(SourceLocation());
         Tok.setKind(tok::raw_identifier);
-        Tok.setRawIdentifierData(pp_tail_name);
+        Tok.setRawIdentifierData(pp_tail_name.data());
 
-        auto* NameId = PP.LookUpIdentifierInfo(Tok);
+        auto *NameId = PP.LookUpIdentifierInfo(Tok);
         UnqualifiedId Name;
         Name.setIdentifier(NameId, SourceLocation());
         CXXScopeSpec SS;
         PreferredType.enterMemAccess(Actions, Tok.getLocation(), LHS.get());
-        LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), SourceLocation(),
-                                  tok::identifier, SS, SourceLocation(), Name, nullptr);
+        LHS = Actions.ActOnMemberAccessExpr(
+            getCurScope(), LHS.get(), SourceLocation(), tok::identifier, SS,
+            SourceLocation(), Name, nullptr);
 
-        switch (NextToken().getKind())
-        {
+        switch (NextToken().getKind()) {
         case tok::identifier:
           Tok.startToken();
           Tok.clearFlag(Token::NeedsCleaning);
@@ -1848,7 +1837,8 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
           Tok.setKind(tok::period);
           break;
         default:
-          llvm_unreachable("Wrong token in <...> was met. Expected only identifier or '>'");
+          llvm_unreachable(
+              "Wrong token in <...> was met. Expected only identifier or '>'");
         }
 
         break; // handle next token
@@ -2114,61 +2104,46 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
     case tok::arrow:
     case tok::period: {
       {
-        Expr* OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
+        Expr *OrigLHS = !LHS.isInvalid() ? LHS.get() : nullptr;
         if (OrigLHS && IsGeneralization(OrigLHS)) {
           auto OldTok = Tok;
-          const char* pp_field_name = "__pp_head";
+          StringRef pp_field_name = kPPHeadFieldName;
           if (NextToken().is(tok::at)) {
             ConsumeToken();
-            pp_field_name = "__pp_tail";
+            pp_field_name = kPPTailFieldName;
           }
           Tok.startToken();
           Tok.clearFlag(Token::NeedsCleaning);
           Tok.setIdentifierInfo(nullptr);
 
-          Tok.setLength(strlen(pp_field_name));
+          Tok.setLength(pp_field_name.size());
           Tok.setLocation(SourceLocation());
           Tok.setKind(tok::raw_identifier);
-          Tok.setRawIdentifierData(pp_field_name);
+          Tok.setRawIdentifierData(pp_field_name.data());
 
-          auto* NameId = PP.LookUpIdentifierInfo(Tok);
+          auto *NameId = PP.LookUpIdentifierInfo(Tok);
           UnqualifiedId Name;
           Name.setIdentifier(NameId, SourceLocation());
           CXXScopeSpec SS;
           PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
-          LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(),
-                                    SourceLocation(),
-                                    OldTok.getKind(),
-                                    SS, SourceLocation(), Name, nullptr);
+          LHS = Actions.ActOnMemberAccessExpr(
+              getCurScope(), LHS.get(), SourceLocation(), OldTok.getKind(), SS,
+              SourceLocation(), Name, nullptr);
 
-          auto& NTok = NextToken();
-          if (NTok.is(tok::period)
-              || NTok.is(tok::arrow)) {
+          auto &NTok = NextToken();
+          if (NTok.is(tok::period) || NTok.is(tok::arrow)) {
             ConsumeToken();
           } else {
-            assert(NTok.isOneOf(
-              tok::identifier,
-              tok::semi,
-              tok::equal,
-              tok::r_paren,
-              tok::comma,
-              tok::minus,
-              tok::plus,
-              tok::greater
-            ));
+            assert(NTok.isOneOf(tok::identifier, tok::semi, tok::equal,
+                                tok::r_paren, tok::comma, tok::minus, tok::plus,
+                                tok::greater));
             Tok.setKind(tok::period);
           }
 
           assert(Tok.isOneOf(tok::period, tok::arrow));
 
-          if (NTok.isOneOf(
-                tok::plus,
-                tok::minus,
-                tok::semi,
-                tok::equal,
-                tok::greater,
-                tok::r_paren,
-                tok::comma)) {
+          if (NTok.isOneOf(tok::plus, tok::minus, tok::semi, tok::equal,
+                           tok::greater, tok::r_paren, tok::comma)) {
             // Return whole variant part
             //              var.@ or var->@
             ConsumeToken();
@@ -2202,15 +2177,17 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       //       // auto* NameId = &PP.getIdentifierTable().get("__pp_head");
       //       // UnqualifiedId Name;
       //       // Name.setIdentifier(NameId, SourceLocation());
-      //       // PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
-      //       // LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(), OpLoc,
+      //       // PreferredType.enterMemAccess(Actions, Tok.getLocation(),
+      //       OrigLHS);
+      //       // LHS = Actions.ActOnMemberAccessExpr(getCurScope(), LHS.get(),
+      //       OpLoc,
       //       //                           OpKind, SS, SourceLocation(), Name,
       //       //                 CurParsedObjCImpl ? CurParsedObjCImpl->Dcl
       //       //                                   : nullptr);
       //       // break;
       //   }
       // }
-      
+
       PreferredType.enterMemAccess(Actions, Tok.getLocation(), OrigLHS);
 
       if (getLangOpts().CPlusPlus && !LHS.isInvalid()) {

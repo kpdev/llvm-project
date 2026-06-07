@@ -33,6 +33,7 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DiagnosticSema.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Specifiers.h"
@@ -2770,28 +2771,18 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
   {
     auto name = Name.getAsString();
     auto sName = llvm::StringRef(name);
-    isPPext = sName.starts_with("create_spec")   ||
-              sName.starts_with("get_spec_ptr")  ||
-              sName.starts_with("get_spec_size") ||
-              sName.starts_with("spec_index_cmp") ||
-              sName.starts_with("init_spec");
+    isPPext = IsPPSpecFunctionIdentifier(sName);
   }
   if (R.getResultKind() == clang::LookupResultKind::NotFound && isPPext) {
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> tmpvec;
-    const bool IsGetSpecPtr = Name.getAsIdentifierInfo()
-          ->getName().starts_with("get_spec_ptr");
-    const bool IsGetSpecSize = Name.getAsIdentifierInfo()
-          ->getName().starts_with("get_spec_size");
-    const bool IsSpecIdxCmp = Name.getAsIdentifierInfo()
-          ->getName().starts_with("spec_index_cmp");
-    if (IsGetSpecPtr) {
+    auto SpecKind =
+        DemanglePPSpecFunction(Name.getAsIdentifierInfo()->getName()).first;
+    if (SpecKind == PPSpecFuncKind::GetSpecPtr) {
       tmpvec.push_back(Context.IntTy);
-    }
-    else if (IsGetSpecSize) {
+    } else if (SpecKind == PPSpecFuncKind::GetSpecSize) {
       ResTy = Context.IntTy;
-    }
-    else if (IsSpecIdxCmp) {
+    } else if (SpecKind == PPSpecFuncKind::SpecIndexCmp) {
       ResTy = Context.IntTy;
       tmpvec.push_back(Context.VoidPtrTy);
       tmpvec.push_back(Context.VoidPtrTy);
@@ -2799,55 +2790,36 @@ Sema::ActOnIdExpression(Scope *S, CXXScopeSpec &SS,
     ArrayRef<QualType> ArrTys(tmpvec);
 
     auto FPI = FunctionProtoType::ExtProtoInfo();
-    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+    auto QTy = Context.getFunctionType(ResTy, ArrTys, FPI);
 
     DeclContext *Parent = Context.getTranslationUnitDecl();
-    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
-                                            Name, QTy,
-                                            /*TInfo=*/nullptr, SC_Extern,
-                                            getCurFPFeatures().isFPConstrained(),
-                                            false, QTy->isFunctionProtoType());
+    FunctionDecl *NewD = FunctionDecl::Create(
+        Context, Parent, NameLoc, NameLoc, Name, QTy,
+        /*TInfo=*/nullptr, SC_Extern, getCurFPFeatures().isFPConstrained(),
+        false, QTy->isFunctionProtoType());
     SmallVector<ParmVarDecl *, 16> Params;
-    if (IsGetSpecPtr) {
+    if (SpecKind == PPSpecFuncKind::GetSpecPtr) {
       auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
-      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.IntTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
+      ParmVarDecl *PVDecl = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.IntTy, tfi, clang::StorageClass::SC_None, nullptr);
       Params.push_back(PVDecl);
-    }
-    else if (IsSpecIdxCmp) {
+    } else if (SpecKind == PPSpecFuncKind::SpecIndexCmp) {
       auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
-      ParmVarDecl* PVDecl1 = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.VoidPtrTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
-      ParmVarDecl* PVDecl2 = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.VoidPtrTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
+      ParmVarDecl *PVDecl1 = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.VoidPtrTy, tfi, clang::StorageClass::SC_None, nullptr);
+      ParmVarDecl *PVDecl2 = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.VoidPtrTy, tfi, clang::StorageClass::SC_None, nullptr);
       Params.push_back(PVDecl1);
       Params.push_back(PVDecl2);
     }
     NewD->setParams(Params);
-    // TODO: Remove it
-    auto X = DeclRefExpr::Create(Context,
-        NestedNameSpecifierLoc(), SourceLocation(),
-        NewD,
-        false,
-        R.getLookupNameInfo(),
-        NewD->getType(),
-        clang::VK_LValue,
-        NewD);
+    // PP-EXT TODO: Remove it
+    auto X = DeclRefExpr::Create(
+        Context, NestedNameSpecifierLoc(), SourceLocation(), NewD, false,
+        R.getLookupNameInfo(), NewD->getType(), clang::VK_LValue, NewD);
     R.addDecl(X->getDecl());
   }
 

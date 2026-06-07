@@ -1,7 +1,6 @@
-// RUN: %clang -c %s -o %S/a.o
-// RUN: %clang %S/a.o -o %S/a.out
-// RUN: %S/a.out | FileCheck %s -check-prefix=CHECK-RT
-// RUN: rm %S/a.out %S/a.o
+// RUN: %clang -c %s -o %t.o
+// RUN: %clang %t.o -o %t.out
+// RUN: %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 
 

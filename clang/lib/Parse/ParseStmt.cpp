@@ -13,6 +13,7 @@
 
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/Basic/Attributes.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TokenKinds.h"
@@ -158,90 +159,92 @@ Retry:
   case tok::identifier:
   ParseIdentifier: {
     if (PP.LookAhead(0).is(tok::period) ||
-        (PP.LookAhead(0).is(tok::plus) &&
-         PP.LookAhead(1).is(tok::less))){
+        (PP.LookAhead(0).is(tok::plus) && PP.LookAhead(1).is(tok::less))) {
       auto TokIdentName = Tok.getIdentifierInfo()->getName();
-      auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+      auto *IdentRDecl = PPExtGetTypeByName(TokIdentName);
       if (IdentRDecl &&
           PPExtGetStructType(IdentRDecl) == PPStructType::Generalization) {
         SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
         ParsedAttributes DeclAttrs(AttrFactory);
         ParsedAttributes DeclSpecAttrs(AttrFactory);
-        DeclGroupPtrTy Decl = ParseDeclaration(DeclaratorContext::Block,
-                                DeclEnd, DeclAttrs, DeclSpecAttrs);
+        DeclGroupPtrTy Decl = ParseDeclaration(
+            DeclaratorContext::Block, DeclEnd, DeclAttrs, DeclSpecAttrs);
         return Actions.ActOnDeclStmt(Decl, DeclStart, DeclEnd);
       }
     }
-    if (Tok.getIdentifierInfo()->getName() == "get_spec_ptr") {
-      const auto IdentTok = Tok;
-      ConsumeToken();
-      assert(Tok.is(tok::l_paren));
-      // Replace Tok kind to avoid
-      // balancing parens error in parser
-      Tok.setKind(tok::comma);
-      ConsumeToken();
-      assert(Tok.is(tok::identifier));
-      const auto Mangled =
-        IdentTok.getIdentifierInfo()->getName().str()
-        + Tok.getIdentifierInfo()->getName().str();
-      auto* IIMangled = &PP.getIdentifierTable().get(Mangled);
-      Tok.setIdentifierInfo(IIMangled);
-      PPExtNextTokIsLParen = true;
-    } else if (Tok.getIdentifierInfo()->getName() == "spec_index_cmp") {
-      auto IdentTok =
-        PP.LookAhead(1).is(tok::identifier) ?
-        PP.LookAhead(1) : PP.LookAhead(2);
-      assert(IdentTok.is(tok::identifier));
-      auto* II = IdentTok.getIdentifierInfo();
-      LookupResult Result(Actions, II, Tok.getLocation(),
-        Sema::LookupOrdinaryName);
-      Actions.LookupName(Result, getCurScope());
-      assert(Result.getResultKind() == LookupResultKind::Found);
-      auto FD = Result.getFoundDecl();
-      assert(FD);
-      auto VD = cast<clang::VarDecl>(FD);
-      assert(VD);
-      clang::QualType QTT = VD->getType();
-      auto Str = QTT.getAsString();
-      StringRef SS(Str);
-      auto StructName = SS.split(" ").second;
-      auto MangledName = "spec_index_cmp" + StructName.str();
-      auto IIMangled = &PP.getIdentifierTable().get(MangledName);
-      Tok.setIdentifierInfo(IIMangled);
-    } else if (Tok.getIdentifierInfo()->getName() == "create_spec" ||
-               Tok.getIdentifierInfo()->getName() == "get_spec_size" ||
-               Tok.getIdentifierInfo()->getName() == "init_spec") {
-
-      const bool IsGSS = Tok.getIdentifierInfo()->getName() == "get_spec_size";
-
-      auto IdentTok = Tok;
-      ParsedAttributes Attrs(AttrFactory);
-      ConsumeToken();
-      assert(Tok.is(tok::l_paren));
-
-      StringRef SuffixName;
-      if (IsGSS) {
-        assert(NextToken().is(tok::identifier));
-        SuffixName = NextToken().getIdentifierInfo()->getName();
-      }
-      else {
-        auto* TypeIdent = PPExtGetIdForExistingOrNewlyCreatedGen(
-          "",
-          Attrs).second;
-        SuffixName = TypeIdent->getName();
-      }
-
-      auto Mangled =
-        IdentTok.getIdentifierInfo()->getName().str()
-        + SuffixName.str();
-      IdentifierInfo* IIMangled = &PP.getIdentifierTable().get(Mangled);
-      if (IIMangled->getName().starts_with("init_spec")) {
+    if (auto SpecKind = GetPPSpecFuncKind(Tok.getIdentifierInfo()->getName())) {
+      switch (*SpecKind) {
+      case PPSpecFuncKind::GetSpecPtr: {
         ConsumeToken();
+        assert(Tok.is(tok::l_paren));
+        // Replace Tok kind to avoid
+        // balancing parens error in parser
+        Tok.setKind(tok::comma);
+        ConsumeToken();
+        assert(Tok.is(tok::identifier));
+        const auto Mangled = ManglePPSpecFunction(
+            PPSpecFuncKind::GetSpecPtr, Tok.getIdentifierInfo()->getName());
+        auto *IIMangled = &PP.getIdentifierTable().get(Mangled);
+        Tok.setIdentifierInfo(IIMangled);
+        PPExtNextTokIsLParen = true;
+        break;
       }
+      case PPSpecFuncKind::SpecIndexCmp: {
+        auto IdentTok = PP.LookAhead(1).is(tok::identifier) ? PP.LookAhead(1)
+                                                            : PP.LookAhead(2);
+        assert(IdentTok.is(tok::identifier));
+        auto *II = IdentTok.getIdentifierInfo();
+        LookupResult Result(Actions, II, Tok.getLocation(),
+                            Sema::LookupOrdinaryName);
+        Actions.LookupName(Result, getCurScope());
+        assert(Result.getResultKind() == LookupResultKind::Found);
+        auto FD = Result.getFoundDecl();
+        assert(FD);
+        auto VD = cast<clang::VarDecl>(FD);
+        assert(VD);
+        clang::QualType QTT = VD->getType();
+        auto Str = QTT.getAsString();
+        StringRef SS(Str);
+        auto StructName = SS.split(" ").second;
+        auto MangledName = ManglePPSpecFunction(PPSpecFuncKind::SpecIndexCmp,
+                                                StructName.str());
+        auto IIMangled = &PP.getIdentifierTable().get(MangledName);
+        Tok.setIdentifierInfo(IIMangled);
+        break;
+      }
+      case PPSpecFuncKind::CreateSpec:
+      case PPSpecFuncKind::GetSpecSize:
+      case PPSpecFuncKind::InitSpec: {
+        const bool IsGSS = SpecKind == PPSpecFuncKind::GetSpecSize;
 
-      Tok = IdentTok;
-      Tok.setIdentifierInfo(IIMangled);
-      PPExtNextTokIsLParen = true;
+        auto IdentTok = Tok;
+        ParsedAttributes Attrs(AttrFactory);
+        ConsumeToken();
+        assert(Tok.is(tok::l_paren));
+
+        StringRef SuffixName;
+        if (IsGSS) {
+          assert(NextToken().is(tok::identifier));
+          SuffixName = NextToken().getIdentifierInfo()->getName();
+        } else {
+          auto *TypeIdent =
+              PPExtGetIdForExistingOrNewlyCreatedGen("", Attrs).second;
+          SuffixName = TypeIdent->getName();
+        }
+
+        auto Mangled = ManglePPSpecFunction(*SpecKind, SuffixName);
+        IdentifierInfo *IIMangled = &PP.getIdentifierTable().get(Mangled);
+        if (DemanglePPSpecFunction(IIMangled->getName()).first ==
+            PPSpecFuncKind::InitSpec) {
+          ConsumeToken();
+        }
+
+        Tok = IdentTok;
+        Tok.setIdentifierInfo(IIMangled);
+        PPExtNextTokIsLParen = true;
+        break;
+      }
+      }
     }
 
     Token Next = NextToken();
@@ -1182,49 +1185,43 @@ StmtResult Parser::handleExprStmt(ExprResult E, ParsedStmtContext StmtCtx) {
   return Actions.ActOnExprStmt(E, /*DiscardedValue=*/!IsStmtExprResult);
 }
 
-Parser::PPStructType
-Parser::PPExtGetStructType(const RecordDecl* RD) const
-{
-  StringRef TagFieldName("__pp_specialization_type");
-  for (auto FieldIter = RD->field_begin();
-            FieldIter != RD->field_end(); ++FieldIter) {
-    if (FieldIter->getName() == TagFieldName) {
+Parser::PPStructType Parser::PPExtGetStructType(const RecordDecl *RD) const {
+  for (auto FieldIter = RD->field_begin(); FieldIter != RD->field_end();
+       ++FieldIter) {
+    if (FieldIter->getName() == kPPSpecTypeFieldName) {
       return PPStructType::Generalization;
     }
   }
 
-  if (RD->getName().starts_with("__pp_struct")) {
+  if (IsPPStructIdentifier(RD->getName())) {
     return PPStructType::Specialization;
   }
 
   return PPStructType::Default;
 }
 
-
 std::vector<Parser::PPStructInitDesc>
-Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
-{
+Parser::PPExtGetRDListToInit(const RecordDecl *RD) const {
   std::vector<Parser::PPStructInitDesc> Result;
   assert(!RD->field_empty());
   auto HeadElem = *RD->field_begin();
   auto HeadType = HeadElem->getType();
-  const RecordDecl* RDHead = HeadType.getCanonicalType().getTypePtr()->
-                          getAsRecordDecl();
+  const RecordDecl *RDHead =
+      HeadType.getCanonicalType().getTypePtr()->getAsRecordDecl();
 
-  if (!RDHead || HeadElem->getName() != "__pp_head") {
+  if (!RDHead || HeadElem->getName() != kPPHeadFieldName) {
     RDHead = RD;
   }
 
-  for (auto FieldIter = RDHead->field_begin();
-            FieldIter != RDHead->field_end(); ++FieldIter) {
+  for (auto FieldIter = RDHead->field_begin(); FieldIter != RDHead->field_end();
+       ++FieldIter) {
     auto FieldType = FieldIter->getType();
-    RecordDecl* RDField = FieldType.getCanonicalType().getTypePtr()->
-                            getAsRecordDecl();
+    RecordDecl *RDField =
+        FieldType.getCanonicalType().getTypePtr()->getAsRecordDecl();
     if (RDField) {
       auto StrTy = PPExtGetStructType(RDField);
       if (StrTy != PPStructType::Default) {
-        Result.emplace_back(
-          PPStructInitDesc{*FieldIter, RDField, StrTy});
+        Result.emplace_back(PPStructInitDesc{*FieldIter, RDField, StrTy});
       }
     }
   }
@@ -1232,106 +1229,72 @@ Parser::PPExtGetRDListToInit(const RecordDecl* RD) const
   return Result;
 }
 
-
-Parser::PPMemberInitData
-Parser::PPExtInitPPStruct(PPStructInitDesc IDesc, Expr* MemberAccess)
-{
+Parser::PPMemberInitData Parser::PPExtInitPPStruct(PPStructInitDesc IDesc,
+                                                   Expr *MemberAccess) {
   auto RDType = PPExtGetStructType(IDesc.RD);
   auto TName = IDesc.RD->getName();
-  StringRef TagFieldName("__pp_specialization_type");
   assert(RDType != PPStructType::Default);
   // Initialize tag
   CXXScopeSpec SS;
   UnqualifiedId HeadFieldId;
   {
     // setup field name
-    IdentifierInfo* Id = &PP.getIdentifierTable().get("__pp_head");
+    IdentifierInfo *Id = &PP.getIdentifierTable().get(kPPHeadFieldName);
     HeadFieldId.setIdentifier(Id, SourceLocation());
   }
 
   ExprResult ERes;
   if (MemberAccess == nullptr) {
-    ERes = Actions.ActOnNameClassifiedAsNonType(
-      getCurScope(),
-      SS,
-      IDesc.VD,
-      SourceLocation(),
-      NextToken()
-    );
-  }
-  else {
+    ERes = Actions.ActOnNameClassifiedAsNonType(getCurScope(), SS, IDesc.VD,
+                                                SourceLocation(), NextToken());
+  } else {
     UnqualifiedId CurStructId;
-    CurStructId.setIdentifier(
-      &PP.getIdentifierTable().get(IDesc.VD->getName()),
-      SourceLocation());
+    CurStructId.setIdentifier(&PP.getIdentifierTable().get(IDesc.VD->getName()),
+                              SourceLocation());
     // Access from head to current struct
-    ERes = Actions.ActOnMemberAccessExpr(getCurScope(),
-              MemberAccess, SourceLocation(),
-              clang::tok::period,
-              SS,
-              SourceLocation(),
-              CurStructId,
-              nullptr);
+    ERes = Actions.ActOnMemberAccessExpr(
+        getCurScope(), MemberAccess, SourceLocation(), clang::tok::period, SS,
+        SourceLocation(), CurStructId, nullptr);
   }
 
   const bool isVariant = (PPStructType::Specialization == RDType);
-  auto HeadField = isVariant ?
-      Actions.ActOnMemberAccessExpr(getCurScope(),
-        ERes.get(), SourceLocation(),
-        clang::tok::period,
-        SS,
-        SourceLocation(),
-        HeadFieldId,
-        nullptr)
-    : ERes;
+  auto HeadField = isVariant ? Actions.ActOnMemberAccessExpr(
+                                   getCurScope(), ERes.get(), SourceLocation(),
+                                   clang::tok::period, SS, SourceLocation(),
+                                   HeadFieldId, nullptr)
+                             : ERes;
 
-  IdentifierInfo* Id = &PP.getIdentifierTable().get(TagFieldName);
+  IdentifierInfo *Id = &PP.getIdentifierTable().get(kPPSpecTypeFieldName);
   UnqualifiedId TagFieldId;
   TagFieldId.setIdentifier(Id, SourceLocation());
-  auto TagField = Actions.ActOnMemberAccessExpr(getCurScope(),
-    HeadField.get(), SourceLocation(),
-    clang::tok::period,
-    SS,
-    SourceLocation(),
-    TagFieldId,
-    nullptr);
+  auto TagField = Actions.ActOnMemberAccessExpr(
+      getCurScope(), HeadField.get(), SourceLocation(), clang::tok::period, SS,
+      SourceLocation(), TagFieldId, nullptr);
 
-  Expr* RHSRes;
+  Expr *RHSRes;
   // Prepare RHS
   if (isVariant) {
     std::string TagName = PPExtConstructTagName(TName);
-    IdentifierInfo* II = &PP.getIdentifierTable().get(TagName);
+    IdentifierInfo *II = &PP.getIdentifierTable().get(TagName);
     UnqualifiedId VarName;
     VarName.setIdentifier(II, SourceLocation());
     DeclarationNameInfo DNI;
     DNI.setName(VarName.Identifier);
-    LookupResult R(Actions, DNI,
-      Sema::LookupOrdinaryName);
+    LookupResult R(Actions, DNI, Sema::LookupOrdinaryName);
     getActions().LookupName(R, getCurScope(), true);
-    auto* D = cast<ValueDecl>(R.getFoundDecl());
-    auto RHSResDeclRef = DeclRefExpr::Create(getActions().Context,
-      NestedNameSpecifierLoc(), SourceLocation(),
-      D,
-      false,
-      R.getLookupNameInfo(),
-      D->getType(),
-      clang::VK_LValue,
-      D);
+    auto *D = cast<ValueDecl>(R.getFoundDecl());
+    auto RHSResDeclRef = DeclRefExpr::Create(
+        getActions().Context, NestedNameSpecifierLoc(), SourceLocation(), D,
+        false, R.getLookupNameInfo(), D->getType(), clang::VK_LValue, D);
     getActions().MarkDeclRefReferenced(RHSResDeclRef);
     RHSRes = RHSResDeclRef;
-  }
-  else {
+  } else {
     RHSRes = Actions.ActOnIntegerConstant(Tok.getLocation(), 0).get();
   }
 
   ExprResult AssignmentOpExpr =
-    Actions.ActOnBinOp(
-      getCurScope(),
-      SourceLocation(),
-      clang::tok::equal,
-      TagField.get(),
-      RHSRes
-    );
+      Actions.ActOnBinOp(getCurScope(), SourceLocation(), clang::tok::equal,
+                         TagField.get(), RHSRes);
   return PPMemberInitData{AssignmentOpExpr.get(), HeadField.get()};
 }
 

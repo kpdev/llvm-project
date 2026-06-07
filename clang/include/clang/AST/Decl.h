@@ -1933,8 +1933,10 @@ public:
 
   /// Setter and checker for ident type
   /// used in multimethods (pp-extension)
-  bool PPExtIsGenAsSpecIdType() const { return identType == PPExtIdentType::GenAsSpecForMM; }
-  void PPExtSetIdentType(PPExtIdentType t) { identType = t; }
+  bool PPExtIsIdentGenAsSpec() const {
+    return IdentType == PPExtIdentType::GenAsSpecForMM;
+  }
+  void PPExtSetIdentType(PPExtIdentType t) { IdentType = t; }
 
 private:
   friend class ASTDeclReader;
@@ -1959,7 +1961,7 @@ private:
   void setParameterIndexLarge(unsigned parameterIndex);
   unsigned getParameterIndexLarge() const;
 
-  PPExtIdentType identType = PPExtIdentType::Default;
+  PPExtIdentType IdentType = PPExtIdentType::Default;
 };
 
 enum class MultiVersionKind {
@@ -2787,15 +2789,14 @@ public:
   }
 
   struct PPMMParam {
-    RecordDecl* RD;
-    ParmVarDecl* PVD;
-    int IdxOfTypeTag; // of __pp_specialization_type
-    int ParamIdx; //- index of this parameter
-    RecordDecl* BaseRD; // base of generalization
+    RecordDecl *RD;
+    ParmVarDecl *PVD;
+    int IdxOfTypeTag;   // of __pp_specialization_type
+    int ParamIdx;       //- index of this parameter
+    RecordDecl *BaseRD; // base of generalization
   };
 
-  struct MMParams
-  {
+  struct MMParams {
     std::vector<PPMMParam> ParamsList;
     bool IsSpecialization = false;
   };

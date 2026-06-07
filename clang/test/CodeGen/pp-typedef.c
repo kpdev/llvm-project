@@ -1,7 +1,6 @@
 
-// RUN: %clang %s -o %S/a.out
-// RUN: %S/a.out 2>&1 | FileCheck %s
-// RUN: rm %S/a.out
+// RUN: %clang %s -o %t
+// RUN: %t 2>&1 | FileCheck %s
 
 #include <stdio.h>
 #include <stdlib.h>

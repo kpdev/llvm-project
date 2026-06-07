@@ -174,20 +174,20 @@ void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
       if (ADecl && !Consumer->HandleTopLevelDecl(ADecl.get()))
         return;
 
-      for (auto Elem : P.m_PPTypedefs) {
+      for (auto Elem : P.PPTypedefs) {
         Consumer->HandleTopLevelDecl(Elem.get());
       }
-      P.m_PPTypedefs.clear();
+      P.PPTypedefs.clear();
 
-      for (auto Elem : P.m_PPGlobalVars) {
+      for (auto Elem : P.PPGlobalVars) {
         Consumer->HandleTopLevelDecl(Elem.get());
       }
-      P.m_PPGlobalVars.clear();
+      P.PPGlobalVars.clear();
 
-      for (auto Elem : P.m_PPCtors) {
+      for (auto Elem : P.PPCtors) {
         Consumer->HandleTopLevelDecl(Elem.get());
       }
-      P.m_PPCtors.clear();
+      P.PPCtors.clear();
     }
   }
 

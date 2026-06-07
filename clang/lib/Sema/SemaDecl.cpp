@@ -30,6 +30,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DiagnosticComment.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
@@ -896,85 +897,73 @@ Sema::NameClassification Sema::ClassifyName(Scope *S, CXXScopeSpec &SS,
                    /*AllowBuiltinCreation=*/!CurMethod);
 
   if (Result.getResultKind() == clang::LookupResultKind::NotFound &&
-      (Name->getName().starts_with("create_spec") ||
-       Name->getName().starts_with("get_spec_ptr") ||
-       Name->getName().starts_with("get_spec_size") ||
-       Name->getName().starts_with("spec_index_cmp") ||
-       Name->getName().starts_with("init_spec"))) {
-    const bool IsInitSpec = Name->getName().starts_with("init_spec");
-    const bool IsGetSpecPtr = Name->getName().starts_with("get_spec_ptr");
-    const bool IsGetSpecSize = Name->getName().starts_with("get_spec_size");
-    const bool IsSpecIdxCmp = Name->getName().starts_with("spec_index_cmp");
+      IsPPSpecFunctionIdentifier(Name->getName())) {
+    auto SpecKind = DemanglePPSpecFunction(Name->getName()).first;
 
     auto ResTy = Context.VoidPtrTy;
     std::vector<QualType> ArrTysVec;
-    if (IsInitSpec) {
+    switch (SpecKind) {
+    case PPSpecFuncKind::InitSpec:
       ArrTysVec.push_back(Context.VoidPtrTy);
       ResTy = Context.VoidTy;
-    }
-    else if (IsGetSpecPtr) {
+      break;
+    case PPSpecFuncKind::GetSpecPtr:
       ArrTysVec.push_back(Context.IntTy);
-    }
-    else if (IsGetSpecSize) {
+      break;
+    case PPSpecFuncKind::GetSpecSize:
       ResTy = Context.IntTy;
-    }
-    else if (IsSpecIdxCmp) {
+      break;
+    case PPSpecFuncKind::SpecIndexCmp:
       ResTy = Context.IntTy;
       ArrTysVec.push_back(Context.VoidPtrTy);
       ArrTysVec.push_back(Context.VoidPtrTy);
+      break;
+    case PPSpecFuncKind::CreateSpec:
+      break;
     }
     ArrayRef<QualType> ArrTys(ArrTysVec);
 
     auto FPI = FunctionProtoType::ExtProtoInfo();
-    auto QTy = Context.getFunctionType(ResTy,ArrTys, FPI);
+    auto QTy = Context.getFunctionType(ResTy, ArrTys, FPI);
 
     DeclContext *Parent = Context.getTranslationUnitDecl();
-    FunctionDecl *NewD = FunctionDecl::Create(Context, Parent, NameLoc, NameLoc,
-                                            Name, QTy,
-                                            /*TInfo=*/nullptr, SC_Extern,
-                                            getCurFPFeatures().isFPConstrained(),
-                                            false, QTy->isFunctionProtoType());
+    FunctionDecl *NewD = FunctionDecl::Create(
+        Context, Parent, NameLoc, NameLoc, Name, QTy,
+        /*TInfo=*/nullptr, SC_Extern, getCurFPFeatures().isFPConstrained(),
+        false, QTy->isFunctionProtoType());
     SmallVector<ParmVarDecl *, 16> Params;
-    if (IsInitSpec) {
-      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
-      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.VoidPtrTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
+    switch (SpecKind) {
+    case PPSpecFuncKind::InitSpec: {
+      auto *Tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl *PVDecl = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.VoidPtrTy, Tfi, clang::StorageClass::SC_None, nullptr);
       Params.push_back(PVDecl);
+      break;
     }
-    else if (IsSpecIdxCmp) {
-      auto tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
-      ParmVarDecl* PVDecl1 = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.VoidPtrTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
-      ParmVarDecl* PVDecl2 = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.VoidPtrTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
+    case PPSpecFuncKind::SpecIndexCmp: {
+      auto *Tfi = Context.CreateTypeSourceInfo(Context.VoidPtrTy);
+      ParmVarDecl *PVDecl1 = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.VoidPtrTy, Tfi, clang::StorageClass::SC_None, nullptr);
+      ParmVarDecl *PVDecl2 = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.VoidPtrTy, Tfi, clang::StorageClass::SC_None, nullptr);
       Params.push_back(PVDecl1);
       Params.push_back(PVDecl2);
+      break;
     }
-    else if (IsGetSpecPtr) {
-      auto tfi = Context.CreateTypeSourceInfo(Context.IntTy);
-      ParmVarDecl* PVDecl = ParmVarDecl::Create(Context,
-        Context.getTranslationUnitDecl(),
-        NameLoc, NameLoc, nullptr,
-        Context.IntTy,
-        tfi,
-        clang::StorageClass::SC_None,
-        nullptr);
+    case PPSpecFuncKind::GetSpecPtr: {
+      auto *Tfi = Context.CreateTypeSourceInfo(Context.IntTy);
+      ParmVarDecl *PVDecl = ParmVarDecl::Create(
+          Context, Context.getTranslationUnitDecl(), NameLoc, NameLoc, nullptr,
+          Context.IntTy, Tfi, clang::StorageClass::SC_None, nullptr);
       Params.push_back(PVDecl);
+      break;
+    }
+    case PPSpecFuncKind::GetSpecSize:
+    case PPSpecFuncKind::CreateSpec:
+      break;
     }
 
     NewD->setParams(Params);
@@ -16445,7 +16434,8 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
       if ((FD->hasImplicitReturnZero() &&
            (getLangOpts().CPlusPlus || getLangOpts().C99 || !FD->isMain())) ||
           FD->hasAttr<NakedAttr>() ||
-          (FD->getIdentifier() && FD->getIdentifier()->getName().starts_with("__pp_mm_") &&
+          (FD->getIdentifier() &&
+           IsPPMMIdentifier(FD->getIdentifier()->getName()) &&
            isa_and_nonnull<CompoundStmt>(FD->getBody()) &&
            cast<CompoundStmt>(FD->getBody())->body_empty()))
         WP.disableCheckFallThrough();
