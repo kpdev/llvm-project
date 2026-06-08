@@ -15,7 +15,6 @@
 
 #include "clang/Basic/OpenACCKinds.h"
 #include "clang/Basic/OperatorPrecedence.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Lex/CodeCompletionHandler.h"
 #include "clang/Lex/Preprocessor.h"
@@ -256,13 +255,14 @@ public:
     return ParseTopLevelDecl(Result, IS);
   }
 
-  std::vector<clang::Parser::DeclGroupPtrTy> m_PPTypedefs;
-  std::vector<clang::Parser::DeclGroupPtrTy> m_PPCtors;
-  std::vector<clang::Parser::DeclGroupPtrTy> m_PPGlobalVars;
+  // PP-EXT TODO: can this be handled in-line?
+  std::vector<clang::Parser::DeclGroupPtrTy> PPTypedefs;
+  std::vector<clang::Parser::DeclGroupPtrTy> PPCtors;
+  std::vector<clang::Parser::DeclGroupPtrTy> PPGlobalVars;
   // PP-EXT TODO: Combine these two fields
   bool IsInPPMultimethod = false;
   StringRef PPMultimethodNameStr;
-  Declarator* PPMMDecl;
+  Declarator *PPMMDecl;
   int NumberOfPPSpecilizations = 0;
   void FinalizePPArgsParsing();
 
@@ -1543,7 +1543,7 @@ public:
   typedef SmallVector<Stmt *, 24> StmtVector;
 
 private:
-//===--------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // Procedural-parametric extension
 
   /// When true, we are in parsing base types of pp multimethod invocation
@@ -1553,64 +1553,48 @@ private:
 
   using NameAndPtr = std::pair<StringRef, bool>;
 
-  std::string PPExtConstructGenName(
-    StringRef BaseName,
-    NameAndPtr SpecName,
-    bool AddPrefix = true
-  );
+  std::string PPExtConstructGenName(std::vector<NameAndPtr> Names,
+                                    ParsedAttributes &PAttrs);
 
-  std::string PPExtConstructGenName(
-    std::vector<NameAndPtr> Names,
-    ParsedAttributes& PAttrs
-  );
+  RecordDecl *PPExtCreateGeneralization(StringRef Name, RecordDecl *Head,
+                                        RecordDecl *Tail, SourceLocation Loc,
+                                        ParsedAttributes &PAttrs);
 
-  RecordDecl* PPExtCreateGeneralization(
-    StringRef Name,
-    RecordDecl* Head,
-    RecordDecl* Tail,
-    SourceLocation Loc,
-    ParsedAttributes& PAttrs);
+  RecordDecl *PPExtGetTypeByName(StringRef Name);
 
-  RecordDecl* PPExtGetTypeByName(StringRef Name);
-
-  using PPIdDescription = std::pair<PPExtIdentType, IdentifierInfo*>;
+  using PPIdDescription = std::pair<PPExtIdentType, IdentifierInfo *>;
   PPIdDescription PPExtGetIdForExistingOrNewlyCreatedGen(
-    StringRef BaseName,
-    ParsedAttributes& PAttrs,
-    bool NeedToAddLParen = true,
-    bool SaveLastIdent = false
-  );
+      StringRef BaseName, ParsedAttributes &PAttrs, bool NeedToAddLParen = true,
+      bool SaveLastIdent = false);
 
-  enum class PPStructType {
-    Default,
-    Generalization,
-    Specialization
-  };
+  enum class PPStructType { Default, Generalization, Specialization };
 
-  PPStructType PPExtGetStructType(const RecordDecl* RD) const;
+  PPStructType PPExtGetStructType(const RecordDecl *RD) const;
 
   struct PPStructInitDesc {
-    NamedDecl* VD;
-    const RecordDecl* RD;
+    NamedDecl *VD;
+    const RecordDecl *RD;
     const PPStructType Type;
   };
 
-  std::vector<PPStructInitDesc> PPExtGetRDListToInit(const RecordDecl* RD) const;
+  std::vector<PPStructInitDesc>
+  PPExtGetRDListToInit(const RecordDecl *RD) const;
 
   std::string PPExtConstructTagName(StringRef GenName);
 
   struct PPMemberInitData {
-    Expr* Assign;
-    Expr* MemberAccess;
+    Expr *Assign;
+    Expr *MemberAccess;
   };
 
-  PPMemberInitData PPExtInitPPStruct(PPStructInitDesc IDesc, Expr* MemberAccess);
+  PPMemberInitData PPExtInitPPStruct(PPStructInitDesc IDesc,
+                                     Expr *MemberAccess);
 
   static DeclSpec::TST PPExtGetFieldTypeByTokKind(tok::TokenKind TK);
 
   struct SpecsDescr {
     std::string VariantName;
-    IdentifierInfo* FullNameIInfo = nullptr;
+    IdentifierInfo *FullNameIInfo = nullptr;
     bool IsPtr = false;
   };
   using SpecsVec = SmallVector<SpecsDescr>;
@@ -1619,19 +1603,11 @@ private:
 
   void PPExtAddAlign8Attr(ParsedAttributes &Attrs);
 
-  void FieldGenerator(const char* FieldName,
-                          DeclSpec::TST FieldType,
-                          Decl *TagDecl,
-                          RecordDecl* RD,
-                          SmallVector<Decl *, 32>& FieldDecls,
-                          const ParsedAttributes& Attrs,
-                          bool IsPointer);
-  enum class PPFuncMode {
-    Init,
-    Increment,
-    CreateSpec,
-    MMDefault
-  };
+  void FieldGenerator(StringRef FieldName, DeclSpec::TST FieldType,
+                      Decl *TagDecl, RecordDecl *RD,
+                      SmallVector<Decl *, 32> &FieldDecls,
+                      const ParsedAttributes &Attrs, bool IsPointer);
+  enum class PPFuncMode { Init, Increment, CreateSpec, MMDefault };
 
   struct PPMangledNames {
     struct PPVariant {
@@ -1659,34 +1635,28 @@ private:
     void dump();
   };
 
-  static void dumpPPNames(PPMangledNames& p);
+  static void dumpPPNames(PPMangledNames &p);
 
-  void AddStmts(StmtVector& Stmts,
-                PPFuncMode Mode,
-                std::string StrVarName,
-                PPMangledNames& ppMNames);
+  void AddStmts(StmtVector &Stmts, PPFuncMode Mode, std::string StrVarName,
+                PPMangledNames &ppMNames);
 
-  void AddFunc(std::string FuncName,
-               PPFuncMode Mode,
-               std::string TagNameToInit,
-               PPMangledNames& ppMNames,
-               DeclSpec::TST ReturnType = DeclSpec::TST_void,
-               SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo = nullptr);
+  void
+  AddFunc(std::string FuncName, PPFuncMode Mode, std::string TagNameToInit,
+          PPMangledNames &ppMNames,
+          DeclSpec::TST ReturnType = DeclSpec::TST_void,
+          SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo = nullptr);
 
-  void FieldGenerator(const char* FieldName,
-                      DeclSpec::TST FieldType,
-                      RecordDecl* RD,
-                      bool IsPointer,
-                      const ParsedAttributes& TestAttrs,
-                      Decl *TestDecl,
-                      SmallVector<Decl *, 32>& FieldDecls);
+  void FieldGenerator(StringRef FieldName, DeclSpec::TST FieldType,
+                      RecordDecl *RD, bool IsPointer,
+                      const ParsedAttributes &TestAttrs, Decl *TestDecl,
+                      SmallVector<Decl *, 32> &FieldDecls);
 
   Sema::DeclGroupPtrTy VarGenerate(std::string TypeVarName,
                                    bool IsPointer = false,
                                    std::string TypeNameStr = "");
-  Sema::DeclGroupPtrTy TypedefGenerate(std::string TypeVarName,
-                                       DeclSpec::TST ReturnTypeSpecifier,
-                                       SmallVector<DeclaratorChunk::ParamInfo, 16>& ParamInfo);
+  Sema::DeclGroupPtrTy
+  TypedefGenerate(std::string TypeVarName, DeclSpec::TST ReturnTypeSpecifier,
+                  SmallVector<DeclaratorChunk::ParamInfo, 16> &ParamInfo);
 
   bool PPExtNextTokIsLParen = false;
 

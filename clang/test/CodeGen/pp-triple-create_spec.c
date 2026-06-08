@@ -1,4 +1,4 @@
-// RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
+// RUN: %clang %s -o %t.out && %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 #include <stdio.h>
 #include <stdlib.h>

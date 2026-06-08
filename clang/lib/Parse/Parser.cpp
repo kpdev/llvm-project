@@ -16,6 +16,7 @@
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/DiagnosticParse.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/StackExhaustionHandler.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
@@ -1245,14 +1246,12 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
     ParseKNRParamDeclarations(D);
 
   const bool IsPPExtMMDefaultEq0 =
-    (Tok.is(tok::equal) &&
-     D.getIdentifier() &&
-     D.getIdentifier()->getName().starts_with("__pp_mm_"));
+      (Tok.is(tok::equal) && D.getIdentifier() &&
+       IsPPMMIdentifier(D.getIdentifier()->getName()));
 
   // We should have either an opening brace or, in a C++ constructor,
   // we may have a colon.
-  if (Tok.isNot(tok::l_brace) &&
-      !IsPPExtMMDefaultEq0 &&
+  if (Tok.isNot(tok::l_brace) && !IsPPExtMMDefaultEq0 &&
       (!getLangOpts().CPlusPlus ||
        (Tok.isNot(tok::colon) && Tok.isNot(tok::kw_try) &&
         Tok.isNot(tok::equal)))) {
@@ -1411,13 +1410,12 @@ Decl *Parser::ParseFunctionDefinition(ParsingDeclarator &D,
   if (IsPPExtMMDefaultEq0) {
     ConsumeToken();
     assert(Tok.is(tok::numeric_constant));
-    // TODO PP-EXT: Check if it is 0
+    // PP-EXT TODO: Check if it is 0
     ConsumeToken();
     StmtVector Stmts;
     StmtResult FnBody = Actions.ActOnCompoundStmt(
-      Tok.getLocation(), NextToken().getLocation(), Stmts, false);
-    auto* ResFn = Actions.ActOnFinishFunctionBody(
-      Res, FnBody.get(), false);
+        Tok.getLocation(), NextToken().getLocation(), Stmts, false);
+    auto *ResFn = Actions.ActOnFinishFunctionBody(Res, FnBody.get(), false);
     return ResFn;
   }
 

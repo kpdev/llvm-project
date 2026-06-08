@@ -1466,9 +1466,9 @@ public:
   }
 
   // PP-EXT
-  // TODO: Use one method instead of 2
-  void adjustPPLinkage(llvm::Function* F);
-  void adjustPPLinkage(llvm::GlobalVariable* GV);
+  // PP-EXT TODO: Use one method instead of 2
+  void adjustPPLinkage(llvm::Function *F);
+  void adjustPPLinkage(llvm::GlobalVariable *GV);
 
   /// Return the appropriate linkage for the vtable, VTT, and type information
   /// of the given class.
@@ -1871,43 +1871,39 @@ private:
   void EmitMultiVersionFunctionDefinition(GlobalDecl GD, llvm::GlobalValue *GV);
 
   // PP-Extension
-  clang::Type* PPExtGetTypeByName(StringRef TypeNameExtracted);
-  void HandlePPExtensionMethods(llvm::Function* F, GlobalDecl GD);
-  void PPExtInitGlobVar(llvm::GlobalVariable* GV);
-  void PPExtInitStackAllocatedVars(llvm::Function* F);
+  clang::Type *PPExtGetTypeByName(StringRef TypeNameExtracted);
+  void HandlePPExtensionMethods(llvm::Function *F, GlobalDecl GD);
+  void PPExtInitGlobVar(llvm::GlobalVariable *GV);
+  void PPExtInitStackAllocatedVars(llvm::Function *F);
 
   void PPExtInitGenOrSpec(llvm::InsertPosition IPoint, StringRef Name,
                           llvm::Value *ParentObject);
-  void PPExtRecordCreateSpec(llvm::Function* FnCreateSpec, RecordDecl* RDSpec, llvm::Module& Parent);
+  void PPExtRecordCreateSpec(llvm::Function *FnCreateSpec, RecordDecl *RDSpec,
+                             llvm::Module &Parent);
 
-  void AddPPSpecialization(llvm::Function* F,
-                           const FunctionDecl::MMParams& Gens);
-  void PPExtInitCreateSpecArray(StringRef GenName, llvm::Module& Parent);
-  llvm::Function* PPExtCreateMMRecorder(llvm::Function* BaseF);
-  llvm::Function* ExtractDefaultPPMMImplementation(llvm::Function* F,
-                                                   const clang::FunctionDecl* FD);
-  llvm::Value* PPExtGetIndexForMM(llvm::BasicBlock* BB,
-                                  const FunctionDecl::MMParams& Gens);
+  void AddPPSpecialization(llvm::Function *F,
+                           const FunctionDecl::MMParams &Gens);
+  void PPExtInitCreateSpecArray(StringRef GenName, llvm::Module &Parent);
+  llvm::Function *PPExtCreateMMRecorder(llvm::Function *BaseF);
+  llvm::Function *
+  ExtractDefaultPPMMImplementation(llvm::Function *F,
+                                   const clang::FunctionDecl *FD);
+  llvm::Value *PPExtGetIndexForMM(llvm::BasicBlock *BB,
+                                  const FunctionDecl::MMParams &Gens);
 
   void PPExtInitTypeTagsRecursively(StringRef NameOfVariable,
                                     llvm::Value *PtrToObjForGEP,
                                     llvm::InsertPosition IPoint);
 
-  llvm::BasicBlock*
-  InitPPHandlersArray(llvm::BasicBlock* BB,
-                      llvm::Value* AllocatedBytes,
-                      llvm::Value* HandlersArray,
-                      llvm::Value* DefaultHandler);
-  enum class InsertPrintfPos {
-    Default,
-    BeforeFirstInstr,
-    BeforeRet
-  };
-  llvm::CallInst* CreateCallPrintf(
-    llvm::BasicBlock* BB,
-    StringRef FormatStr,
-    llvm::Value* Arg = nullptr,
-    InsertPrintfPos Pos = InsertPrintfPos::Default);
+  llvm::BasicBlock *InitPPHandlersArray(llvm::BasicBlock *BB,
+                                        llvm::Value *AllocatedBytes,
+                                        llvm::Value *HandlersArray,
+                                        llvm::Value *DefaultHandler);
+  enum class InsertPrintfPos { Default, BeforeFirstInstr, BeforeRet };
+  llvm::CallInst *
+  CreateCallPrintf(llvm::BasicBlock *BB, StringRef FormatStr,
+                   llvm::Value *Arg = nullptr,
+                   InsertPrintfPos Pos = InsertPrintfPos::Default);
 
   void EmitGlobalVarDefinition(const VarDecl *D, bool IsTentative = false);
   void EmitAliasDefinition(GlobalDecl GD);

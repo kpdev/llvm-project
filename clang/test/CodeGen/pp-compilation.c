@@ -1,5 +1,5 @@
 // Just check compilation
-// RUN: %clang %s -c -o %S/a.o && rm %S/a.o
+// RUN: %clang %s -c -o %t.o
 
 typedef struct
 {

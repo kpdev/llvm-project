@@ -27,7 +27,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <cstdint>
 #include <new>
 #include <type_traits>
 #include <utility>

@@ -4422,17 +4422,14 @@ LexStart:
     }
     break;
 
-  case '@':
-    {
-      const bool IsPPExt = true; // TODO: Add it to LangOpts
-      // Objective C support.
-      if (CurPtr[-1] == '@' &&
-          (LangOpts.ObjC || IsPPExt))
-        Kind = tok::at;
-      else
-        Kind = tok::unknown;
-    }
-    break;
+  case '@': {
+    const bool IsPPExt = true; // PP-EXT TODO: Add it to LangOpts
+    // Objective C support.
+    if (CurPtr[-1] == '@' && (LangOpts.ObjC || IsPPExt))
+      Kind = tok::at;
+    else
+      Kind = tok::unknown;
+  } break;
 
   // UCNs (C99 6.4.3, C++11 [lex.charset]p2)
   case '\\':

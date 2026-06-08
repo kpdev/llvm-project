@@ -1,7 +1,7 @@
 // RUN~: %clang -S -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-LOGS
 // RUN~: %clang -S -Xclang -ast-dump -emit-llvm %s -o - | FileCheck %s -check-prefix=CHECK-AST
 // RUN~: %clang -S -emit-llvm %s 2>&1 -o - | FileCheck %s -check-prefix=CHECK-IR
-// RUN: %clang %s -o %S/a.out && %S/a.out | FileCheck %s -check-prefix=CHECK-RT && rm %S/a.out
+// RUN: %clang %s -o %t.out && %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 // CHECK-LOGS:      [PPMC] Parse extension
 // CHECK-LOGS-NEXT:   Token -> Kind: [struct]
@@ -193,8 +193,8 @@ int main() {
 
     // CHECK-IR:       call void @__pp_mm_PrintFigure(ptr noundef %fc)
     PrintFigure<&fc>();
-    // TODO: Restore these invocations after
-    //       it will be fixed
+    // PP-EXT TODO: Restore these invocations after
+    //              it will be fixed
     // PrintFigureWithArg<&fc>(42);
     // MultiMethod<&fc, &fr>();
     // MultiMethodWithArgs<&fc, &fr>(7, 8);
@@ -322,8 +322,10 @@ int main() {
     // Check typedefs usage (compilation only)
     MammalGroup.elephant mammal_elephant2;
     int res = (int)sizeof(MammalGroup.elephant);
+    // CHECK-RT-NEXT: sizeof(MammalGroup.elephant) [24]
+    printf("sizeof(MammalGroup.elephant) [%d]\n", res);
     MammalGroup.elephant* mammal_elephant_ptr = (MammalGroup.elephant*)&mammal_elephant2;
-    return res;
+    return 0;
 }
 
 // This code just checking comilation

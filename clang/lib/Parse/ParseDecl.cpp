@@ -12,13 +12,14 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/DiagnosticParse.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/LiteralSupport.h"
@@ -2209,11 +2210,11 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
       ConsumeToken();
     }
 
-    // TODO PP-EXT: Pass this variable to
+    // PP-EXT TODO: Pass this variable to
     //              Parser::ParseFunctionDefinition
     const bool IsPPExtMMDefaultEq0 =
         (Tok.is(tok::equal) && D.getIdentifier() &&
-         D.getIdentifier()->getName().starts_with("__pp_mm_"));
+         IsPPMMIdentifier(D.getIdentifier()->getName()));
 
     // Look at the next token to make sure that this isn't a function
     // declaration.  We have to check this because __attribute__ might be the
@@ -2224,8 +2225,7 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
       // The C++ inline method definition case is handled elsewhere, so we only
       // need to handle the file scope definition case.
       if (Context == DeclaratorContext::File) {
-        if (isStartOfFunctionDefinition(D)
-              || IsPPExtMMDefaultEq0) {
+        if (isStartOfFunctionDefinition(D) || IsPPExtMMDefaultEq0) {
           // C++23 [dcl.typedef] p1:
           //   The typedef specifier shall not be [...], and it shall not be
           //   used in the decl-specifier-seq of a parameter-declaration nor in
@@ -2365,9 +2365,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   if (LateParsedAttrs.size() > 0)
     ParseLexedAttributeList(LateParsedAttrs, FirstDecl, true, false);
   D.complete(FirstDecl);
-  if (FirstDecl) {
+  if (FirstDecl)
     DeclsInGroup.push_back(FirstDecl);
-  }
 
   bool ExpectSemi = Context != DeclaratorContext::ForInit;
 
@@ -3727,21 +3726,21 @@ void Parser::ParseDeclarationSpecifiers(
       if (DS.hasTypeSpecifier() && DS.hasTagDefinition())
         goto DoneWithDeclSpec;
 
-      if (NextToken().is(tok::period) &&
-          PP.LookAhead(1).is(tok::identifier)) {
+      if (NextToken().is(tok::period) && PP.LookAhead(1).is(tok::identifier)) {
         auto T = getTypeAnnotation(Tok);
         if (T.isUsable()) {
           QualType QT = T.get().get();
-          auto* RD = QT->getAsRecordDecl();
+          auto *RD = QT->getAsRecordDecl();
           if (RD && PPExtGetStructType(RD) == PPStructType::Generalization) {
             StringRef StructName = RD->getName();
             Tok.setKind(tok::identifier);
-            auto* II = &PP.getIdentifierTable().get(StructName);
+            auto *II = &PP.getIdentifierTable().get(StructName);
             Tok.setIdentifierInfo(II);
             ParsedAttributes Attributes(AttrFactory);
             ConsumeToken();
-            auto* GenII = PPExtGetIdForExistingOrNewlyCreatedGen(
-              StructName, Attributes, false, true).second;
+            auto *GenII = PPExtGetIdForExistingOrNewlyCreatedGen(
+                              StructName, Attributes, false, true)
+                              .second;
             Tok.setIdentifierInfo(GenII);
             auto Kind = tok::kw_struct;
             ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
@@ -3786,30 +3785,29 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::identifier:
     ParseIdentifier: {
       if (Tok.is(tok::identifier)) {
-        if (PP.LookAhead(0).is(tok::plus) &&
-            PP.LookAhead(1).is(tok::less)) {
+        if (PP.LookAhead(0).is(tok::plus) && PP.LookAhead(1).is(tok::less)) {
           // PP-EXT: Parse extension like: Figure + < Circle; >
           // PP-EXT TODO: Check if Tok is typedef to generalization
           //              e.g. check existance of __pp_spec_type field
           auto Kind = tok::kw_struct;
           ParsedAttributes Attributes(AttrFactory);
-          ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
-                              EnteringContext, DSContext, Attributes);
+          ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS, EnteringContext,
+                              DSContext, Attributes);
           continue;
-        }
-        else if (PP.LookAhead(0).is(tok::period) &&
-                 PP.LookAhead(1).is(tok::identifier)) {
+        } else if (PP.LookAhead(0).is(tok::period) &&
+                   PP.LookAhead(1).is(tok::identifier)) {
           // Check if it is a specializatoin
           auto TokIdentName = Tok.getIdentifierInfo()->getName();
-          auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+          auto *IdentRDecl = PPExtGetTypeByName(TokIdentName);
           if (IdentRDecl) {
             auto RDType = PPExtGetStructType(IdentRDecl);
             if (RDType == PPStructType::Generalization) {
               StringRef StructName = IdentRDecl->getName();
               ParsedAttributes Attributes(AttrFactory);
               ConsumeToken();
-              auto* II = PPExtGetIdForExistingOrNewlyCreatedGen(
-                StructName, Attributes, false, true).second;
+              auto *II = PPExtGetIdForExistingOrNewlyCreatedGen(
+                             StructName, Attributes, false, true)
+                             .second;
               Tok.setIdentifierInfo(II);
               auto Kind = tok::kw_struct;
               ParseClassSpecifier(Kind, Loc, DS, TemplateInfo, AS,
@@ -4522,8 +4520,7 @@ void Parser::ParseDeclarationSpecifiers(
       tok::TokenKind Kind = Tok.getKind();
       if (PPEXTUsesTypedef) {
         Kind = tok::kw_struct;
-      }
-      else {
+      } else {
         ConsumeToken();
       }
 
@@ -4847,18 +4844,10 @@ void Parser::ParseStructDeclaration(
   }
 }
 
-static std::string GetMangledName(const std::string& Base, const std::string& Variant) {
-  return std::string("__pp_struct_")
-          + Base + "__"
-          + Variant;
-}
-
-static std::string GetVariantName(Parser& P, std::string CurTokName, const Token& NextTok) {
-  if (!P.getCurToken().isOneOf(tok::identifier,
-                tok::kw_int,
-                tok::kw_double,
-                tok::kw_float,
-                tok::kw_char)) {
+static std::string GetVariantName(Parser &P, std::string CurTokName,
+                                  const Token &NextTok) {
+  if (!P.getCurToken().isOneOf(tok::identifier, tok::kw_int, tok::kw_double,
+                               tok::kw_float, tok::kw_char)) {
     llvm_unreachable("pp-ext-expected-token-identifier");
     return "<pp-ext-expected-token-identifier>";
   }
@@ -4872,8 +4861,7 @@ static std::string GetVariantName(Parser& P, std::string CurTokName, const Token
   }
 
   std::string MangledName;
-  switch (TokKind)
-  {
+  switch (TokKind) {
   case tok::semi:
   case tok::greater:
   case tok::colon:
@@ -4886,7 +4874,8 @@ static std::string GetVariantName(Parser& P, std::string CurTokName, const Token
   case tok::less:
     P.ConsumeToken(); // gen identifier
     P.ConsumeToken(); // less
-    MangledName = GetMangledName(CurTokName, GetVariantName(P, CurTokName, P.NextToken()));
+    MangledName = ManglePPStruct(CurTokName,
+                                 GetVariantName(P, CurTokName, P.NextToken()));
     P.ConsumeToken(); // variant identifier
     return MangledName;
   default:
@@ -4896,15 +4885,11 @@ static std::string GetVariantName(Parser& P, std::string CurTokName, const Token
   return "<pp-ext-error-name>";
 }
 
-void Parser::FieldGenerator(const char* FieldName,
-                          DeclSpec::TST FieldType,
-                          Decl *TagDecl,
-                          RecordDecl* RD,
-                          SmallVector<Decl *, 32>& FieldDecls,
-                          const ParsedAttributes& Attrs,
-                          bool IsPointer)
-{
-  // TODO PPEXT: Combine with other Parser::FieldGenerator method
+void Parser::FieldGenerator(StringRef FieldName, DeclSpec::TST FieldType,
+                            Decl *TagDecl, RecordDecl *RD,
+                            SmallVector<Decl *, 32> &FieldDecls,
+                            const ParsedAttributes &Attrs, bool IsPointer) {
+  // PP-EXT TODO: Combine with other Parser::FieldGenerator method
   // assert(false &&
   //   "Check where is it used, and why we have two FieldGenerator");
   ParsingDeclSpec DS(*this);
@@ -4913,11 +4898,12 @@ void Parser::FieldGenerator(const char* FieldName,
   unsigned int DiagID = 0;
   const char *PrevSpec = nullptr;
   if (FieldType != DeclSpec::TST::TST_struct) {
-    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+    bool isInvalid =
+        DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
     assert(!isInvalid);
-  }
-  else {
-    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID, RD, false, Policy);
+  } else {
+    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID,
+                                        RD, false, Policy);
     assert(!isInvalid);
   }
   ParsingFieldDeclarator DeclaratorInfo(*this, DS, Attrs);
@@ -4929,129 +4915,104 @@ void Parser::FieldGenerator(const char* FieldName,
   DeclaratorInfo.D.SetRangeEnd(Loc);
   if (IsPointer) {
     DeclaratorInfo.D.AddTypeInfo(
-      DeclaratorChunk::getPointer(
-                              DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
-                              DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
-                              DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
-                              std::move(DS.getAttributes()), SourceLocation());
+        DeclaratorChunk::getPointer(
+            DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+            DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+            DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+        std::move(DS.getAttributes()), SourceLocation());
   }
-  Decl *Field =
-      Actions.ActOnField(getCurScope(), TagDecl,
-                          DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
-                          DeclaratorInfo.D,
-                          DeclaratorInfo.BitfieldSize);
+  Decl *Field = Actions.ActOnField(
+      getCurScope(), TagDecl,
+      DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
+      DeclaratorInfo.D, DeclaratorInfo.BitfieldSize);
   FieldDecls.push_back(Field);
   DeclaratorInfo.complete(Field);
 }
 
-void Parser::AddStmts(StmtVector& Stmts,
-                      PPFuncMode Mode,
-                      std::string StrVarName,
-                      PPMangledNames& ppMNames)
-{
+void Parser::AddStmts(StmtVector &Stmts, PPFuncMode Mode,
+                      std::string StrVarName, PPMangledNames &ppMNames) {
   if (Mode == PPFuncMode::Increment) {
-    IdentifierInfo* II = &PP.getIdentifierTable().get(StrVarName);
+    IdentifierInfo *II = &PP.getIdentifierTable().get(StrVarName);
     UnqualifiedId VarName;
     VarName.setIdentifier(II, SourceLocation());
     DeclarationNameInfo DNI;
     DNI.setName(VarName.Identifier);
-    LookupResult R(Actions, DNI,
-      Sema::LookupOrdinaryName);
+    LookupResult R(Actions, DNI, Sema::LookupOrdinaryName);
     getActions().LookupName(R, getCurScope(), true);
-    auto* D = cast<ValueDecl>(R.getFoundDecl());
-    auto* Res = DeclRefExpr::Create(getActions().Context,
-      NestedNameSpecifierLoc(), SourceLocation(),
-      D,
-      false,
-      R.getLookupNameInfo(),
-      D->getType(),
-      clang::VK_LValue,
-      D);
+    auto *D = cast<ValueDecl>(R.getFoundDecl());
+    auto *Res = DeclRefExpr::Create(
+        getActions().Context, NestedNameSpecifierLoc(), SourceLocation(), D,
+        false, R.getLookupNameInfo(), D->getType(), clang::VK_LValue, D);
     getActions().MarkDeclRefReferenced(Res);
 
-    auto ResPreInc = UnaryOperator::Create(getActions().Context, Res, clang::UO_PreInc,
-                          Res->getType(), clang::VK_PRValue, clang::OK_Ordinary,
-                        SourceLocation(), false, Actions.CurFPFeatureOverrides());
+    auto *ResPreInc = UnaryOperator::Create(
+        getActions().Context, Res, clang::UO_PreInc, Res->getType(),
+        clang::VK_PRValue, clang::OK_Ordinary, SourceLocation(), false,
+        Actions.CurFPFeatureOverrides());
 
     Stmts.push_back(ResPreInc);
   } else if (Mode == PPFuncMode::Init) {
     StmtVector IfStmts;
-    IdentifierInfo* II =
-      &PP.getIdentifierTable().get(ppMNames.BaseIncFuncName);
+    IdentifierInfo *II = &PP.getIdentifierTable().get(ppMNames.BaseIncFuncName);
     LookupResult Result(getActions(), II, SourceLocation(),
-      clang::Sema::LookupOrdinaryName);
+                        clang::Sema::LookupOrdinaryName);
     getActions().LookupName(Result, getCurScope(), true);
-    Decl* D = Result.getFoundDecl();
-    ValueDecl* VD = cast<ValueDecl>(D);
-    auto& Actions = getActions();
-    auto& NameInfo = Result.getLookupNameInfo();
+    Decl *D = Result.getFoundDecl();
+    ValueDecl *VD = cast<ValueDecl>(D);
+    auto &Actions = getActions();
+    auto &NameInfo = Result.getLookupNameInfo();
     auto Ty = VD->getType();
     auto TmpLoc = SourceLocation();
     NestedNameSpecifierLoc NNS;
 
-    DeclRefExpr *E = DeclRefExpr::Create(
-        Actions.Context, NNS,
-        TmpLoc, VD, false, NameInfo, Ty,
-        clang::VK_PRValue, VD);
+    DeclRefExpr *E =
+        DeclRefExpr::Create(Actions.Context, NNS, TmpLoc, VD, false, NameInfo,
+                            Ty, clang::VK_PRValue, VD);
     Actions.MarkDeclRefReferenced(E);
     Parser::ExprVector ArgExprs;
-    Expr* NullExpr = nullptr;
-    ExprResult CallExpr = Actions.ActOnCallExpr(getCurScope(), E, SourceLocation(), ArgExprs,
-      SourceLocation(), NullExpr);
+    Expr *NullExpr = nullptr;
+    ExprResult CallExpr =
+        Actions.ActOnCallExpr(getCurScope(), E, SourceLocation(), ArgExprs,
+                              SourceLocation(), NullExpr);
     IfStmts.push_back(CallExpr.get());
 
     {
-      DeclRefExpr* LHSRes, *RHSRes;
+      DeclRefExpr *LHSRes, *RHSRes;
 
-      // TODO: Reuse code for LHS and RHS
+      // PP-EXT TODO: Reuse code for LHS and RHS
       { // LHS
-        IdentifierInfo* II = &PP.getIdentifierTable().get(StrVarName);
+        IdentifierInfo *II = &PP.getIdentifierTable().get(StrVarName);
         UnqualifiedId VarName;
         VarName.setIdentifier(II, SourceLocation());
         DeclarationNameInfo DNI;
         DNI.setName(VarName.Identifier);
-        LookupResult R(Actions, DNI,
-          Sema::LookupOrdinaryName);
+        LookupResult R(Actions, DNI, Sema::LookupOrdinaryName);
         getActions().LookupName(R, getCurScope(), true);
-        auto* D = cast<ValueDecl>(R.getFoundDecl());
-        LHSRes = DeclRefExpr::Create(getActions().Context,
-          NestedNameSpecifierLoc(), SourceLocation(),
-          D,
-          false,
-          R.getLookupNameInfo(),
-          D->getType(),
-          clang::VK_LValue,
-          D);
+        auto *D = cast<ValueDecl>(R.getFoundDecl());
+        LHSRes = DeclRefExpr::Create(
+            getActions().Context, NestedNameSpecifierLoc(), SourceLocation(), D,
+            false, R.getLookupNameInfo(), D->getType(), clang::VK_LValue, D);
         getActions().MarkDeclRefReferenced(LHSRes);
       } // LHS
 
       { // RHS
-        IdentifierInfo* II = &PP.getIdentifierTable().get(ppMNames.BaseTagVariableName);
+        IdentifierInfo *II =
+            &PP.getIdentifierTable().get(ppMNames.BaseTagVariableName);
         UnqualifiedId VarName;
         VarName.setIdentifier(II, SourceLocation());
         DeclarationNameInfo DNI;
         DNI.setName(VarName.Identifier);
-        LookupResult R(Actions, DNI,
-          Sema::LookupOrdinaryName);
+        LookupResult R(Actions, DNI, Sema::LookupOrdinaryName);
         getActions().LookupName(R, getCurScope(), true);
-        auto* D = cast<ValueDecl>(R.getFoundDecl());
-        RHSRes = DeclRefExpr::Create(getActions().Context,
-          NestedNameSpecifierLoc(), SourceLocation(),
-          D,
-          false,
-          R.getLookupNameInfo(),
-          D->getType(),
-          clang::VK_LValue,
-          D);
+        auto *D = cast<ValueDecl>(R.getFoundDecl());
+        RHSRes = DeclRefExpr::Create(
+            getActions().Context, NestedNameSpecifierLoc(), SourceLocation(), D,
+            false, R.getLookupNameInfo(), D->getType(), clang::VK_LValue, D);
         getActions().MarkDeclRefReferenced(RHSRes);
       } // RHS
 
       auto AssignmentExprOp = Actions.ActOnBinOp(
-        getCurScope(),
-        SourceLocation(),
-        clang::tok::equal,
-        LHSRes, RHSRes
-      );
+          getCurScope(), SourceLocation(), clang::tok::equal, LHSRes, RHSRes);
 
       IfStmts.push_back(AssignmentExprOp.get());
 
@@ -5059,37 +5020,34 @@ void Parser::AddStmts(StmtVector& Stmts,
         // Create If Stmt
         // Condition
         { // LHS
-          IdentifierInfo* II = &PP.getIdentifierTable().get(StrVarName);
+          IdentifierInfo *II = &PP.getIdentifierTable().get(StrVarName);
           UnqualifiedId VarName;
           VarName.setIdentifier(II, SourceLocation());
           DeclarationNameInfo DNI;
           DNI.setName(VarName.Identifier);
-          LookupResult R(Actions, DNI,
-            Sema::LookupOrdinaryName);
+          LookupResult R(Actions, DNI, Sema::LookupOrdinaryName);
           getActions().LookupName(R, getCurScope(), true);
-          auto* D = cast<ValueDecl>(R.getFoundDecl());
-          LHSRes = DeclRefExpr::Create(getActions().Context,
-            NestedNameSpecifierLoc(), SourceLocation(),
-            D,
-            false,
-            R.getLookupNameInfo(),
-            D->getType(),
-            clang::VK_LValue,
-            D);
+          auto *D = cast<ValueDecl>(R.getFoundDecl());
+          LHSRes = DeclRefExpr::Create(
+              getActions().Context, NestedNameSpecifierLoc(), SourceLocation(),
+              D, false, R.getLookupNameInfo(), D->getType(), clang::VK_LValue,
+              D);
           getActions().MarkDeclRefReferenced(LHSRes);
 
           // RHS
           // llvm::APInt ZeroInt(32, 0);
-          Expr* ZeroIntExpr = IntegerLiteral::Create(Actions.Context,
-            llvm::APInt(32, 0), Actions.Context.IntTy, SourceLocation());
+          Expr *ZeroIntExpr =
+              IntegerLiteral::Create(Actions.Context, llvm::APInt(32, 0),
+                                     Actions.Context.IntTy, SourceLocation());
 
           // Conditions
           SourceLocation Loc;
-          ExprResult ComparisonExprRes = Actions.ActOnBinOp(getCurScope(), Loc,
-            clang::tok::equalequal, LHSRes, ZeroIntExpr);
+          ExprResult ComparisonExprRes = Actions.ActOnBinOp(
+              getCurScope(), Loc, clang::tok::equalequal, LHSRes, ZeroIntExpr);
 
-          Sema::ConditionResult Cond = Actions.ActOnCondition(getCurScope(),
-            Loc, ComparisonExprRes.get(), clang::Sema::ConditionKind::Boolean, false);
+          Sema::ConditionResult Cond = Actions.ActOnCondition(
+              getCurScope(), Loc, ComparisonExprRes.get(),
+              clang::Sema::ConditionKind::Boolean, false);
 
           // Statements
           StmtResult InitStmt, ThenStmt, ElseStmt;
@@ -5100,8 +5058,9 @@ void Parser::AddStmts(StmtVector& Stmts,
 
           ThenStmt = Actions.ActOnCompoundStmt(Loc, Loc, IfStmts, false);
 
-          StmtResult IfBody = Actions.ActOnIfStmt(Loc, clang::IfStatementKind::Ordinary,
-            Loc, InitStmt.get(), Cond, Loc, ThenStmt.get(), Loc, ElseStmt.get());
+          StmtResult IfBody = Actions.ActOnIfStmt(
+              Loc, clang::IfStatementKind::Ordinary, Loc, InitStmt.get(), Cond,
+              Loc, ThenStmt.get(), Loc, ElseStmt.get());
           Stmts.push_back(IfBody.get());
         }
       }
@@ -5115,8 +5074,7 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
     return {};
   }
 
-  auto DeclGenerator = [&](std::string BaseName,
-                           std::string VarName,
+  auto DeclGenerator = [&](std::string BaseName, std::string VarName,
                            bool IsPtr) {
     Parser::SpecsDescr Res;
     Res.VariantName = BaseName;
@@ -5130,7 +5088,7 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
 #endif
 
   ConsumeAnyToken();
-  auto* RD = cast<RecordDecl>(TagDecl);
+  auto *RD = cast<RecordDecl>(TagDecl);
   const auto GenName = RD->getDeclName().getAsString();
   SpecsVec Result;
   while (Tok.isNot(clang::tok::greater)) {
@@ -5138,30 +5096,23 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
 #ifdef PPEXT_DUMP
     printf("  Token -> Kind: [%s]", Tok.getName());
 #endif
-    if (Tok.isOneOf(tok::identifier,
-                    tok::kw_int,
-                    tok::kw_double,
-                    tok::kw_float,
+    if (Tok.isOneOf(tok::identifier, tok::kw_int, tok::kw_double, tok::kw_float,
                     tok::kw_char)) {
       auto TokName = Tok.getIdentifierInfo()->getName().str();
       SmallVector<std::string> Names;
       do {
-        auto Name = GetVariantName(*this,
-                                  GetMangledName(GenName, TokName),
-                                  NextToken());
+        auto Name = GetVariantName(*this, ManglePPStruct(GenName, TokName),
+                                   NextToken());
         Names.push_back(Name);
         if (NextToken().isNot(tok::comma)) {
           break;
         }
         ConsumeToken();
         ConsumeToken();
-        assert(Tok.isOneOf(tok::identifier,
-                    tok::kw_int,
-                    tok::kw_double,
-                    tok::kw_float,
-                    tok::kw_char));
+        assert(Tok.isOneOf(tok::identifier, tok::kw_int, tok::kw_double,
+                           tok::kw_float, tok::kw_char));
         TokName = Tok.getIdentifierInfo()->getName().str();
-      } while(true);
+      } while (true);
 
 #ifdef PPEXT_DUMP
       printf(", Name:[%s]", TokName.c_str());
@@ -5172,12 +5123,8 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
       if (NextToken().is(tok::colon)) {
         ConsumeToken();
         ConsumeToken();
-        assert(Tok.isOneOf(tok::identifier,
-                           tok::kw_void,
-                           tok::kw_int,
-                           tok::kw_double,
-                           tok::kw_float,
-                           tok::kw_char));
+        assert(Tok.isOneOf(tok::identifier, tok::kw_void, tok::kw_int,
+                           tok::kw_double, tok::kw_float, tok::kw_char));
 
         TokName = Tok.getIdentifierInfo()->getName().str();
         if (NextToken().is(tok::star)) {
@@ -5186,7 +5133,7 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
         }
       }
 
-      for (auto& Name : Names) {
+      for (auto &Name : Names) {
         auto D = DeclGenerator(TokName, Name, IsPtr);
         Result.push_back(D);
       }
@@ -5204,64 +5151,57 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
   ConsumeAnyToken();
 
   ParsedAttributes FieldAttrs(AttrFactory);
-  FieldGenerator("__pp_specialization_type",
-                  DeclSpec::TST_int, TagDecl,
-                  nullptr,
-                  FieldDecls,
-                  FieldAttrs,
-                  false);
+  FieldGenerator(kPPSpecTypeFieldName, DeclSpec::TST_int, TagDecl, nullptr,
+                 FieldDecls, FieldAttrs, false);
 
   return Result;
 }
 
-void Parser::PPExtAddAlign8Attr(ParsedAttributes &Attrs)
-{
-  auto* II = &PP.getIdentifierTable().get("aligned");
+void Parser::PPExtAddAlign8Attr(ParsedAttributes &Attrs) {
+  auto *II = &PP.getIdentifierTable().get("aligned");
   ArgsVector ArgExprs;
   StringRef TokSpelling = "8";
   clang::NumericLiteralParser Literal(TokSpelling, Tok.getLocation(),
-                        PP.getSourceManager(), PP.getLangOpts(),
-                        PP.getTargetInfo(), PP.getDiagnostics());
+                                      PP.getSourceManager(), PP.getLangOpts(),
+                                      PP.getTargetInfo(), PP.getDiagnostics());
   llvm::APInt PriorityValue(64, 0);
   Literal.GetIntegerValue(PriorityValue);
   PriorityValue = PriorityValue.trunc(32);
   QualType Ty = Actions.Context.IntTy;
-  auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
+  auto *Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty,
+                                      SourceLocation());
   ArgExprs.push_back(Expr);
 
   Attrs.addNew(II, SourceRange(), AttributeScopeInfo(), ArgExprs.data(),
                ArgExprs.size(), ParsedAttr::Form::GNU());
 }
 
-void Parser::AddFunc(std::string FuncName,
-                    PPFuncMode Mode,
-                    std::string TagNameToInit,
-                    PPMangledNames& ppMNames,
-                    DeclSpec::TST ReturnType,
-                    SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo)
-{
+void Parser::AddFunc(std::string FuncName, PPFuncMode Mode,
+                     std::string TagNameToInit, PPMangledNames &ppMNames,
+                     DeclSpec::TST ReturnType,
+                     SmallVector<DeclaratorChunk::ParamInfo, 16> *ParamInfo) {
   ParsingDeclSpec DS(*this);
   unsigned DiagID = 0;
   const char *PrevSpec = nullptr;
   PrintingPolicy Policy = Actions.getPrintingPolicy();
-  DS.SetTypeSpecType(ReturnType, SourceLocation(), PrevSpec,
-                     DiagID, Policy);
+  DS.SetTypeSpecType(ReturnType, SourceLocation(), PrevSpec, DiagID, Policy);
 
-  ParsedAttributes& Attrs = DS.getAttributes();
+  ParsedAttributes &Attrs = DS.getAttributes();
   // --- Attr ---
   ArgsVector ArgExprs;
-  IdentifierInfo* AttrName = &PP.getIdentifierTable().get("constructor");
+  IdentifierInfo *AttrName = &PP.getIdentifierTable().get("constructor");
   bool isCtor = (Mode == PPFuncMode::Init);
   if (isCtor) {
     StringRef TokSpelling = "101";
-    clang::NumericLiteralParser Literal(TokSpelling, Tok.getLocation(),
-                          PP.getSourceManager(), PP.getLangOpts(),
-                          PP.getTargetInfo(), PP.getDiagnostics());
+    clang::NumericLiteralParser Literal(
+        TokSpelling, Tok.getLocation(), PP.getSourceManager(), PP.getLangOpts(),
+        PP.getTargetInfo(), PP.getDiagnostics());
     llvm::APInt PriorityValue(64, 0);
     Literal.GetIntegerValue(PriorityValue);
     PriorityValue = PriorityValue.trunc(32);
     QualType Ty = Actions.Context.IntTy;
-    auto* Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty, SourceLocation());
+    auto *Expr = IntegerLiteral::Create(Actions.Context, PriorityValue, Ty,
+                                        SourceLocation());
     ArgExprs.push_back(Expr);
   }
 
@@ -5278,7 +5218,7 @@ void Parser::AddFunc(std::string FuncName,
     D.ExtendWithDeclSpec(DSPtr);
   }
 
-  auto FuncNameIdentifier = &PP.getIdentifierTable().get(FuncName);
+  auto *FuncNameIdentifier = &PP.getIdentifierTable().get(FuncName);
   D.SetIdentifier(FuncNameIdentifier, SourceLocation());
   D.SetRangeEnd(SourceLocation());
   Actions.ActOnStartFunctionDeclarationDeclarator(D, 0);
@@ -5286,9 +5226,8 @@ void Parser::AddFunc(std::string FuncName,
     bool HasProto = false;
     bool IsAmbiguous = false;
     bool RefQualifierIsLValueRef = true;
-    SourceLocation LParenLoc, EllipsisLoc,
-                    RParenLoc, RefQualifierLoc, StartLoc,
-                    LocalEndLoc, EndLoc;
+    SourceLocation LParenLoc, EllipsisLoc, RParenLoc, RefQualifierLoc, StartLoc,
+        LocalEndLoc, EndLoc;
     ExceptionSpecificationType ESpecType = EST_None;
     SourceRange ESpecRange;
     SmallVector<ParsedType, 2> DynamicExceptions;
@@ -5304,16 +5243,14 @@ void Parser::AddFunc(std::string FuncName,
       ParamInfo = &TmpParamInfo;
     }
     DeclaratorChunk DCh = DeclaratorChunk::getFunction(
-                            HasProto, IsAmbiguous, LParenLoc, ParamInfo->data(),
-                            ParamInfo->size(), EllipsisLoc, RParenLoc,
-                            RefQualifierIsLValueRef, RefQualifierLoc,
-                            /*MutableLoc=*/SourceLocation(),
-                            ESpecType, ESpecRange, DynamicExceptions.data(),
-                            DynamicExceptionRanges.data(), DynamicExceptions.size(),
-                            NoexceptExpr.isUsable() ? NoexceptExpr.get() : nullptr,
-                            ExceptionSpecTokens, DeclsInPrototype, StartLoc,
-                            LocalEndLoc, D, TrailingReturnType, TrailingReturnTypeLoc,
-                            &DS);
+        HasProto, IsAmbiguous, LParenLoc, ParamInfo->data(), ParamInfo->size(),
+        EllipsisLoc, RParenLoc, RefQualifierIsLValueRef, RefQualifierLoc,
+        /*MutableLoc=*/SourceLocation(), ESpecType, ESpecRange,
+        DynamicExceptions.data(), DynamicExceptionRanges.data(),
+        DynamicExceptions.size(),
+        NoexceptExpr.isUsable() ? NoexceptExpr.get() : nullptr,
+        ExceptionSpecTokens, DeclsInPrototype, StartLoc, LocalEndLoc, D,
+        TrailingReturnType, TrailingReturnTypeLoc, &DS);
     D.AddTypeInfo(DCh, std::move(FnAttrs), EndLoc);
 
     if (isCtor) {
@@ -5325,22 +5262,20 @@ void Parser::AddFunc(std::string FuncName,
 
     if (IsCreateSpec) {
       SourceLocation Loc = Tok.getLocation();
-      D.AddTypeInfo(
-        DeclaratorChunk::getPointer(
-                                DSPtr.getTypeQualifiers(), Loc, DSPtr.getConstSpecLoc(),
-                                DSPtr.getVolatileSpecLoc(), DSPtr.getRestrictSpecLoc(),
-                                DSPtr.getAtomicSpecLoc(), DSPtr.getUnalignedSpecLoc()),
-                                std::move(DSPtr.getAttributes()), SourceLocation());
+      D.AddTypeInfo(DeclaratorChunk::getPointer(
+                        DSPtr.getTypeQualifiers(), Loc, DSPtr.getConstSpecLoc(),
+                        DSPtr.getVolatileSpecLoc(), DSPtr.getRestrictSpecLoc(),
+                        DSPtr.getAtomicSpecLoc(), DSPtr.getUnalignedSpecLoc()),
+                    std::move(DSPtr.getAttributes()), SourceLocation());
     }
 
     SkipBodyInfo SkipBody;
     Sema::FnBodyKind BodyKind = Sema::FnBodyKind::Other;
     ParseScope BodyScope(this, Scope::FnScope | Scope::DeclScope |
-                              Scope::CompoundStmtScope);
+                                   Scope::CompoundStmtScope);
 
-    Decl *Res = Actions.ActOnStartOfFunctionDef(getCurScope(), D,
-                                                MultiTemplateParamsArg(),
-                                                &SkipBody, BodyKind);
+    Decl *Res = Actions.ActOnStartOfFunctionDef(
+        getCurScope(), D, MultiTemplateParamsArg(), &SkipBody, BodyKind);
     D.complete(Res);
     D.getMutableDeclSpec().abort();
 
@@ -5355,26 +5290,21 @@ void Parser::AddFunc(std::string FuncName,
       Sema::CompoundScopeRAII CompoundScope(Actions, isStmtExpr);
       Actions.ActOnAfterCompoundStatementLeadingPragmas();
       Sema::FPFeaturesStateRAII SaveFPFeatures(Actions);
-      FnBody = Actions.ActOnCompoundStmt(SourceLocation(), CloseLoc,
-                                  Stmts, isStmtExpr);
+      FnBody = Actions.ActOnCompoundStmt(SourceLocation(), CloseLoc, Stmts,
+                                         isStmtExpr);
     }
     // ParseDeclGroup
     BodyScope.Exit();
     Decl *TheDecl = Actions.ActOnFinishFunctionBody(Res, FnBody.get());
-    m_PPCtors.push_back(Actions.ConvertDeclToDeclGroup(TheDecl));
+    PPCtors.push_back(Actions.ConvertDeclToDeclGroup(TheDecl));
   }
 }
 
-void Parser::FieldGenerator(const char* FieldName,
-                            DeclSpec::TST FieldType,
-                            RecordDecl* RD,
-                            bool IsPointer,
-                            const ParsedAttributes& TestAttrs,
-                            Decl *TestDecl,
-                            SmallVector<Decl *, 32>& FieldDecls)
-{
-  if (FieldType == DeclSpec::TST::TST_void
-      && !IsPointer) {
+void Parser::FieldGenerator(StringRef FieldName, DeclSpec::TST FieldType,
+                            RecordDecl *RD, bool IsPointer,
+                            const ParsedAttributes &TestAttrs, Decl *TestDecl,
+                            SmallVector<Decl *, 32> &FieldDecls) {
+  if (FieldType == DeclSpec::TST::TST_void && !IsPointer) {
     return;
   }
 
@@ -5384,11 +5314,12 @@ void Parser::FieldGenerator(const char* FieldName,
   unsigned int DiagID = 0;
   const char *PrevSpec = nullptr;
   if (FieldType != DeclSpec::TST::TST_struct) {
-    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
+    bool isInvalid =
+        DS.SetTypeSpecType(FieldType, Loc, PrevSpec, DiagID, Policy);
     assert(!isInvalid);
-  }
-  else {
-    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID, RD, false, Policy);
+  } else {
+    bool isInvalid = DS.SetTypeSpecType(FieldType, Loc, Loc, PrevSpec, DiagID,
+                                        RD, false, Policy);
     assert(!isInvalid);
   }
   ParsingFieldDeclarator DeclaratorInfo(*this, DS, TestAttrs);
@@ -5400,73 +5331,59 @@ void Parser::FieldGenerator(const char* FieldName,
   DeclaratorInfo.D.SetRangeEnd(Loc);
   if (IsPointer) {
     DeclaratorInfo.D.AddTypeInfo(
-      DeclaratorChunk::getPointer(
-                              DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
-                              DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
-                              DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
-                              std::move(DS.getAttributes()), SourceLocation());
+        DeclaratorChunk::getPointer(
+            DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+            DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+            DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+        std::move(DS.getAttributes()), SourceLocation());
   }
-  Decl *Field =
-      Actions.ActOnField(getCurScope(), TestDecl,
-                          DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
-                          DeclaratorInfo.D,
-                          DeclaratorInfo.BitfieldSize);
+  Decl *Field = Actions.ActOnField(
+      getCurScope(), TestDecl,
+      DeclaratorInfo.D.getDeclSpec().getSourceRange().getBegin(),
+      DeclaratorInfo.D, DeclaratorInfo.BitfieldSize);
   FieldDecls.push_back(Field);
   DeclaratorInfo.complete(Field);
 }
 
-void Parser::PPMangledNames::setBaseName(std::string BaseName)
-{
-  BaseStructName = "__pp_struct_" + BaseName;
-  BaseTagVariableName = "__pp_tags_" + BaseName;
-  BaseIncFuncName = "__pp_inc_tags_" + BaseName;
+void Parser::PPMangledNames::setBaseName(std::string BaseName) {
+  BaseStructName = ManglePPStruct(BaseName);
+  BaseTagVariableName = ManglePPTags(BaseName);
+  BaseIncFuncName = ManglePPIncTags(BaseName);
 }
 
-void Parser::PPMangledNames::addVariantName(std::string VariantName)
-{
-  VariantStructNames.emplace_back(
-    PPMangledNames::PPVariant{
-      VariantName,
-      "__pp_init_" + VariantName,
-      "__pp_tag_" + VariantName,
-      "create_spec" + VariantName}
-  );
+void Parser::PPMangledNames::addVariantName(std::string VariantName) {
+  VariantStructNames.emplace_back(PPMangledNames::PPVariant{
+      VariantName, ManglePPInit(VariantName), ManglePPTag(VariantName),
+      ManglePPSpecFunction(PPSpecFuncKind::CreateSpec, VariantName)});
 }
 
-void Parser::PPMangledNames::setMMName(std::string Name)
-{
+void Parser::PPMangledNames::setMMName(std::string Name) {
   MMName = std::move(Name);
-  auto PrefixSize = sizeof("__pp_mm_");
-  assert(MMName.size() > PrefixSize);
-  std::string BaseName = MMName.substr(PrefixSize);
-  MMArrayName = std::string("__pp_mminitarr_") + BaseName;
+  MMArrayName = ManglePPMMInitArray(MMName);
 }
 
-__attribute__((noinline))
-void Parser::PPMangledNames::dump() {
+__attribute__((noinline)) void Parser::PPMangledNames::dump() {
 #ifdef PPEXT_DUMP
-  fprintf(stderr, "=== ppmnames ===\n"
-  "BaseStructName = %s\n"
-  "BaseTagVariableName = %s\n"
-  "BaseIncFuncName = %s\n"
-  "VariantStructNames size: %d\n",
-  BaseStructName.c_str(),
-  BaseTagVariableName.c_str(),
-  BaseIncFuncName.c_str(),
-  (int)VariantStructNames.size());
+  fprintf(stderr,
+          "=== ppmnames ===\n"
+          "BaseStructName = %s\n"
+          "BaseTagVariableName = %s\n"
+          "BaseIncFuncName = %s\n"
+          "VariantStructNames size: %d\n",
+          BaseStructName.c_str(), BaseTagVariableName.c_str(),
+          BaseIncFuncName.c_str(), (int)VariantStructNames.size());
   int i = 0;
-  for (auto& V : VariantStructNames) {
-    fprintf(stderr, "   [%d] "
-      "VariantName: %s\n        VariantTagVariableName: %s\n",
-    i++, V.VariantName.c_str(), V.VariantTagVariableName.c_str());
+  for (auto &V : VariantStructNames) {
+    fprintf(stderr,
+            "   [%d] "
+            "VariantName: %s\n        VariantTagVariableName: %s\n",
+            i++, V.VariantName.c_str(), V.VariantTagVariableName.c_str());
   }
   fprintf(stderr, "=== ppmnames end dump ===\n");
 #endif
 }
 
-void Parser::dumpPPNames(PPMangledNames& p) {
-  p.dump();
-}
+void Parser::dumpPPNames(PPMangledNames &p) { p.dump(); }
 
 // TODO: All callers of this function should be moved to
 // `Parser::ParseLexedAttributeList`.
@@ -5532,24 +5449,21 @@ void Parser::ParseLexedCAttribute(LateParsedAttribute &LA, bool EnterScope,
 
 Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName,
                                          bool IsPointer,
-                                         std::string TypeNameStr)
-{
+                                         std::string TypeNameStr) {
   SourceLocation Loc;
-  const char* Null = nullptr;
+  const char *Null = nullptr;
   unsigned int DiagID = 0;
   auto PrintPolicy = Actions.getPrintingPolicy();
   ParsingDeclSpec DS(*this);
   const bool IsTypedef = (not TypeNameStr.empty());
   if (IsTypedef) {
     auto TypeIdentifier = &PP.getIdentifierTable().get(TypeNameStr);
-    LookupResult Result(Actions,
-                        TypeIdentifier,
-                        SourceLocation(),
+    LookupResult Result(Actions, TypeIdentifier, SourceLocation(),
                         clang::Sema::LookupOrdinaryName);
     Actions.LookupName(Result, getCurScope());
     assert(Result.getResultKind() == LookupResultKind::Found);
-    NamedDecl* IIDecl = Result.getFoundDecl();
-    TypeDecl* TD = dyn_cast<TypeDecl>(IIDecl);
+    NamedDecl *IIDecl = Result.getFoundDecl();
+    TypeDecl *TD = dyn_cast<TypeDecl>(IIDecl);
     auto T = Actions.Context.getTypeDeclType(TD);
     Actions.MarkAnyDeclReferenced(Tok.getLocation(), TD, false);
     ParsedType TypeRep = ParsedType::make(T);
@@ -5559,28 +5473,23 @@ Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName,
     // ---
     DS.SetTypeSpecType(TST_typename, Loc, Null, DiagID, TypeRep, PrintPolicy);
     DS.SetRangeEnd(Tok.getLocation());
-  }
-  else {
-    DS.SetTypeSpecType(DeclSpec::TST_int, Loc, Null,
-      DiagID, PrintPolicy);
+  } else {
+    DS.SetTypeSpecType(DeclSpec::TST_int, Loc, Null, DiagID, PrintPolicy);
   }
   DS.Finish(Actions, PrintPolicy);
 
   ParsedAttributes attrs(AttrFactory);
-  ParsingDeclarator D(*this,
-                      DS, attrs, DeclaratorContext::File);
+  ParsingDeclarator D(*this, DS, attrs, DeclaratorContext::File);
   auto VarIdentifier = &PP.getIdentifierTable().get(TypeVarName);
   D.SetIdentifier(VarIdentifier, Loc);
   if (IsPointer) {
-    D.AddTypeInfo(
-      DeclaratorChunk::getPointer(
-        DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
-        DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
-        DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
-        std::move(DS.getAttributes()), Loc
-    );
+    D.AddTypeInfo(DeclaratorChunk::getPointer(
+                      DS.getTypeQualifiers(), Loc, DS.getConstSpecLoc(),
+                      DS.getVolatileSpecLoc(), DS.getRestrictSpecLoc(),
+                      DS.getAtomicSpecLoc(), DS.getUnalignedSpecLoc()),
+                  std::move(DS.getAttributes()), Loc);
   }
-  Decl* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
+  Decl *ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
   Actions.ActOnUninitializedDecl(ThisDecl);
   Actions.FinalizeDeclaration(ThisDecl);
   D.complete(ThisDecl);
@@ -5589,18 +5498,16 @@ Sema::DeclGroupPtrTy Parser::VarGenerate(std::string TypeVarName,
   return Actions.FinalizeDeclaratorGroup(getCurScope(), DS, DeclsInGroup);
 }
 
-Sema::DeclGroupPtrTy Parser::TypedefGenerate(std::string TypeVarName,
-                                             DeclSpec::TST ReturnTypeSpecifier,
-                                             SmallVector<DeclaratorChunk::ParamInfo, 16>& ParamInfo)
-{
+Sema::DeclGroupPtrTy Parser::TypedefGenerate(
+    std::string TypeVarName, DeclSpec::TST ReturnTypeSpecifier,
+    SmallVector<DeclaratorChunk::ParamInfo, 16> &ParamInfo) {
   ParsingDeclSpec DS(*this);
   SourceLocation TokLoc = Tok.getLocation();
-  const char* TmpNull = nullptr;
+  const char *TmpNull = nullptr;
   unsigned int DiagID = 0;
   auto PPolicy = Actions.getPrintingPolicy();
-  DS.SetStorageClassSpec(Actions,
-                         DeclSpec::SCS_typedef,
-                         TokLoc, TmpNull, DiagID, PPolicy);
+  DS.SetStorageClassSpec(Actions, DeclSpec::SCS_typedef, TokLoc, TmpNull,
+                         DiagID, PPolicy);
   DS.SetRangeEnd(TokLoc);
   DS.SetTypeSpecType(ReturnTypeSpecifier, TokLoc, TmpNull, DiagID, PPolicy);
   DS.Finish(Actions, PPolicy);
@@ -5611,23 +5518,30 @@ Sema::DeclGroupPtrTy Parser::TypedefGenerate(std::string TypeVarName,
   D.SetRangeEnd(TokLoc);
   auto VarIdentifier = &PP.getIdentifierTable().get(TypeVarName);
   D.SetIdentifier(VarIdentifier, TokLoc);
-  D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(), TokLoc, TokLoc,
-    TokLoc, TokLoc, TokLoc, TokLoc), TokLoc);
-  D.AddTypeInfo(DeclaratorChunk::getParen(TokLoc, TokLoc), std::move(LocalAttrs), TokLoc);
+  D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(), TokLoc,
+                                            TokLoc, TokLoc, TokLoc, TokLoc,
+                                            TokLoc),
+                TokLoc);
+  D.AddTypeInfo(DeclaratorChunk::getParen(TokLoc, TokLoc),
+                std::move(LocalAttrs), TokLoc);
   D.setGroupingParens(false);
 
   ParsedAttributes PPattr(AttrFactory);
   clang::ParsedType ExceptionTmpEmpty;
   clang::SourceRange RangeEmpty;
-  llvm::ArrayRef<clang::NamedDecl*> ArrayEmpty;
+  llvm::ArrayRef<clang::NamedDecl *> ArrayEmpty;
   clang::TypeResult TRes(false);
 
-  D.AddTypeInfo(DeclaratorChunk::getFunction(true, false, TokLoc, ParamInfo.data(), ParamInfo.size(),
-    SourceLocation(), TokLoc, true, SourceLocation(), TokLoc, clang::EST_None, SourceRange(), &ExceptionTmpEmpty,
-    &RangeEmpty, 0, nullptr, nullptr, ArrayEmpty, SourceLocation(), SourceLocation(), D, TRes,
-    SourceLocation(), &DS), std::move(PPattr), TokLoc);
+  D.AddTypeInfo(DeclaratorChunk::getFunction(
+                    true, false, TokLoc, ParamInfo.data(), ParamInfo.size(),
+                    SourceLocation(), TokLoc, true, SourceLocation(), TokLoc,
+                    clang::EST_None, SourceRange(), &ExceptionTmpEmpty,
+                    &RangeEmpty, 0, nullptr, nullptr, ArrayEmpty,
+                    SourceLocation(), SourceLocation(), D, TRes,
+                    SourceLocation(), &DS),
+                std::move(PPattr), TokLoc);
 
-  auto* ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
+  auto *ThisDecl = Actions.ActOnDeclarator(getCurScope(), D);
 
 #ifdef PPEXT_DUMP
   ThisDecl->dump();
@@ -5791,21 +5705,20 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
 
     ppMNames.setBaseName(TagDecl->getNameAsString());
 
-    m_PPGlobalVars.push_back(VarGenerate(ppMNames.BaseTagVariableName));
-    
+    PPGlobalVars.push_back(VarGenerate(ppMNames.BaseTagVariableName));
+
     AddFunc(ppMNames.BaseIncFuncName, PPFuncMode::Increment,
             ppMNames.BaseTagVariableName, ppMNames);
 
-    // TODO: Merge with next loop
+    // PP-EXT TODO: Merge with next loop
     for (auto S : *PPExtSpecs) {
-      std::string VarName = std::string("__pp_tag_")
-        + S.FullNameIInfo->getName().str();
-      m_PPGlobalVars.push_back(VarGenerate(VarName));
+      std::string VarName = ManglePPTag(S.FullNameIInfo->getName().str());
+      PPGlobalVars.push_back(VarGenerate(VarName));
     }
 
-    AddFunc("create_spec" + TagDecl->getNameAsString(),
-      PPFuncMode::CreateSpec,
-      ppMNames.BaseStructName, ppMNames);
+    AddFunc(ManglePPSpecFunction(PPSpecFuncKind::CreateSpec,
+                                 TagDecl->getNameAsString()),
+            PPFuncMode::CreateSpec, ppMNames.BaseStructName, ppMNames);
 
     for (auto S : *PPExtSpecs) {
       SkipBodyInfo TestSkipBody;
@@ -5814,18 +5727,20 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
       bool TestOwned = true;
       bool TestIsDependent = false;
       auto TestLocation = TagDecl->getLocation();
-      ParseScope StructScope(this, Scope::ClassScope|Scope::DeclScope);
+      ParseScope StructScope(this, Scope::ClassScope | Scope::DeclScope);
       ParsedAttributes TestAttrs(AttrFactory);
       const bool IsVariantVoid = (S.VariantName == "void");
-      auto VariantNameIdentifier = (IsVariantVoid ?
-        nullptr : &PP.getIdentifierTable().get(S.VariantName));
+      auto VariantNameIdentifier =
+          (IsVariantVoid ? nullptr
+                         : &PP.getIdentifierTable().get(S.VariantName));
 #ifdef PPEXT_DUMP
-      printf("[] Test name: %s, Variant Name: %s\n", S.FullNameIInfo->getNameStart(), S.VariantName.c_str());
+      printf("[] Test name: %s, Variant Name: %s\n",
+             S.FullNameIInfo->getNameStart(), S.VariantName.c_str());
 #endif
       ppMNames.addVariantName(S.FullNameIInfo->getName().str());
       ParsingDeclSpec PDS(*this);
       assert((!IsVariantVoid && VariantNameIdentifier) ||
-            (IsVariantVoid && !VariantNameIdentifier));
+             (IsVariantVoid && !VariantNameIdentifier));
       auto VariantDecl =
           IsVariantVoid
               ? nullptr
@@ -5850,20 +5765,23 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
               .get();
       Actions.ActOnTagStartDefinition(getCurScope(), TestDecl);
 
-      FieldGenerator("__pp_head", DeclSpec::TST_struct, TagDecl, false,
-                      TestAttrs, TestDecl, FieldDecls);
+      FieldGenerator(kPPHeadFieldName, DeclSpec::TST_struct, TagDecl, false,
+                     TestAttrs, TestDecl, FieldDecls);
       if (!IsVariantVoid) {
         assert(VariantDecl);
         auto VariantRecordDecl = cast<RecordDecl>(VariantDecl);
 
         // If there is a specialization like Figure<Circle*> var; then
-        //    then it has "_pp_ptr" in the end (to distiguish it from Figure<Circle> var;)
-        // In other case, if there is a tagged specialization, like Figure<some_tag> var;
-        //    where some_tag has an pointer underlying type (e.g. Figure {} <some_tag:Circle*>)
-        //    then full name does not have "_pp_ptr" in the end (it is not needed),
-        //    instead Parser::SpecsDescr::IsPtr has this information
+        //    then it has "_pp_ptr" in the end (to distiguish it from
+        //    Figure<Circle> var;)
+        // In other case, if there is a tagged specialization, like
+        // Figure<some_tag> var;
+        //    where some_tag has an pointer underlying type (e.g. Figure {}
+        //    <some_tag:Circle*>) then full name does not have "_pp_ptr" in the
+        //    end (it is not needed), instead Parser::SpecsDescr::IsPtr has this
+        //    information
         const bool IsPtr =
-          (S.FullNameIInfo->getName().ends_with("_pp_ptr") || S.IsPtr);
+            (S.FullNameIInfo->getName().ends_with("_pp_ptr") || S.IsPtr);
 
         auto GetTST = [](StringRef VarName) {
           auto Result = DeclSpec::TST::TST_struct;
@@ -5880,36 +5798,35 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
           return Result;
         };
 
-        FieldGenerator("__pp_tail",
-                       GetTST(VariantRecordDecl->getName()),
-                       VariantRecordDecl,
-                       IsPtr, TestAttrs, TestDecl, FieldDecls);
+        FieldGenerator(kPPTailFieldName, GetTST(VariantRecordDecl->getName()),
+                       VariantRecordDecl, IsPtr, TestAttrs, TestDecl,
+                       FieldDecls);
       }
 
-      SmallVector<Decl *, 32> TestFieldDecls(cast<RecordDecl>(TestDecl)->fields());
+      SmallVector<Decl *, 32> TestFieldDecls(
+          cast<RecordDecl>(TestDecl)->fields());
       Actions.ActOnFields(getCurScope(), RecordLoc, TestDecl, TestFieldDecls,
-                    SourceLocation(), SourceLocation(), attrs);
+                          SourceLocation(), SourceLocation(), attrs);
 
       StructScope.Exit();
       Actions.ActOnTagFinishDefinition(getCurScope(), TestDecl, SourceRange());
       unsigned DiagID;
-      const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+      const PrintingPolicy &Policy =
+          Actions.getASTContext().getPrintingPolicy();
       const char *PrevSpec = nullptr;
-      PDS.SetTypeSpecType(
-        DeclSpec::TST_struct, SourceLocation(), SourceLocation(), PrevSpec,
-        DiagID, TestDecl, true, Policy);
+      PDS.SetTypeSpecType(DeclSpec::TST_struct, SourceLocation(),
+                          SourceLocation(), PrevSpec, DiagID, TestDecl, true,
+                          Policy);
 
 #ifdef PPEXT_DUMP
       TestDecl->dump();
 #endif
 
-      auto& V = ppMNames.VariantStructNames.back();
-      AddFunc(V.VariantCreateSpecFuncName,
-        PPFuncMode::CreateSpec,
-        V.VariantTagVariableName, ppMNames);
-      AddFunc(V.VariantInitFuncName,
-        PPFuncMode::Init,
-        V.VariantTagVariableName, ppMNames);
+      auto &V = ppMNames.VariantStructNames.back();
+      AddFunc(V.VariantCreateSpecFuncName, PPFuncMode::CreateSpec,
+              V.VariantTagVariableName, ppMNames);
+      AddFunc(V.VariantInitFuncName, PPFuncMode::Init, V.VariantTagVariableName,
+              ppMNames);
     }
   }
 }
@@ -6508,9 +6425,8 @@ bool Parser::isTypeSpecifierQualifier() {
         auto T = getTypeAnnotation(Tok);
         if (T.isUsable()) {
           QualType QT = T.get().get();
-          auto* RD = QT->getAsRecordDecl();
-          if (RD &&
-              PPExtGetStructType(RD) == PPStructType::Generalization) {
+          auto *RD = QT->getAsRecordDecl();
+          if (RD && PPExtGetStructType(RD) == PPStructType::Generalization) {
             return true;
           }
         }
@@ -6520,7 +6436,7 @@ bool Parser::isTypeSpecifierQualifier() {
     if (Tok.is(tok::identifier)) {
       if (NextToken().is(tok::period)) {
         auto TokIdentName = Tok.getIdentifierInfo()->getName();
-        auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+        auto *IdentRDecl = PPExtGetTypeByName(TokIdentName);
         if (IdentRDecl &&
             PPExtGetStructType(IdentRDecl) == PPStructType::Generalization) {
           return true;
@@ -6720,10 +6636,9 @@ bool Parser::isDeclarationSpecifier(
       return true;
     if (Tok.is(tok::identifier)) {
       if (NextToken().is(tok::period) ||
-          (NextToken().is(tok::plus) &&
-            PP.LookAhead(1).is(tok::less))) {
+          (NextToken().is(tok::plus) && PP.LookAhead(1).is(tok::less))) {
         auto TokIdentName = Tok.getIdentifierInfo()->getName();
-        auto* IdentRDecl = PPExtGetTypeByName(TokIdentName);
+        auto *IdentRDecl = PPExtGetTypeByName(TokIdentName);
         if (IdentRDecl) {
           auto RDType = PPExtGetStructType(IdentRDecl);
           if (RDType == PPStructType::Generalization) {
@@ -7098,8 +7013,7 @@ bool Parser::isConstructorDeclarator(bool IsUnqualified, bool DeductionGuide,
   return IsConstructor;
 }
 
-void Parser::FinalizePPArgsParsing()
-{
+void Parser::FinalizePPArgsParsing() {
   assert(IsInPPMultimethod);
   IsInPPMultimethod = false;
   ConsumeToken();
@@ -7818,16 +7732,9 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
     NumberOfPPSpecilizations = 0;
     PPMultimethodNameStr = D.getIdentifier()->getName();
     PPMMDecl = &D;
-  }
-  else if (IsInPPMultimethod && Tok.is(tok::greater)) {
-    auto NumOsSpecStr = std::to_string(NumberOfPPSpecilizations);
-    auto FNameStr = PPMultimethodNameStr.str();
-    PPMultimethodNameStr = "";
-    auto FullNameStr = NumOsSpecStr + "_" + FNameStr;
-    StringRef FuncName = FullNameStr;
-    SmallVector<char> TmpOut;
-    StringRef Mangled = Twine("__pp_mm_" + FuncName).toStringRef(TmpOut);
-    IdentifierInfo* II = &PP.getIdentifierTable().get(Mangled);
+  } else if (IsInPPMultimethod && Tok.is(tok::greater)) {
+    auto Mangled = ManglePPMM(PPMultimethodNameStr, NumberOfPPSpecilizations);
+    IdentifierInfo *II = &PP.getIdentifierTable().get(Mangled);
     PPMMDecl->getName().setIdentifier(II, D.getIdentifierLoc());
     FinalizePPArgsParsing();
   }
@@ -8327,9 +8234,8 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
     }
   }
 
-  const bool IsMultimethod =
-      (D.hasName() && D.getIdentifier() &&
-       D.getIdentifier()->getName().starts_with("__pp_mm_"));
+  const bool IsMultimethod = (D.hasName() && D.getIdentifier() &&
+                              IsPPMMIdentifier(D.getIdentifier()->getName()));
   // Collect non-parameter declarations from the prototype if this is a function
   // declaration. They will be moved into the scope of the function. Only do
   // this in C and not C++, where the decls will continue to live in the
@@ -8337,15 +8243,15 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   SmallVector<NamedDecl *, 0> DeclsInPrototype;
   bool IsSpecialization = false;
   StringRef FuncNameMM = D.getIdentifier() ? D.getIdentifier()->getName() : "";
-  const int SpecNum =
-    FunctionDecl::getNumOfSpecializationsPPMM(FuncNameMM);
+  const int SpecNum = FunctionDecl::getNumOfSpecializationsPPMM(FuncNameMM);
 
   // PP-EXT: Now it is needed to check if it is a Mono/MultiMethod (MM)
   //         and if so - if it is a specialized, or default one
   //         In order to do so, we check all first arguments, which are
-  //         included in <...> brackets (SpecNum count). For default version there are expected
-  //         only generalizations. If there will be specializations, then
-  //         it is a specialized MM and we will add a "__pp_spec" postfix to its name
+  //         included in <...> brackets (SpecNum count). For default version
+  //         there are expected only generalizations. If there will be
+  //         specializations, then it is a specialized MM and we will add a
+  //         "__pp_spec" postfix to its name
   if (getCurScope()->isFunctionDeclarationScope() && !getLangOpts().CPlusPlus) {
     int SpecNumIter = SpecNum;
     for (Decl *D : getCurScope()->decls()) {
@@ -8353,13 +8259,13 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       auto PVD = dyn_cast<ParmVarDecl>(ND);
       const bool IsArgInSpecNumCount = (SpecNumIter-- > 0);
       if (PVD && IsMultimethod && IsArgInSpecNumCount) {
-        auto* ID = PVD->getType().getBaseTypeIdentifier();
+        auto *ID = PVD->getType().getBaseTypeIdentifier();
         // If either type is specialization and it starts with "__pp_struct"
         //   or it is generalization but ends with ".void"
         //   then it is an argument for multimethod specialization
         const bool startsWithPPStruct =
-            (ID && ID->getName().starts_with("__pp_struct"));
-        const bool isGenAsSpec = PVD->PPExtIsGenAsSpecIdType();
+            (ID && IsPPStructIdentifier(ID->getName()));
+        const bool isGenAsSpec = PVD->PPExtIsIdentGenAsSpec();
         // It cannot be both true at the same time
         assert(!(startsWithPPStruct && isGenAsSpec));
         if (startsWithPPStruct || isGenAsSpec)
@@ -8369,7 +8275,7 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
       if (!ND || isa<ParmVarDecl>(ND))
         continue;
       if (IsMultimethod && IsArgInSpecNumCount &&
-          ND->getName().starts_with("__pp_struct"))
+          IsPPStructIdentifier(ND->getName()))
         IsSpecialization = true;
       DeclsInPrototype.push_back(ND);
     }
@@ -8385,24 +8291,16 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   }
 
   if (IsSpecialization) {
-    std::string strMangled = FuncNameMM.str();
-    int SpecNumIter = SpecNum;
-    for(auto& PIn : ParamInfo) {
-      auto PVD = cast<ParmVarDecl>(PIn.Param);
-      auto typeName = PVD->getType()
-                            .getBaseTypeIdentifier()
-                            ->getName().str();
-      const bool IsGenAsSpec = PVD->PPExtIsGenAsSpecIdType();
-      // In case of IsGenAsSpec add 0 to the type
-      //   to mark it as a specialized version of generalization
-      strMangled += (IsGenAsSpec ? "__0" : "") + typeName;
-      if (--SpecNumIter <= 0) {
-        break;
-      }
-    }
-    strMangled += std::string("__pp_spec");
-    StringRef Mangled(strMangled);
-    IdentifierInfo* II = &PP.getIdentifierTable().get(Mangled);
+    auto Mangled = ManglePPMMSpecialization(
+        FuncNameMM,
+        llvm::map_range(llvm::drop_end(ParamInfo, ParamInfo.size() - SpecNum),
+                        [](const auto &PIn) {
+                          const auto *PVD = cast<ParmVarDecl>(PIn.Param);
+                          return PPSpecArg{
+                              PVD->getType().getBaseTypeIdentifier()->getName(),
+                              PVD->PPExtIsIdentGenAsSpec()};
+                        }));
+    IdentifierInfo *II = &PP.getIdentifierTable().get(Mangled);
     D.getName().setIdentifier(II, D.getIdentifierLoc());
   }
 
@@ -8436,9 +8334,9 @@ bool Parser::ParseRefQualifier(bool &RefQualifierIsLValueRef,
 }
 
 bool Parser::isFunctionDeclaratorIdentifierList() {
-  return !getLangOpts().requiresStrictPrototypes()
-         && Tok.is(tok::identifier) && !IsInPPMultimethod
-         && !TryAltiVecVectorToken()
+  return !getLangOpts().requiresStrictPrototypes() && Tok.is(tok::identifier) &&
+         !IsInPPMultimethod &&
+         !TryAltiVecVectorToken()
          // K&R identifier lists can't have typedefs as identifiers, per C99
          // 6.7.5.3p11.
          && (TryAnnotateTypeOrScopeToken() || !Tok.is(tok::annot_typename))

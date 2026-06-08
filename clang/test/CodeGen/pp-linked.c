@@ -1,10 +1,9 @@
 
-// RUN: %clang -c %S/Inputs/Figure.c -o %S/f.o
-// RUN: %clang -c %S/Inputs/Triangle.c -o %S/t.o
-// RUN: %clang -c %s -o %S/a.o
-// RUN: %clang %S/f.o %S/t.o %S/a.o -o %S/a.out
-// RUN: %S/a.out | FileCheck %s -check-prefix=CHECK-RT
-// RUN: rm %S/a.out %S/f.o %S/t.o %S/a.o
+// RUN: %clang -c %S/Inputs/Figure.c -o %t.f.o
+// RUN: %clang -c %S/Inputs/Triangle.c -o %t.t.o
+// RUN: %clang -c %s -o %t.a.o
+// RUN: %clang %t.f.o %t.t.o %t.a.o -o %t.out
+// RUN: %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 #include "Inputs/pp-linked-figure.h"
 #include "Inputs/pp-linked-triangle.h"
@@ -64,7 +63,7 @@ int main()
     sd.@.@.@r = 0;
     struct Simple* s_ptr = create_spec(Simple.Decorator.Simple.Circle);
 
-    // TODO: Make it work
+    // PP-EXT TODO: Make it work
     // // C~HECK-RT: [1 1 2]
     // printf("[%d %d %d]\n",
     //     s_ptr->__pp_specialization_type,

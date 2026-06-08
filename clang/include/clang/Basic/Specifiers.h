@@ -432,8 +432,7 @@ namespace clang {
 
   // PP-EXT
   // Enum describes ppstruct identifier type
-  enum class PPExtIdentType
-  {
+  enum class PPExtIdentType {
     // Default ident type - generalization
     //  or any specialization
     //  (including recursive ones)

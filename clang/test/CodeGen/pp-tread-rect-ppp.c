@@ -1,7 +1,6 @@
 // clang -pthread thread-rect-ppp.c
-// RUN: %clang -pthread %s -o %S/a.out
-// RUN: %S/a.out | FileCheck %s -check-prefix=CHECK-RT
-// RUN: rm %S/a.out
+// RUN: %clang -pthread %s -o %t.out
+// RUN: %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 #include <stdlib.h>
 #include <stdio.h>

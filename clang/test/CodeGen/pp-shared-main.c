@@ -1,7 +1,6 @@
-// RUN: %clang %S/Inputs/pp-shared-lib.c -shared -fPIC -o %S/libmylib.so
-// RUN: %clang %s -o %S/a.out -L%S -lmylib -Wl,-rpath=%S
-// RUN: %S/a.out | FileCheck %s -check-prefix=CHECK-RT
-// RUN: rm %S/a.out %S/libmylib.so
+// RUN: %clang %S/Inputs/pp-shared-lib.c -shared -fPIC -o %T/libmylib.so
+// RUN: %clang %s -o %t.out -L%T -lmylib -Wl,-rpath=%T
+// RUN: %t.out | FileCheck %s -check-prefix=CHECK-RT
 
 
 #include <stdio.h>

@@ -58,6 +58,7 @@
 #include "clang/Basic/Module.h"
 #include "clang/Basic/NoSanitizeList.h"
 #include "clang/Basic/ObjCRuntime.h"
+#include "clang/Basic/PPIdentifier.h"
 #include "clang/Basic/ProfileList.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
@@ -12976,7 +12977,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
 
   if (const auto *FD = dyn_cast<FunctionDecl>(D)) {
 
-    if (StringRef(FD->getDeclName().getAsString()).starts_with("__pp_mm_")) {
+    if (IsPPMMIdentifier(FD->getDeclName().getAsString())) {
       // PP-EXT: Always emit bodies for multimethods
       // even if they are marked as `static`
       return true;
