@@ -6823,9 +6823,6 @@ void CodeGenModule::PPExtRecordCreateSpec(llvm::Function *FnCreateSpec,
                                                        Idxs, "", BB);
   new llvm::StoreInst(FnCreateSpec, Elem, BB);
 
-  // InitArrPtr->dump();
-  printf("%s\n", GenName.str().c_str());
-
   llvm::ReturnInst::Create(getLLVMContext(), BB);
   AddGlobalCtor(FnRecordCSArr, 103);
 }
