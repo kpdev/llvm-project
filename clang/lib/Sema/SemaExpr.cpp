@@ -9039,6 +9039,78 @@ static bool IsInvalidCmseNSCallConversion(Sema &S, QualType FromType,
   return false;
 }
 
+// PP-EXT: Returns true if one RecordDecl is a PP extension generalization
+// and the other is its specialization (or vice versa), making them
+// compatible for pointer assignment in PP extension semantics.
+// A generalization is identified by having a kPPSpecTypeFieldName field.
+// A specialization is identified by having a __pp_struct_ prefix and
+// containing the base name (with "__" separator) in its mangled name.
+static bool IsPPExtCompatiblePointerPair(const RecordDecl *LHSDRD,
+                                         const RecordDecl *RHSDRD) {
+  if (!LHSDRD && !RHSDRD)
+    return false;
+
+  auto IsGeneralization = [](const RecordDecl *RD) -> bool {
+    for (auto FI = RD->field_begin(); FI != RD->field_end(); ++FI) {
+      if (FI->getName() == kPPSpecTypeFieldName)
+        return true;
+    }
+    return false;
+  };
+
+  auto GetGenBaseName = [](const RecordDecl *RD) -> StringRef {
+    auto RDName = RD->getName();
+    if (IsPPStructIdentifier(RDName))
+      return DemanglePPStruct(RDName);
+    return RDName;
+  };
+
+  auto GetSpecBaseName = [](const RecordDecl *RD) -> StringRef {
+    auto RDName = RD->getName();
+    if (!IsPPStructSpecialization(RDName))
+      return StringRef();
+    auto [Base, Variant] = DemanglePPStructSpecialization(RDName);
+    return Base;
+  };
+
+  bool LHSGen = IsGeneralization(LHSDRD);
+  bool RHSGen = IsGeneralization(RHSDRD);
+
+  if (LHSGen && RHSGen) {
+    // Both are generalizations
+    StringRef LHSName = GetGenBaseName(LHSDRD);
+    StringRef RHSName = GetGenBaseName(RHSDRD);
+    if (LHSName == RHSName) {
+      return true;
+    }
+  }
+  else if (LHSGen != RHSGen) {
+    // One is a generalization, the other is a specialization
+    bool IsLHSGen = LHSGen;
+    auto *GenTD = IsLHSGen ? LHSDRD : RHSDRD;
+    auto *SpecTD = IsLHSGen ? RHSDRD : LHSDRD;
+
+    StringRef GenName = GetGenBaseName(GenTD);
+    StringRef SpecName = GetSpecBaseName(SpecTD);
+
+    if (!SpecName.empty() && GenName == SpecName) {
+      return true;
+    }
+
+    if (IsPPStructIdentifier(SpecTD->getName())) {
+      StringRef SpecDemangled = DemanglePPStruct(SpecTD->getName());
+      if (SpecDemangled.starts_with(GenName) &&
+          SpecDemangled.size() > GenName.size() &&
+          SpecDemangled[GenName.size()] == '_') {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+
 // checkPointerTypesForAssignment - This is a very tricky routine (despite
 // being closely modeled after the C99 spec:-). The odd characteristic of this
 // routine is it effectively iqnores the qualifiers on the top level pointee.
@@ -9192,6 +9264,14 @@ static AssignConvertType checkPointerTypesForAssignment(Sema &S,
     // General pointer incompatibility takes priority over qualifiers.
     if (RHSType->isFunctionPointerType() && LHSType->isFunctionPointerType())
       return AssignConvertType::IncompatibleFunctionPointer;
+
+    // PP-EXT: A specialization pointer is compatible with its generalization
+    // pointer in PP extension semantics (the specialization embeds the generalization)
+    if (IsPPExtCompatiblePointerPair(
+            ltrans->getAsRecordDecl(), rtrans->getAsRecordDecl())) {
+      return ConvTy;
+    }
+
     return AssignConvertType::IncompatiblePointer;
   }
   bool DiscardingCFIUncheckedCallee, AddingCFIUncheckedCallee;
