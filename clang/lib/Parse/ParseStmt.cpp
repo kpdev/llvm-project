@@ -235,7 +235,7 @@ Retry:
         auto Mangled = ManglePPSpecFunction(*SpecKind, SuffixName);
         IdentifierInfo *IIMangled = &PP.getIdentifierTable().get(Mangled);
         if (DemanglePPSpecFunction(IIMangled->getName()).first ==
-            PPSpecFuncKind::InitSpec) {
+            PPSpecFuncKind::InitSpec && Tok.is(tok::period)) {
           ConsumeToken();
         }
 

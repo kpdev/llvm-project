@@ -1729,7 +1729,9 @@ auto Parser::PPExtGetIdForExistingOrNewlyCreatedGen(StringRef BaseName,
     Names.push_back({Tok.getIdentifierInfo()->getName(), false});
   }
 
-  if (!SaveLastIdent && (Names.size() != 1 || !NextToken().is(tok::r_paren))) {
+  if (!SaveLastIdent &&
+      (Names.size() != 1 ||
+       !NextToken().isOneOf(tok::r_paren, tok::comma))) {
     ConsumeToken();
   }
 

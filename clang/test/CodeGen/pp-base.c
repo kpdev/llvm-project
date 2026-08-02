@@ -254,6 +254,10 @@ int main() {
     // CHECK-RT-NEXT: obj3.__pp_specialization_type = 3
     printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
 
+    init_spec(BaseObject, obj3);
+    // CHECK-RT-NEXT: obj3.__pp_specialization_type = 0
+    printf("obj3.__pp_specialization_type = %d\n", obj3->__pp_specialization_type);
+
     // CHECK-RT-NEXT: fig_spec_count = 5
     int fig_spec_count = get_spec_size(Figure);
     printf("fig_spec_count = %d\n", fig_spec_count);
