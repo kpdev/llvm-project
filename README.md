@@ -69,3 +69,41 @@ And check if it is actually works:
 ```
 <build-path>/bin/llvm-lit <source-path>/clang/test/CodeGen/pp-linked.c
 ```
+
+
+# Setup Docker (need only once)
+
+sudo apt-get update
+sudo apt install docker.io
+sudo usermod -aG docker $USER
+newgrp docker
+docker run --rm hello-world
+docker build -t llvm-builder .
+
+# Build llvm
+
+Шаг 1
+В скрипте run_docker.sh поменяйте пути до исходников llvm-project
+И напишите пути до папок сборки и установки
+
+Шаг 2
+Выполните
+$ ./run_docker.sh
+
+Шаг 3
+Должен загрузиться докер
+В нем выполните скрипт
+$ /usr/local/bin/build.sh
+
+Шаг 4
+После завершения скрипта в папке сборки (путь до который вы прописали в ./run_docker.sh) будет clang и все необходимые инструменты
+Можно запустить тест, чтобы убедиться, что все работает как надо
+$ ./bin/llvm-lit /src/clang/test/CodeGen/pp-base.c
+
+Шаг 5
+Чтобы выйти из докера
+$ exit
+
+Шаг 6
+чтобы снова зайти в докер
+$ ./run_docker.sh
