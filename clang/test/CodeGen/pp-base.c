@@ -81,13 +81,13 @@
 
 typedef struct Circle { int r; } Circle;
 typedef struct Rectangle { int w, h; } Rectangle;
-struct Figure { unsigned color; } < struct Circle; struct Rectangle; >;
+struct Figure { unsigned color; } case { struct Circle; struct Rectangle; };
 
 typedef struct Triangle { int a, b, c; } Triangle;
 Figure + < Triangle; >;
 Figure + <empty: void*;>;
 
-typedef struct BaseObject { int a; }<> BaseObject;
+typedef struct BaseObject { int a; } case {} BaseObject;
 typedef struct NewObject { int b; } NewObject;
 BaseObject + < NewObject; >;
 BaseObject + <int;>;
@@ -141,9 +141,9 @@ struct RectangleCover {
   Rectangle r;
 } <>;
 
-typedef struct AnyAnimal{}<dog: int> AnyAnimal;
+typedef struct AnyAnimal{} case { dog: int } AnyAnimal;
 AnyAnimal + <elephant: float;>;
-typedef struct MammalGroup{}<> MammalGroup;
+typedef struct MammalGroup{} case {} MammalGroup;
 MammalGroup + <elephant: AnyAnimal.elephant;>;
 
 int main() {

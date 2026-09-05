@@ -5070,7 +5070,7 @@ void Parser::AddStmts(StmtVector &Stmts, PPFuncMode Mode,
 
 std::optional<Parser::SpecsVec>
 Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
-  if (Tok.isNot(clang::tok::less)) {
+  if (Tok.isNot(clang::tok::less) && Tok.isNot(clang::tok::kw_case)) {
     return {};
   }
 
@@ -5087,11 +5087,21 @@ Parser::TryParsePPExt(Decl *TagDecl, SmallVector<Decl *, 32> &FieldDecls) {
   printf("\n[PPMC] Parse extension\n");
 #endif
 
+  auto NewSyntax = Tok.is(clang::tok::kw_case);
   ConsumeAnyToken();
+  if (NewSyntax) {
+    assert(Tok.is(clang::tok::l_brace));
+    ConsumeAnyToken();
+    assert(Tok.isOneOf(clang::tok::identifier,
+                       clang::tok::kw_struct,
+                       clang::tok::r_brace));
+  }
+
   auto *RD = cast<RecordDecl>(TagDecl);
   const auto GenName = RD->getDeclName().getAsString();
   SpecsVec Result;
-  while (Tok.isNot(clang::tok::greater)) {
+  auto LastTokKind = NewSyntax ? clang::tok::r_brace : clang::tok::greater;
+  while (Tok.isNot(LastTokKind)) {
 
 #ifdef PPEXT_DUMP
     printf("  Token -> Kind: [%s]", Tok.getName());
