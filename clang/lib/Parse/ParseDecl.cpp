@@ -3785,7 +3785,10 @@ void Parser::ParseDeclarationSpecifiers(
     case tok::identifier:
     ParseIdentifier: {
       if (Tok.is(tok::identifier)) {
-        if (PP.LookAhead(0).is(tok::plus) && PP.LookAhead(1).is(tok::less)) {
+        const bool IsNewSyntax = PP.LookAhead(1).is(tok::l_brace);
+        const bool StartSpecGroup =
+          (IsNewSyntax || PP.LookAhead(1).is(tok::less));
+        if (PP.LookAhead(0).is(tok::plus) && StartSpecGroup) {
           // PP-EXT: Parse extension like: Figure + < Circle; >
           // PP-EXT TODO: Check if Tok is typedef to generalization
           //              e.g. check existance of __pp_spec_type field

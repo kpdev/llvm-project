@@ -2032,8 +2032,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     // PP-EXT
     if (Tok.is(tok::plus)) {
       ConsumeToken();
-      assert(Tok.is(tok::less));
-      auto CurLoc = ConsumeToken();
+      const bool IsNewSyntax = Tok.is(tok::l_brace);
+      assert(IsNewSyntax || Tok.is(tok::less));
+      auto CurLoc = IsNewSyntax ? ConsumeBrace() : ConsumeToken();
       if (Tok.is(tok::kw_struct)) {
         CurLoc = ConsumeToken();
       } else {
@@ -2200,8 +2201,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       }
       assert(Tok.is(tok::semi));
       ConsumeToken();
-      assert(Tok.is(tok::greater));
-      ConsumeToken();
+      auto LastGroupTok = IsNewSyntax ? tok::r_brace : tok::greater;
+      assert(Tok.is(LastGroupTok));
+      IsNewSyntax ? ConsumeBrace() : ConsumeToken();
       assert(Tok.is(tok::semi));
     }
     if (Tok.is(tok::less) && getLangOpts().CPlusPlus) {

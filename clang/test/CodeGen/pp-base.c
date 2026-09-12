@@ -84,14 +84,14 @@ typedef struct Rectangle { int w, h; } Rectangle;
 struct Figure { unsigned color; } case { struct Circle; struct Rectangle; };
 
 typedef struct Triangle { int a, b, c; } Triangle;
-Figure + < Triangle; >;
-Figure + <empty: void*;>;
+Figure + { Triangle; };
+Figure + { empty: void*; };
 
 typedef struct BaseObject { int a; } case {} BaseObject;
 typedef struct NewObject { int b; } NewObject;
-BaseObject + < NewObject; >;
-BaseObject + <int;>;
-BaseObject + < Circle; >;
+BaseObject + { NewObject; };
+BaseObject + { int; };
+BaseObject + { Circle; };
 
 void PrintFigure<Figure* f>() {
     printf("Default\n");
@@ -142,9 +142,9 @@ struct RectangleCover {
 } <>;
 
 typedef struct AnyAnimal{} case { dog: int } AnyAnimal;
-AnyAnimal + <elephant: float;>;
+AnyAnimal +  { elephant: float; } ;
 typedef struct MammalGroup{} case {} MammalGroup;
-MammalGroup + <elephant: AnyAnimal.elephant;>;
+MammalGroup +  { elephant: AnyAnimal.elephant; };
 
 int main() {
     struct Figure f;
